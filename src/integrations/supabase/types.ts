@@ -9,7 +9,161 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      competitors: {
+        Row: {
+          created_at: string
+          id: string
+          project_id: string
+          username: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          project_id: string
+          username: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          project_id?: string
+          username?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "competitors_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      projects: {
+        Row: {
+          created_at: string
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      selected_niches: {
+        Row: {
+          created_at: string
+          id: string
+          niche: string
+          project_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          niche: string
+          project_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          niche?: string
+          project_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "selected_niches_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      videos: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          project_id: string
+          size: number
+          type: string
+          url: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          project_id: string
+          size: number
+          type: string
+          url: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          project_id?: string
+          size?: number
+          type?: string
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "videos_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      voice_files: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          project_id: string
+          size: number
+          type: string
+          url: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          project_id: string
+          size: number
+          type: string
+          url: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          project_id?: string
+          size?: number
+          type?: string
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "voice_files_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
