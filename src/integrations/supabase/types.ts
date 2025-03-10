@@ -38,6 +38,36 @@ export type Database = {
           },
         ]
       }
+      profiles: {
+        Row: {
+          competitors: string[] | null
+          created_at: string | null
+          id: string
+          selected_niches: string[] | null
+          updated_at: string | null
+          videos: Json[] | null
+          voice_files: Json[] | null
+        }
+        Insert: {
+          competitors?: string[] | null
+          created_at?: string | null
+          id: string
+          selected_niches?: string[] | null
+          updated_at?: string | null
+          videos?: Json[] | null
+          voice_files?: Json[] | null
+        }
+        Update: {
+          competitors?: string[] | null
+          created_at?: string | null
+          id?: string
+          selected_niches?: string[] | null
+          updated_at?: string | null
+          videos?: Json[] | null
+          voice_files?: Json[] | null
+        }
+        Relationships: []
+      }
       projects: {
         Row: {
           created_at: string

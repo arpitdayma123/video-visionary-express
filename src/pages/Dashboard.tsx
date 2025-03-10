@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import MainLayout from '@/components/layout/MainLayout';
 import { useToast } from '@/hooks/use-toast';
@@ -13,16 +14,6 @@ type UploadedFile = {
   size: number;
   type: string;
   url: string;
-};
-
-type CompetitorUsername = {
-  id: string;
-  username: string;
-};
-
-type Project = {
-  id: string;
-  user_id: string;
 };
 
 const niches = [
@@ -54,68 +45,72 @@ const Dashboard = () => {
   const [videos, setVideos] = useState<UploadedFile[]>([]);
   const [voiceFiles, setVoiceFiles] = useState<UploadedFile[]>([]);
   const [selectedNiches, setSelectedNiches] = useState<string[]>([]);
-  const [competitors, setCompetitors] = useState<CompetitorUsername[]>([]);
+  const [competitors, setCompetitors] = useState<string[]>([]);
   const [newCompetitor, setNewCompetitor] = useState('');
   const [isDraggingVideo, setIsDraggingVideo] = useState(false);
   const [isDraggingVoice, setIsDraggingVoice] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingProgress, setProcessingProgress] = useState(0);
   const [resultVideoUrl, setResultVideoUrl] = useState<string | null>(null);
-  const [projectId, setProjectId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const getOrCreateProject = async () => {
-      if (!user) {
-        setIsLoading(false);
-        return;
-      }
-      
+    if (!user) {
+      setIsLoading(false);
+      return;
+    }
+    
+    const loadUserProfile = async () => {
       try {
-        const { data: existingProjects, error: fetchError } = await supabase
-          .from('projects')
+        const { data: profile, error } = await supabase
+          .from('profiles')
           .select('*')
-          .eq('user_id', user.id)
-          .maybeSingle();
+          .eq('id', user.id)
+          .single();
 
-        if (fetchError) {
-          console.error('Error fetching project:', fetchError);
+        if (error) {
+          console.error('Error fetching profile:', error);
           toast({
             title: 'Error',
-            description: 'Failed to load your project data.',
+            description: 'Failed to load your profile data.',
             variant: 'destructive'
           });
           setIsLoading(false);
           return;
         }
 
-        if (existingProjects) {
-          setProjectId(existingProjects.id);
-          await loadUserData(existingProjects.id);
-        } else {
-          const { data: newProject, error: insertError } = await supabase
-            .from('projects')
-            .insert({ user_id: user.id })
-            .select()
-            .single();
-
-          if (insertError) {
-            console.error('Error creating project:', insertError);
-            toast({
-              title: 'Error',
-              description: 'Failed to create new project.',
-              variant: 'destructive'
-            });
-            setIsLoading(false);
-            return;
-          }
-
-          setProjectId(newProject.id);
+        // Convert JSONB array to our UploadedFile type
+        if (profile.videos && profile.videos.length > 0) {
+          setVideos(profile.videos.map((video: any) => ({
+            id: video.id || uuidv4(),
+            name: video.name,
+            size: video.size,
+            type: video.type,
+            url: video.url
+          })));
         }
-        
+
+        if (profile.voice_files && profile.voice_files.length > 0) {
+          setVoiceFiles(profile.voice_files.map((file: any) => ({
+            id: file.id || uuidv4(),
+            name: file.name,
+            size: file.size,
+            type: file.type,
+            url: file.url
+          })));
+        }
+
+        if (profile.selected_niches && profile.selected_niches.length > 0) {
+          setSelectedNiches(profile.selected_niches);
+        }
+
+        if (profile.competitors && profile.competitors.length > 0) {
+          setCompetitors(profile.competitors);
+        }
+
         setIsLoading(false);
       } catch (error) {
-        console.error('Unexpected error:', error);
+        console.error('Unexpected error loading profile:', error);
         toast({
           title: 'Error',
           description: 'An unexpected error occurred.',
@@ -125,74 +120,31 @@ const Dashboard = () => {
       }
     };
 
-    getOrCreateProject();
+    loadUserProfile();
   }, [user, toast]);
 
-  const loadUserData = async (projectId: string) => {
+  const updateProfile = async (updates: any) => {
+    if (!user) return;
+
     try {
-      const [
-        { data: videoData, error: videoError },
-        { data: voiceData, error: voiceError },
-        { data: nicheData, error: nicheError },
-        { data: competitorData, error: competitorError }
-      ] = await Promise.all([
-        supabase.from('videos').select('*').eq('project_id', projectId),
-        supabase.from('voice_files').select('*').eq('project_id', projectId),
-        supabase.from('selected_niches').select('*').eq('project_id', projectId),
-        supabase.from('competitors').select('*').eq('project_id', projectId)
-      ]);
+      const { error } = await supabase
+        .from('profiles')
+        .update(updates)
+        .eq('id', user.id);
 
-      if (videoError) throw videoError;
-      if (voiceError) throw voiceError;
-      if (nicheError) throw nicheError;
-      if (competitorError) throw competitorError;
-
-      if (videoData) {
-        const formattedVideos = videoData.map(video => ({
-          id: video.id,
-          name: video.name,
-          size: video.size,
-          type: video.type,
-          url: video.url
-        }));
-        setVideos(formattedVideos);
-      }
-
-      if (voiceData) {
-        const formattedVoiceFiles = voiceData.map(voice => ({
-          id: voice.id,
-          name: voice.name,
-          size: voice.size,
-          type: voice.type,
-          url: voice.url
-        }));
-        setVoiceFiles(formattedVoiceFiles);
-      }
-
-      if (nicheData) {
-        const nichesArray = nicheData.map(item => item.niche);
-        setSelectedNiches(nichesArray);
-      }
-
-      if (competitorData) {
-        const formattedCompetitors = competitorData.map(comp => ({
-          id: comp.id,
-          username: comp.username
-        }));
-        setCompetitors(formattedCompetitors);
-      }
+      if (error) throw error;
     } catch (error) {
-      console.error('Error loading user data:', error);
+      console.error('Error updating profile:', error);
       toast({
-        title: 'Error',
-        description: 'Failed to load your saved data.',
+        title: 'Update Failed',
+        description: 'Failed to update your profile.',
         variant: 'destructive'
       });
     }
   };
 
   const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement> | React.DragEvent<HTMLDivElement>) => {
-    if (!projectId || !user) {
+    if (!user) {
       toast({
         title: "Authentication Error",
         description: "You must be logged in to upload files.",
@@ -238,6 +190,8 @@ const Dashboard = () => {
         return;
       }
 
+      const newVideos = [...videos];
+
       for (const file of fileArray) {
         try {
           const fileExt = file.name.split('.').pop();
@@ -254,29 +208,15 @@ const Dashboard = () => {
             .from('creator_files')
             .getPublicUrl(filePath);
 
-          const { data: videoData, error: dbError } = await supabase
-            .from('videos')
-            .insert({
-              project_id: projectId,
-              name: file.name,
-              size: file.size,
-              type: file.type,
-              url: urlData.publicUrl
-            })
-            .select()
-            .single();
-
-          if (dbError) throw dbError;
-
           const newVideo = {
-            id: videoData.id,
+            id: uuidv4(),
             name: file.name,
             size: file.size,
             type: file.type,
             url: urlData.publicUrl
           };
 
-          setVideos(prev => [...prev, newVideo]);
+          newVideos.push(newVideo);
 
           toast({
             title: "Video uploaded",
@@ -291,11 +231,14 @@ const Dashboard = () => {
           });
         }
       }
+
+      setVideos(newVideos);
+      await updateProfile({ videos: newVideos });
     }
   };
 
   const handleVoiceUpload = async (e: React.ChangeEvent<HTMLInputElement> | React.DragEvent<HTMLDivElement>) => {
-    if (!projectId || !user) {
+    if (!user) {
       toast({
         title: "Authentication Error",
         description: "You must be logged in to upload files.",
@@ -341,6 +284,8 @@ const Dashboard = () => {
         return;
       }
 
+      const newVoiceFiles = [...voiceFiles];
+
       for (const file of fileArray) {
         try {
           const fileExt = file.name.split('.').pop();
@@ -357,29 +302,15 @@ const Dashboard = () => {
             .from('creator_files')
             .getPublicUrl(filePath);
 
-          const { data: voiceData, error: dbError } = await supabase
-            .from('voice_files')
-            .insert({
-              project_id: projectId,
-              name: file.name,
-              size: file.size,
-              type: file.type,
-              url: urlData.publicUrl
-            })
-            .select()
-            .single();
-
-          if (dbError) throw dbError;
-
           const newVoiceFile = {
-            id: voiceData.id,
+            id: uuidv4(),
             name: file.name,
             size: file.size,
             type: file.type,
             url: urlData.publicUrl
           };
 
-          setVoiceFiles(prev => [...prev, newVoiceFile]);
+          newVoiceFiles.push(newVoiceFile);
 
           toast({
             title: "Voice file uploaded",
@@ -394,35 +325,24 @@ const Dashboard = () => {
           });
         }
       }
+
+      setVoiceFiles(newVoiceFiles);
+      await updateProfile({ voice_files: newVoiceFiles });
     }
   };
 
   const handleNicheChange = async (niche: string) => {
-    if (!projectId) return;
-    
     try {
+      let updatedNiches;
+      
       if (selectedNiches.includes(niche)) {
-        setSelectedNiches(prev => prev.filter(n => n !== niche));
-        
-        const { error } = await supabase
-          .from('selected_niches')
-          .delete()
-          .eq('project_id', projectId)
-          .eq('niche', niche);
-          
-        if (error) throw error;
+        updatedNiches = selectedNiches.filter(n => n !== niche);
       } else {
-        setSelectedNiches(prev => [...prev, niche]);
-        
-        const { error } = await supabase
-          .from('selected_niches')
-          .insert({
-            project_id: projectId,
-            niche: niche
-          });
-          
-        if (error) throw error;
+        updatedNiches = [...selectedNiches, niche];
       }
+      
+      setSelectedNiches(updatedNiches);
+      await updateProfile({ selected_niches: updatedNiches });
     } catch (error) {
       console.error('Error updating niches:', error);
       toast({
@@ -434,8 +354,6 @@ const Dashboard = () => {
   };
 
   const handleAddCompetitor = async () => {
-    if (!projectId) return;
-    
     if (newCompetitor.trim() === '') return;
     
     if (competitors.length >= 15) {
@@ -448,24 +366,10 @@ const Dashboard = () => {
     }
 
     try {
-      const { data, error } = await supabase
-        .from('competitors')
-        .insert({
-          project_id: projectId,
-          username: newCompetitor.trim()
-        })
-        .select()
-        .single();
-        
-      if (error) throw error;
-
-      const newCompetitorObj = {
-        id: data.id,
-        username: newCompetitor.trim()
-      };
-
-      setCompetitors(prev => [...prev, newCompetitorObj]);
+      const updatedCompetitors = [...competitors, newCompetitor.trim()];
+      setCompetitors(updatedCompetitors);
       setNewCompetitor('');
+      await updateProfile({ competitors: updatedCompetitors });
     } catch (error) {
       console.error('Error adding competitor:', error);
       toast({
@@ -476,18 +380,11 @@ const Dashboard = () => {
     }
   };
 
-  const handleRemoveCompetitor = async (id: string) => {
-    if (!projectId) return;
-    
+  const handleRemoveCompetitor = async (index: number) => {
     try {
-      const { error } = await supabase
-        .from('competitors')
-        .delete()
-        .eq('id', id);
-        
-      if (error) throw error;
-
-      setCompetitors(prev => prev.filter(comp => comp.id !== id));
+      const updatedCompetitors = competitors.filter((_, i) => i !== index);
+      setCompetitors(updatedCompetitors);
+      await updateProfile({ competitors: updatedCompetitors });
     } catch (error) {
       console.error('Error removing competitor:', error);
       toast({
@@ -499,23 +396,14 @@ const Dashboard = () => {
   };
 
   const handleRemoveVideo = async (id: string) => {
-    if (!projectId) return;
-    
     try {
       const videoToRemove = videos.find(video => video.id === id);
       if (!videoToRemove) return;
 
-      const urlParts = videoToRemove.url.split('/');
-      const filePath = urlParts.slice(urlParts.indexOf('creator_files') + 1).join('/');
-
-      const { error: dbError } = await supabase
-        .from('videos')
-        .delete()
-        .eq('id', id);
-        
-      if (dbError) throw dbError;
-
+      // Try to remove the file from storage
       try {
+        const urlParts = videoToRemove.url.split('/');
+        const filePath = urlParts.slice(urlParts.indexOf('creator_files') + 1).join('/');
         await supabase.storage
           .from('creator_files')
           .remove([filePath]);
@@ -523,7 +411,9 @@ const Dashboard = () => {
         console.warn('Could not remove file from storage:', storageError);
       }
 
-      setVideos(prev => prev.filter(video => video.id !== id));
+      const updatedVideos = videos.filter(video => video.id !== id);
+      setVideos(updatedVideos);
+      await updateProfile({ videos: updatedVideos });
       
       toast({
         title: "Video removed",
@@ -540,23 +430,14 @@ const Dashboard = () => {
   };
 
   const handleRemoveVoiceFile = async (id: string) => {
-    if (!projectId) return;
-    
     try {
       const fileToRemove = voiceFiles.find(file => file.id === id);
       if (!fileToRemove) return;
 
-      const urlParts = fileToRemove.url.split('/');
-      const filePath = urlParts.slice(urlParts.indexOf('creator_files') + 1).join('/');
-
-      const { error: dbError } = await supabase
-        .from('voice_files')
-        .delete()
-        .eq('id', id);
-        
-      if (dbError) throw dbError;
-
+      // Try to remove the file from storage
       try {
+        const urlParts = fileToRemove.url.split('/');
+        const filePath = urlParts.slice(urlParts.indexOf('creator_files') + 1).join('/');
         await supabase.storage
           .from('creator_files')
           .remove([filePath]);
@@ -564,7 +445,9 @@ const Dashboard = () => {
         console.warn('Could not remove file from storage:', storageError);
       }
 
-      setVoiceFiles(prev => prev.filter(file => file.id !== id));
+      const updatedVoiceFiles = voiceFiles.filter(file => file.id !== id);
+      setVoiceFiles(updatedVoiceFiles);
+      await updateProfile({ voice_files: updatedVoiceFiles });
       
       toast({
         title: "Voice file removed",
@@ -837,15 +720,15 @@ const Dashboard = () => {
               <div className="mt-4">
                 <h3 className="text-lg font-medium mb-4">Added Competitors ({competitors.length}/15)</h3>
                 <div className="flex flex-wrap gap-2">
-                  {competitors.map(competitor => (
+                  {competitors.map((competitor, index) => (
                     <div 
-                      key={competitor.id} 
+                      key={index} 
                       className="inline-flex items-center bg-secondary rounded-full pl-3 pr-1 py-1 animate-zoom-in"
                     >
-                      <span className="text-sm">@{competitor.username}</span>
+                      <span className="text-sm">@{competitor}</span>
                       <button
                         type="button"
-                        onClick={() => handleRemoveCompetitor(competitor.id)}
+                        onClick={() => handleRemoveCompetitor(index)}
                         className="ml-2 p-1 rounded-full hover:bg-secondary-foreground/10 transition-colors"
                       >
                         <Trash2 className="h-3 w-3 text-muted-foreground" />
@@ -935,4 +818,3 @@ const Dashboard = () => {
 };
 
 export default Dashboard;
-
