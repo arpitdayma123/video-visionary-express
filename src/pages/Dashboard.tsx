@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import MainLayout from '@/components/layout/MainLayout';
 import { useToast } from '@/hooks/use-toast';
@@ -65,21 +64,21 @@ const Dashboard = () => {
   const [projectId, setProjectId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Get or create a project for the current user
   useEffect(() => {
     const getOrCreateProject = async () => {
-      if (!user) return;
+      if (!user) {
+        setIsLoading(false);
+        return;
+      }
       
       try {
-        // Check if the user already has a project
         const { data: existingProjects, error: fetchError } = await supabase
           .from('projects')
           .select('*')
           .eq('user_id', user.id)
-          .single();
+          .maybeSingle();
 
-        if (fetchError && fetchError.code !== 'PGRST116') {
-          // Error other than "No rows returned"
+        if (fetchError) {
           console.error('Error fetching project:', fetchError);
           toast({
             title: 'Error',
@@ -91,11 +90,9 @@ const Dashboard = () => {
         }
 
         if (existingProjects) {
-          // User has an existing project
           setProjectId(existingProjects.id);
           await loadUserData(existingProjects.id);
         } else {
-          // Create a new project for the user
           const { data: newProject, error: insertError } = await supabase
             .from('projects')
             .insert({ user_id: user.id })
@@ -131,16 +128,24 @@ const Dashboard = () => {
     getOrCreateProject();
   }, [user, toast]);
 
-  // Load user's previously saved data
   const loadUserData = async (projectId: string) => {
     try {
-      // Load videos
-      const { data: videoData, error: videoError } = await supabase
-        .from('videos')
-        .select('*')
-        .eq('project_id', projectId);
+      const [
+        { data: videoData, error: videoError },
+        { data: voiceData, error: voiceError },
+        { data: nicheData, error: nicheError },
+        { data: competitorData, error: competitorError }
+      ] = await Promise.all([
+        supabase.from('videos').select('*').eq('project_id', projectId),
+        supabase.from('voice_files').select('*').eq('project_id', projectId),
+        supabase.from('selected_niches').select('*').eq('project_id', projectId),
+        supabase.from('competitors').select('*').eq('project_id', projectId)
+      ]);
 
       if (videoError) throw videoError;
+      if (voiceError) throw voiceError;
+      if (nicheError) throw nicheError;
+      if (competitorError) throw competitorError;
 
       if (videoData) {
         const formattedVideos = videoData.map(video => ({
@@ -153,14 +158,6 @@ const Dashboard = () => {
         setVideos(formattedVideos);
       }
 
-      // Load voice files
-      const { data: voiceData, error: voiceError } = await supabase
-        .from('voice_files')
-        .select('*')
-        .eq('project_id', projectId);
-
-      if (voiceError) throw voiceError;
-
       if (voiceData) {
         const formattedVoiceFiles = voiceData.map(voice => ({
           id: voice.id,
@@ -172,26 +169,10 @@ const Dashboard = () => {
         setVoiceFiles(formattedVoiceFiles);
       }
 
-      // Load niches
-      const { data: nicheData, error: nicheError } = await supabase
-        .from('selected_niches')
-        .select('*')
-        .eq('project_id', projectId);
-
-      if (nicheError) throw nicheError;
-
       if (nicheData) {
         const nichesArray = nicheData.map(item => item.niche);
         setSelectedNiches(nichesArray);
       }
-
-      // Load competitors
-      const { data: competitorData, error: competitorError } = await supabase
-        .from('competitors')
-        .select('*')
-        .eq('project_id', projectId);
-
-      if (competitorError) throw competitorError;
 
       if (competitorData) {
         const formattedCompetitors = competitorData.map(comp => ({
@@ -210,7 +191,6 @@ const Dashboard = () => {
     }
   };
 
-  // Handle video file uploads
   const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement> | React.DragEvent<HTMLDivElement>) => {
     if (!projectId || !user) {
       toast({
@@ -234,10 +214,9 @@ const Dashboard = () => {
     if (files && files.length > 0) {
       const fileArray = Array.from(files);
       
-      // Validate file size and type
       const invalidFiles = fileArray.filter(file => {
         const isValidType = file.type === 'video/mp4';
-        const isValidSize = file.size <= 30 * 1024 * 1024; // 30MB
+        const isValidSize = file.size <= 30 * 1024 * 1024;
         return !isValidType || !isValidSize;
       });
 
@@ -250,7 +229,6 @@ const Dashboard = () => {
         return;
       }
 
-      // Check total number of videos
       if (videos.length + fileArray.length > 5) {
         toast({
           title: "Too many videos",
@@ -260,27 +238,22 @@ const Dashboard = () => {
         return;
       }
 
-      // Process and upload each file
       for (const file of fileArray) {
         try {
-          // Upload to Supabase storage
           const fileExt = file.name.split('.').pop();
           const fileName = `${user.id}/${uuidv4()}.${fileExt}`;
           const filePath = `videos/${fileName}`;
 
-          // Upload the file
           const { data: uploadData, error: uploadError } = await supabase.storage
             .from('creator_files')
             .upload(filePath, file);
 
           if (uploadError) throw uploadError;
 
-          // Get the public URL
           const { data: urlData } = supabase.storage
             .from('creator_files')
             .getPublicUrl(filePath);
 
-          // Save to database
           const { data: videoData, error: dbError } = await supabase
             .from('videos')
             .insert({
@@ -295,7 +268,6 @@ const Dashboard = () => {
 
           if (dbError) throw dbError;
 
-          // Add to state
           const newVideo = {
             id: videoData.id,
             name: file.name,
@@ -322,7 +294,6 @@ const Dashboard = () => {
     }
   };
 
-  // Handle voice file uploads
   const handleVoiceUpload = async (e: React.ChangeEvent<HTMLInputElement> | React.DragEvent<HTMLDivElement>) => {
     if (!projectId || !user) {
       toast({
@@ -346,10 +317,9 @@ const Dashboard = () => {
     if (files && files.length > 0) {
       const fileArray = Array.from(files);
       
-      // Validate file size and type
       const invalidFiles = fileArray.filter(file => {
         const isValidType = file.type === 'audio/mpeg' || file.type === 'audio/wav';
-        const isValidSize = file.size <= 8 * 1024 * 1024; // 8MB
+        const isValidSize = file.size <= 8 * 1024 * 1024;
         return !isValidType || !isValidSize;
       });
 
@@ -362,7 +332,6 @@ const Dashboard = () => {
         return;
       }
 
-      // Check total number of voice files
       if (voiceFiles.length + fileArray.length > 5) {
         toast({
           title: "Too many voice files",
@@ -372,27 +341,22 @@ const Dashboard = () => {
         return;
       }
 
-      // Process and upload each file
       for (const file of fileArray) {
         try {
-          // Upload to Supabase storage
           const fileExt = file.name.split('.').pop();
           const fileName = `${user.id}/${uuidv4()}.${fileExt}`;
           const filePath = `voices/${fileName}`;
 
-          // Upload the file
           const { data: uploadData, error: uploadError } = await supabase.storage
             .from('creator_files')
             .upload(filePath, file);
 
           if (uploadError) throw uploadError;
 
-          // Get the public URL
           const { data: urlData } = supabase.storage
             .from('creator_files')
             .getPublicUrl(filePath);
 
-          // Save to database
           const { data: voiceData, error: dbError } = await supabase
             .from('voice_files')
             .insert({
@@ -407,7 +371,6 @@ const Dashboard = () => {
 
           if (dbError) throw dbError;
 
-          // Add to state
           const newVoiceFile = {
             id: voiceData.id,
             name: file.name,
@@ -434,16 +397,13 @@ const Dashboard = () => {
     }
   };
 
-  // Handle niche selection
   const handleNicheChange = async (niche: string) => {
     if (!projectId) return;
     
     try {
       if (selectedNiches.includes(niche)) {
-        // Remove niche
         setSelectedNiches(prev => prev.filter(n => n !== niche));
         
-        // Delete from database
         const { error } = await supabase
           .from('selected_niches')
           .delete()
@@ -452,10 +412,8 @@ const Dashboard = () => {
           
         if (error) throw error;
       } else {
-        // Add niche
         setSelectedNiches(prev => [...prev, niche]);
         
-        // Add to database
         const { error } = await supabase
           .from('selected_niches')
           .insert({
@@ -475,7 +433,6 @@ const Dashboard = () => {
     }
   };
 
-  // Handle adding competitor usernames
   const handleAddCompetitor = async () => {
     if (!projectId) return;
     
@@ -491,7 +448,6 @@ const Dashboard = () => {
     }
 
     try {
-      // Add to database
       const { data, error } = await supabase
         .from('competitors')
         .insert({
@@ -503,7 +459,6 @@ const Dashboard = () => {
         
       if (error) throw error;
 
-      // Add to state
       const newCompetitorObj = {
         id: data.id,
         username: newCompetitor.trim()
@@ -521,12 +476,10 @@ const Dashboard = () => {
     }
   };
 
-  // Handle removing a competitor
   const handleRemoveCompetitor = async (id: string) => {
     if (!projectId) return;
     
     try {
-      // Remove from database
       const { error } = await supabase
         .from('competitors')
         .delete()
@@ -534,7 +487,6 @@ const Dashboard = () => {
         
       if (error) throw error;
 
-      // Remove from state
       setCompetitors(prev => prev.filter(comp => comp.id !== id));
     } catch (error) {
       console.error('Error removing competitor:', error);
@@ -546,7 +498,6 @@ const Dashboard = () => {
     }
   };
 
-  // Handle removing a video
   const handleRemoveVideo = async (id: string) => {
     if (!projectId) return;
     
@@ -554,11 +505,9 @@ const Dashboard = () => {
       const videoToRemove = videos.find(video => video.id === id);
       if (!videoToRemove) return;
 
-      // Get the file path from the URL
       const urlParts = videoToRemove.url.split('/');
       const filePath = urlParts.slice(urlParts.indexOf('creator_files') + 1).join('/');
 
-      // Remove from database
       const { error: dbError } = await supabase
         .from('videos')
         .delete()
@@ -566,17 +515,14 @@ const Dashboard = () => {
         
       if (dbError) throw dbError;
 
-      // Try to remove from storage (may fail if file path is incorrect)
       try {
         await supabase.storage
           .from('creator_files')
           .remove([filePath]);
       } catch (storageError) {
         console.warn('Could not remove file from storage:', storageError);
-        // Continue anyway since the database record is removed
       }
 
-      // Remove from state
       setVideos(prev => prev.filter(video => video.id !== id));
       
       toast({
@@ -593,7 +539,6 @@ const Dashboard = () => {
     }
   };
 
-  // Handle removing a voice file
   const handleRemoveVoiceFile = async (id: string) => {
     if (!projectId) return;
     
@@ -601,11 +546,9 @@ const Dashboard = () => {
       const fileToRemove = voiceFiles.find(file => file.id === id);
       if (!fileToRemove) return;
 
-      // Get the file path from the URL
       const urlParts = fileToRemove.url.split('/');
       const filePath = urlParts.slice(urlParts.indexOf('creator_files') + 1).join('/');
 
-      // Remove from database
       const { error: dbError } = await supabase
         .from('voice_files')
         .delete()
@@ -613,17 +556,14 @@ const Dashboard = () => {
         
       if (dbError) throw dbError;
 
-      // Try to remove from storage (may fail if file path is incorrect)
       try {
         await supabase.storage
           .from('creator_files')
           .remove([filePath]);
       } catch (storageError) {
         console.warn('Could not remove file from storage:', storageError);
-        // Continue anyway since the database record is removed
       }
 
-      // Remove from state
       setVoiceFiles(prev => prev.filter(file => file.id !== id));
       
       toast({
@@ -640,11 +580,9 @@ const Dashboard = () => {
     }
   };
 
-  // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Validate form
     if (videos.length === 0 || voiceFiles.length === 0 || selectedNiches.length === 0 || competitors.length === 0) {
       toast({
         title: "Incomplete form",
@@ -654,10 +592,8 @@ const Dashboard = () => {
       return;
     }
 
-    // Start processing
     setIsProcessing(true);
     
-    // Simulate progress for demonstration
     const interval = setInterval(() => {
       setProcessingProgress(prev => {
         if (prev >= 100) {
@@ -668,12 +604,9 @@ const Dashboard = () => {
       });
     }, 800);
 
-    // Simulate API call to webhook
     try {
-      // In a real implementation, this would be an actual API call
       await new Promise(resolve => setTimeout(resolve, 8000));
       
-      // Simulate successful response
       setResultVideoUrl('https://sample-videos.com/video123/mp4/720/big_buck_bunny_720p_1mb.mp4');
       
       toast({
@@ -695,7 +628,6 @@ const Dashboard = () => {
     }
   };
 
-  // Determine if form is complete
   const isFormComplete = videos.length > 0 && voiceFiles.length > 0 && selectedNiches.length > 0 && competitors.length > 0;
 
   if (isLoading) {
@@ -712,7 +644,6 @@ const Dashboard = () => {
     <MainLayout title="Creator Dashboard" subtitle="Upload your content and create personalized videos">
       <div className="section-container py-12">
         <form onSubmit={handleSubmit} className="space-y-12">
-          {/* Video Upload Section */}
           <section className="animate-fade-in">
             <div className="flex items-center mb-4">
               <Video className="mr-2 h-5 w-5 text-primary" />
@@ -746,7 +677,6 @@ const Dashboard = () => {
               </div>
             </div>
 
-            {/* Video Preview */}
             {videos.length > 0 && (
               <div className="mt-6">
                 <h3 className="text-lg font-medium mb-4">Uploaded Videos ({videos.length}/5)</h3>
@@ -778,7 +708,6 @@ const Dashboard = () => {
             )}
           </section>
 
-          {/* Voice Upload Section */}
           <section className="animate-fade-in animation-delay-100">
             <div className="flex items-center mb-4">
               <Mic className="mr-2 h-5 w-5 text-primary" />
@@ -812,7 +741,6 @@ const Dashboard = () => {
               </div>
             </div>
 
-            {/* Voice File Preview */}
             {voiceFiles.length > 0 && (
               <div className="mt-6">
                 <h3 className="text-lg font-medium mb-4">Uploaded Voice Files ({voiceFiles.length}/5)</h3>
@@ -844,7 +772,6 @@ const Dashboard = () => {
             )}
           </section>
 
-          {/* Niche Selection */}
           <section className="animate-fade-in animation-delay-200">
             <div className="flex items-center mb-4">
               <Briefcase className="mr-2 h-5 w-5 text-primary" />
@@ -876,7 +803,6 @@ const Dashboard = () => {
             )}
           </section>
 
-          {/* Competitor Usernames */}
           <section className="animate-fade-in animation-delay-300">
             <div className="flex items-center mb-4">
               <User className="mr-2 h-5 w-5 text-primary" />
@@ -907,7 +833,6 @@ const Dashboard = () => {
               </button>
             </div>
 
-            {/* Display competitors */}
             {competitors.length > 0 && (
               <div className="mt-4">
                 <h3 className="text-lg font-medium mb-4">Added Competitors ({competitors.length}/15)</h3>
@@ -932,7 +857,6 @@ const Dashboard = () => {
             )}
           </section>
 
-          {/* Result Video Section */}
           {resultVideoUrl && (
             <section className="animate-fade-in">
               <div className="flex items-center mb-4">
@@ -977,7 +901,6 @@ const Dashboard = () => {
             </section>
           )}
 
-          {/* Submit Button */}
           <div className="pt-6 animate-fade-in animation-delay-400">
             {isProcessing ? (
               <div className="space-y-4">
@@ -1012,3 +935,4 @@ const Dashboard = () => {
 };
 
 export default Dashboard;
+
