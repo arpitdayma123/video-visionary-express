@@ -2,7 +2,14 @@
 import React from 'react';
 import { Toaster } from "@/components/ui/toaster";
 import { useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, Video, User, Settings } from 'lucide-react';
+import { ArrowLeft, Video, User, Settings, LogOut } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 type MainLayoutProps = {
   children: React.ReactNode;
@@ -19,8 +26,14 @@ const MainLayout = ({
 }: MainLayoutProps) => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { user, signOut } = useAuth();
   const isHome = location.pathname === '/';
   const isDashboard = location.pathname === '/dashboard';
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate('/');
+  };
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -49,25 +62,48 @@ const MainLayout = ({
               )}
             </div>
 
-            {!isDashboard ? (
-              <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-2">
+              {user ? (
+                <>
+                  {!isDashboard && (
+                    <button 
+                      onClick={() => navigate('/dashboard')}
+                      className="button-hover-effect px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+                    >
+                      Dashboard
+                    </button>
+                  )}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button className="p-2 rounded-full hover:bg-secondary transition-colors">
+                        <User className="h-5 w-5" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => navigate('/dashboard')}>
+                        <Video className="mr-2 h-4 w-4" />
+                        Dashboard
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => navigate('/settings')}>
+                        <Settings className="mr-2 h-4 w-4" />
+                        Settings
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={handleSignOut}>
+                        <LogOut className="mr-2 h-4 w-4" />
+                        Sign out
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </>
+              ) : (
                 <button 
-                  onClick={() => navigate('/dashboard')}
+                  onClick={() => navigate('/auth')}
                   className="button-hover-effect px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
                 >
-                  Dashboard
+                  Sign In
                 </button>
-              </div>
-            ) : (
-              <div className="flex items-center space-x-1">
-                <button className="p-2 rounded-full hover:bg-secondary transition-colors">
-                  <Settings className="h-5 w-5" />
-                </button>
-                <button className="p-2 rounded-full hover:bg-secondary transition-colors">
-                  <User className="h-5 w-5" />
-                </button>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </div>
       </header>
