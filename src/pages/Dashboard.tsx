@@ -108,12 +108,30 @@ const Dashboard = () => {
           setCompetitors(profile.competitors);
         }
 
-        if (profile.selected_video) {
-          setSelectedVideo(profile.selected_video);
+        if (profile.selected_video && typeof profile.selected_video === 'object') {
+          const videoData = profile.selected_video as any;
+          if (videoData.id && videoData.name && videoData.url) {
+            setSelectedVideo({
+              id: videoData.id,
+              name: videoData.name,
+              size: videoData.size || 0,
+              type: videoData.type || 'video/mp4',
+              url: videoData.url
+            });
+          }
         }
 
-        if (profile.selected_voice) {
-          setSelectedVoice(profile.selected_voice);
+        if (profile.selected_voice && typeof profile.selected_voice === 'object') {
+          const voiceData = profile.selected_voice as any;
+          if (voiceData.id && voiceData.name && voiceData.url) {
+            setSelectedVoice({
+              id: voiceData.id,
+              name: voiceData.name,
+              size: voiceData.size || 0,
+              type: voiceData.type || 'audio/mpeg',
+              url: voiceData.url
+            });
+          }
         }
 
         setIsLoading(false);
