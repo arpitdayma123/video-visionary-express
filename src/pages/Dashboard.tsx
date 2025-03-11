@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import MainLayout from '@/components/layout/MainLayout';
 import { useToast } from '@/hooks/use-toast';
@@ -141,21 +140,16 @@ const Dashboard = () => {
           }
         }
 
-        // Fixed TypeScript error: Properly handle the profile.result
         if (profile.result && Array.isArray(profile.result)) {
-          // Convert from Json[] to ResultVideo[]
           const typedResults: ResultVideo[] = [];
           
           for (const item of profile.result) {
-            // Check if item is a string (simple URL) or an object with url and timestamp
             if (typeof item === 'string') {
-              // Convert legacy format to the new format
               typedResults.push({
                 url: item,
                 timestamp: new Date().toISOString()
               });
             } else if (typeof item === 'object' && item !== null) {
-              // Handle proper object format
               const resultItem = item as any;
               if (resultItem.url && resultItem.timestamp) {
                 typedResults.push({
@@ -163,7 +157,6 @@ const Dashboard = () => {
                   timestamp: resultItem.timestamp
                 });
               } else if (resultItem.url) {
-                // Has url but no timestamp
                 typedResults.push({
                   url: resultItem.url,
                   timestamp: new Date().toISOString()
@@ -605,19 +598,18 @@ const Dashboard = () => {
     }, 800);
 
     try {
-      const payload = {
+      const params = new URLSearchParams({
         videoUrl: selectedVideo.url,
         voiceUrl: selectedVoice.url,
-        niches: selectedNiches,
-        competitors: competitors
-      };
+        niches: JSON.stringify(selectedNiches),
+        competitors: JSON.stringify(competitors)
+      });
 
-      const response = await fetch('https://primary-production-ce25.up.railway.app/webhook-test/trendy', {
-        method: 'POST',
+      const response = await fetch(`https://primary-production-ce25.up.railway.app/webhook-test/trendy?${params.toString()}`, {
+        method: 'GET',
         headers: {
-          'Content-Type': 'application/json',
+          'Accept': 'application/json',
         },
-        body: JSON.stringify(payload),
       });
 
       if (!response.ok) {
@@ -627,7 +619,6 @@ const Dashboard = () => {
       const data = await response.json();
       const videoUrl = data.url || data.videoUrl || data.downloadUrl || data;
       
-      // Create a properly typed result object
       const newResult: ResultVideo = {
         url: typeof videoUrl === 'string' ? videoUrl : JSON.stringify(videoUrl),
         timestamp: new Date().toISOString()
@@ -1158,3 +1149,4 @@ const Dashboard = () => {
 };
 
 export default Dashboard;
+
