@@ -1,8 +1,7 @@
-
 import React, { useState, useEffect } from 'react';
 import MainLayout from '@/components/layout/MainLayout';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Upload, Trash2, Video, Mic, Briefcase, User } from 'lucide-react';
+import { Plus, Upload, Trash2, Video, Mic, Briefcase, User, Check } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -18,7 +17,7 @@ type UploadedFile = {
 
 const niches = [
   "Fashion & Style",
-  "Beauty & Makeup",
+  "Beauty & Makeup", 
   "Fitness & Health",
   "Food & Cooking",
   "Travel & Adventure",
@@ -44,6 +43,8 @@ const Dashboard = () => {
   const { user } = useAuth();
   const [videos, setVideos] = useState<UploadedFile[]>([]);
   const [voiceFiles, setVoiceFiles] = useState<UploadedFile[]>([]);
+  const [selectedVideo, setSelectedVideo] = useState<UploadedFile | null>(null);
+  const [selectedVoice, setSelectedVoice] = useState<UploadedFile | null>(null);
   const [selectedNiches, setSelectedNiches] = useState<string[]>([]);
   const [competitors, setCompetitors] = useState<string[]>([]);
   const [newCompetitor, setNewCompetitor] = useState('');
@@ -79,7 +80,6 @@ const Dashboard = () => {
           return;
         }
 
-        // Convert JSONB array to our UploadedFile type
         if (profile.videos && profile.videos.length > 0) {
           setVideos(profile.videos.map((video: any) => ({
             id: video.id || uuidv4(),
@@ -106,6 +106,14 @@ const Dashboard = () => {
 
         if (profile.competitors && profile.competitors.length > 0) {
           setCompetitors(profile.competitors);
+        }
+
+        if (profile.selected_video) {
+          setSelectedVideo(profile.selected_video);
+        }
+
+        if (profile.selected_voice) {
+          setSelectedVoice(profile.selected_voice);
         }
 
         setIsLoading(false);
@@ -400,7 +408,11 @@ const Dashboard = () => {
       const videoToRemove = videos.find(video => video.id === id);
       if (!videoToRemove) return;
 
-      // Try to remove the file from storage
+      if (selectedVideo && selectedVideo.id === id) {
+        setSelectedVideo(null);
+        await updateProfile({ selected_video: null });
+      }
+
       try {
         const urlParts = videoToRemove.url.split('/');
         const filePath = urlParts.slice(urlParts.indexOf('creator_files') + 1).join('/');
@@ -434,7 +446,11 @@ const Dashboard = () => {
       const fileToRemove = voiceFiles.find(file => file.id === id);
       if (!fileToRemove) return;
 
-      // Try to remove the file from storage
+      if (selectedVoice && selectedVoice.id === id) {
+        setSelectedVoice(null);
+        await updateProfile({ selected_voice: null });
+      }
+
       try {
         const urlParts = fileToRemove.url.split('/');
         const filePath = urlParts.slice(urlParts.indexOf('creator_files') + 1).join('/');
@@ -463,13 +479,51 @@ const Dashboard = () => {
     }
   };
 
+  const handleSelectVideo = async (video: UploadedFile) => {
+    try {
+      setSelectedVideo(video);
+      await updateProfile({ selected_video: video });
+      
+      toast({
+        title: "Target Video Selected",
+        description: `"${video.name}" is now your target video."
+      });
+    } catch (error) {
+      console.error('Error selecting video:', error);
+      toast({
+        title: "Selection Failed",
+        description: "Failed to select the target video.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleSelectVoice = async (voice: UploadedFile) => {
+    try {
+      setSelectedVoice(voice);
+      await updateProfile({ selected_voice: voice });
+      
+      toast({
+        title: "Target Voice Selected",
+        description: `"${voice.name}" is now your target voice."
+      });
+    } catch (error) {
+      console.error('Error selecting voice:', error);
+      toast({
+        title: "Selection Failed",
+        description: "Failed to select the target voice.",
+        variant: "destructive"
+      });
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (videos.length === 0 || voiceFiles.length === 0 || selectedNiches.length === 0 || competitors.length === 0) {
+    if (videos.length === 0 || voiceFiles.length === 0 || selectedNiches.length === 0 || competitors.length === 0 || !selectedVideo || !selectedVoice) {
       toast({
         title: "Incomplete form",
-        description: "Please fill in all required fields before submitting.",
+        description: "Please fill in all required fields and select a target video and voice file before submitting.",
         variant: "destructive"
       });
       return;
@@ -511,7 +565,8 @@ const Dashboard = () => {
     }
   };
 
-  const isFormComplete = videos.length > 0 && voiceFiles.length > 0 && selectedNiches.length > 0 && competitors.length > 0;
+  const isFormComplete = videos.length > 0 && voiceFiles.length > 0 && selectedNiches.length > 0 && 
+                         competitors.length > 0 && selectedVideo !== null && selectedVoice !== null;
 
   if (isLoading) {
     return (
@@ -532,7 +587,7 @@ const Dashboard = () => {
               <Video className="mr-2 h-5 w-5 text-primary" />
               <h2 className="text-2xl font-medium">Video Upload</h2>
             </div>
-            <p className="text-muted-foreground mb-6">Upload up to 5 MP4 videos (max 30MB each)</p>
+            <p className="text-muted-foreground mb-6">Upload up to 5 MP4 videos (max 30MB each) and select one as your target video</p>
             
             <div 
               className={`file-drop-area p-8 ${isDraggingVideo ? 'active' : ''}`}
@@ -565,7 +620,7 @@ const Dashboard = () => {
                 <h3 className="text-lg font-medium mb-4">Uploaded Videos ({videos.length}/5)</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                   {videos.map(video => (
-                    <Card key={video.id} className="p-4 animate-zoom-in">
+                    <Card key={video.id} className={`p-4 animate-zoom-in ${selectedVideo?.id === video.id ? 'ring-2 ring-primary' : ''}`}>
                       <div className="aspect-video mb-3 bg-secondary rounded-md overflow-hidden">
                         <video src={video.url} className="w-full h-full object-cover" controls />
                       </div>
@@ -576,16 +631,54 @@ const Dashboard = () => {
                             {(video.size / (1024 * 1024)).toFixed(2)} MB
                           </p>
                         </div>
-                        <button 
-                          type="button"
-                          onClick={() => handleRemoveVideo(video.id)}
-                          className="p-1.5 rounded-full hover:bg-secondary-foreground/10 transition-colors"
-                        >
-                          <Trash2 className="h-4 w-4 text-muted-foreground" />
-                        </button>
+                        <div className="flex">
+                          <button 
+                            type="button"
+                            onClick={() => handleSelectVideo(video)}
+                            className={`p-1.5 rounded-full mr-1 transition-colors ${
+                              selectedVideo?.id === video.id 
+                                ? 'bg-primary text-primary-foreground' 
+                                : 'hover:bg-secondary-foreground/10'
+                            }`}
+                            title="Select as target video"
+                          >
+                            <Check className={`h-4 w-4 ${selectedVideo?.id === video.id ? 'text-white' : 'text-muted-foreground'}`} />
+                          </button>
+                          <button 
+                            type="button"
+                            onClick={() => handleRemoveVideo(video.id)}
+                            className="p-1.5 rounded-full hover:bg-secondary-foreground/10 transition-colors"
+                          >
+                            <Trash2 className="h-4 w-4 text-muted-foreground" />
+                          </button>
+                        </div>
                       </div>
                     </Card>
                   ))}
+                </div>
+              </div>
+            )}
+
+            {selectedVideo && (
+              <div className="mt-6 p-4 bg-secondary/30 rounded-lg">
+                <h3 className="text-lg font-medium mb-2">Target Video Selected</h3>
+                <div className="flex items-center">
+                  <div className="w-20 h-20 mr-4 bg-secondary rounded-md overflow-hidden">
+                    <video src={selectedVideo.url} className="w-full h-full object-cover" />
+                  </div>
+                  <div>
+                    <p className="font-medium">{selectedVideo.name}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {(selectedVideo.size / (1024 * 1024)).toFixed(2)} MB
+                    </p>
+                    <a 
+                      href={selectedVideo.url} 
+                      download={selectedVideo.name}
+                      className="text-sm text-primary hover:underline mt-1 inline-block"
+                    >
+                      Download
+                    </a>
+                  </div>
                 </div>
               </div>
             )}
@@ -596,7 +689,7 @@ const Dashboard = () => {
               <Mic className="mr-2 h-5 w-5 text-primary" />
               <h2 className="text-2xl font-medium">Voice Upload</h2>
             </div>
-            <p className="text-muted-foreground mb-6">Upload up to 5 MP3 or WAV files (max 8MB each)</p>
+            <p className="text-muted-foreground mb-6">Upload up to 5 MP3 or WAV files (max 8MB each) and select one as your target voice</p>
             
             <div 
               className={`file-drop-area p-8 ${isDraggingVoice ? 'active' : ''}`}
@@ -629,7 +722,7 @@ const Dashboard = () => {
                 <h3 className="text-lg font-medium mb-4">Uploaded Voice Files ({voiceFiles.length}/5)</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                   {voiceFiles.map(file => (
-                    <Card key={file.id} className="p-4 animate-zoom-in">
+                    <Card key={file.id} className={`p-4 animate-zoom-in ${selectedVoice?.id === file.id ? 'ring-2 ring-primary' : ''}`}>
                       <div className="bg-secondary rounded-md p-4 mb-3 flex justify-center items-center">
                         <audio src={file.url} className="w-full" controls />
                       </div>
@@ -640,16 +733,54 @@ const Dashboard = () => {
                             {(file.size / (1024 * 1024)).toFixed(2)} MB
                           </p>
                         </div>
-                        <button 
-                          type="button"
-                          onClick={() => handleRemoveVoiceFile(file.id)}
-                          className="p-1.5 rounded-full hover:bg-secondary-foreground/10 transition-colors"
-                        >
-                          <Trash2 className="h-4 w-4 text-muted-foreground" />
-                        </button>
+                        <div className="flex">
+                          <button 
+                            type="button"
+                            onClick={() => handleSelectVoice(file)}
+                            className={`p-1.5 rounded-full mr-1 transition-colors ${
+                              selectedVoice?.id === file.id 
+                                ? 'bg-primary text-primary-foreground' 
+                                : 'hover:bg-secondary-foreground/10'
+                            }`}
+                            title="Select as target voice"
+                          >
+                            <Check className={`h-4 w-4 ${selectedVoice?.id === file.id ? 'text-white' : 'text-muted-foreground'}`} />
+                          </button>
+                          <button 
+                            type="button"
+                            onClick={() => handleRemoveVoiceFile(file.id)}
+                            className="p-1.5 rounded-full hover:bg-secondary-foreground/10 transition-colors"
+                          >
+                            <Trash2 className="h-4 w-4 text-muted-foreground" />
+                          </button>
+                        </div>
                       </div>
                     </Card>
                   ))}
+                </div>
+              </div>
+            )}
+
+            {selectedVoice && (
+              <div className="mt-6 p-4 bg-secondary/30 rounded-lg">
+                <h3 className="text-lg font-medium mb-2">Target Voice Selected</h3>
+                <div className="flex items-center">
+                  <div className="w-20 h-20 mr-4 bg-secondary rounded-md flex justify-center items-center">
+                    <Mic className="h-6 w-6 text-muted-foreground" />
+                  </div>
+                  <div>
+                    <p className="font-medium">{selectedVoice.name}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {(selectedVoice.size / (1024 * 1024)).toFixed(2)} MB
+                    </p>
+                    <a 
+                      href={selectedVoice.url} 
+                      download={selectedVoice.name}
+                      className="text-sm text-primary hover:underline mt-1 inline-block"
+                    >
+                      Download
+                    </a>
+                  </div>
                 </div>
               </div>
             )}
@@ -740,6 +871,76 @@ const Dashboard = () => {
             )}
           </section>
 
+          <section className="animate-fade-in">
+            <div className="flex items-center mb-4">
+              <User className="mr-2 h-5 w-5 text-primary" />
+              <h2 className="text-2xl font-medium">Profile Summary</h2>
+            </div>
+            <div className="bg-secondary/20 rounded-lg p-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <h3 className="text-lg font-medium mb-3">Target Video</h3>
+                  {selectedVideo ? (
+                    <div className="bg-white/10 p-4 rounded-lg">
+                      <div className="flex items-center">
+                        <div className="w-16 h-16 mr-3 bg-secondary rounded-md overflow-hidden flex-shrink-0">
+                          <video src={selectedVideo.url} className="w-full h-full object-cover" />
+                        </div>
+                        <div>
+                          <p className="font-medium">{selectedVideo.name}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {(selectedVideo.size / (1024 * 1024)).toFixed(2)} MB
+                          </p>
+                          <a 
+                            href={selectedVideo.url} 
+                            download={selectedVideo.name}
+                            className="text-sm text-primary hover:underline mt-1 inline-block"
+                          >
+                            Download
+                          </a>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="bg-secondary/30 p-4 rounded-lg text-center">
+                      <p className="text-muted-foreground">No target video selected</p>
+                    </div>
+                  )}
+                </div>
+                
+                <div>
+                  <h3 className="text-lg font-medium mb-3">Target Voice</h3>
+                  {selectedVoice ? (
+                    <div className="bg-white/10 p-4 rounded-lg">
+                      <div className="flex items-center">
+                        <div className="w-16 h-16 mr-3 bg-secondary rounded-md flex-shrink-0 flex justify-center items-center">
+                          <Mic className="h-6 w-6 text-muted-foreground" />
+                        </div>
+                        <div>
+                          <p className="font-medium">{selectedVoice.name}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {(selectedVoice.size / (1024 * 1024)).toFixed(2)} MB
+                          </p>
+                          <a 
+                            href={selectedVoice.url} 
+                            download={selectedVoice.name}
+                            className="text-sm text-primary hover:underline mt-1 inline-block"
+                          >
+                            Download
+                          </a>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="bg-secondary/30 p-4 rounded-lg text-center">
+                      <p className="text-muted-foreground">No target voice selected</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </section>
+
           {resultVideoUrl && (
             <section className="animate-fade-in">
               <div className="flex items-center mb-4">
@@ -807,7 +1008,9 @@ const Dashboard = () => {
                     : 'bg-secondary text-muted-foreground cursor-not-allowed'
                 }`}
               >
-                Create Personalized Video
+                {isFormComplete ? 'Create Personalized Video' : (
+                  `Please ${!selectedVideo ? 'select a target video' : !selectedVoice ? 'select a target voice' : 'complete all fields'}`
+                )}
               </button>
             )}
           </div>
