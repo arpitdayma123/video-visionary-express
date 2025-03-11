@@ -53,6 +53,7 @@ const Dashboard = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingProgress, setProcessingProgress] = useState(0);
   const [resultVideoUrl, setResultVideoUrl] = useState<string | null>(null);
+  const [resultVideos, setResultVideos] = useState<{url: string, timestamp: string}[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -131,6 +132,13 @@ const Dashboard = () => {
               type: voiceData.type || 'audio/mpeg',
               url: voiceData.url
             });
+          }
+        }
+
+        if (profile.result && Array.isArray(profile.result)) {
+          setResultVideos(profile.result);
+          if (profile.result.length > 0) {
+            setResultVideoUrl(profile.result[profile.result.length - 1].url);
           }
         }
 
@@ -560,15 +568,45 @@ const Dashboard = () => {
     }, 800);
 
     try {
-      await new Promise(resolve => setTimeout(resolve, 8000));
+      const payload = {
+        videoUrl: selectedVideo.url,
+        voiceUrl: selectedVoice.url,
+        niches: selectedNiches,
+        competitors: competitors
+      };
+
+      const response = await fetch('https://primary-production-ce25.up.railway.app/webhook-test/trendy', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to process video request');
+      }
+
+      const data = await response.json();
+      const videoUrl = data.url || data.videoUrl || data.downloadUrl || data;
       
-      setResultVideoUrl('https://sample-videos.com/video123/mp4/720/big_buck_bunny_720p_1mb.mp4');
+      const newResult = {
+        url: typeof videoUrl === 'string' ? videoUrl : JSON.stringify(videoUrl),
+        timestamp: new Date().toISOString()
+      };
+      
+      const updatedResults = [...resultVideos, newResult];
+      setResultVideos(updatedResults);
+      setResultVideoUrl(newResult.url);
+      
+      await updateProfile({ result: updatedResults });
       
       toast({
         title: "Processing complete",
         description: "Your personalized video is ready to view!",
       });
     } catch (error) {
+      console.error('Error processing video:', error);
       toast({
         title: "Processing failed",
         description: "There was an error processing your request. Please try again.",
@@ -1000,6 +1038,49 @@ const Dashboard = () => {
                   </div>
                 </div>
               </div>
+              
+              {resultVideos.length > 1 && (
+                <div className="mt-6">
+                  <h3 className="text-lg font-medium mb-3">Previous Generated Videos</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                    {resultVideos.slice(0, -1).reverse().map((result, index) => (
+                      <Card key={index} className="p-4 animate-zoom-in">
+                        <div className="aspect-video mb-3 bg-secondary rounded-md overflow-hidden">
+                          <video src={result.url} className="w-full h-full object-cover" controls />
+                        </div>
+                        <div>
+                          <p className="font-medium">Generated Video {resultVideos.length - index - 1}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {new Date(result.timestamp).toLocaleString()}
+                          </p>
+                          <div className="flex mt-2 space-x-2">
+                            <a 
+                              href={result.url} 
+                              download={`video-${index}.mp4`}
+                              className="text-xs text-primary hover:underline"
+                            >
+                              Download
+                            </a>
+                            <button
+                              type="button"
+                              className="text-xs text-primary hover:underline"
+                              onClick={() => {
+                                navigator.clipboard.writeText(result.url);
+                                toast({
+                                  title: "Link copied",
+                                  description: "Video link copied to clipboard",
+                                });
+                              }}
+                            >
+                              Copy Link
+                            </button>
+                          </div>
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+                </div>
+              )}
             </section>
           )}
 

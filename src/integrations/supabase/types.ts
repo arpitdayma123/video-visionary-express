@@ -43,6 +43,7 @@ export type Database = {
           competitors: string[] | null
           created_at: string | null
           id: string
+          result: Json | null
           selected_niches: string[] | null
           selected_video: Json | null
           selected_voice: Json | null
@@ -54,6 +55,7 @@ export type Database = {
           competitors?: string[] | null
           created_at?: string | null
           id: string
+          result?: Json | null
           selected_niches?: string[] | null
           selected_video?: Json | null
           selected_voice?: Json | null
@@ -65,6 +67,7 @@ export type Database = {
           competitors?: string[] | null
           created_at?: string | null
           id?: string
+          result?: Json | null
           selected_niches?: string[] | null
           selected_video?: Json | null
           selected_voice?: Json | null
