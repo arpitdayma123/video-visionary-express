@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import MainLayout from '@/components/layout/MainLayout';
 import { useToast } from '@/hooks/use-toast';
@@ -13,6 +14,11 @@ type UploadedFile = {
   size: number;
   type: string;
   url: string;
+};
+
+type ResultVideo = {
+  url: string;
+  timestamp: string;
 };
 
 const niches = [
@@ -53,7 +59,7 @@ const Dashboard = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingProgress, setProcessingProgress] = useState(0);
   const [resultVideoUrl, setResultVideoUrl] = useState<string | null>(null);
-  const [resultVideos, setResultVideos] = useState<{url: string, timestamp: string}[]>([]);
+  const [resultVideos, setResultVideos] = useState<ResultVideo[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -135,10 +141,41 @@ const Dashboard = () => {
           }
         }
 
+        // Fixed TypeScript error: Properly handle the profile.result
         if (profile.result && Array.isArray(profile.result)) {
-          setResultVideos(profile.result);
-          if (profile.result.length > 0) {
-            setResultVideoUrl(profile.result[profile.result.length - 1].url);
+          // Convert from Json[] to ResultVideo[]
+          const typedResults: ResultVideo[] = [];
+          
+          for (const item of profile.result) {
+            // Check if item is a string (simple URL) or an object with url and timestamp
+            if (typeof item === 'string') {
+              // Convert legacy format to the new format
+              typedResults.push({
+                url: item,
+                timestamp: new Date().toISOString()
+              });
+            } else if (typeof item === 'object' && item !== null) {
+              // Handle proper object format
+              const resultItem = item as any;
+              if (resultItem.url && resultItem.timestamp) {
+                typedResults.push({
+                  url: resultItem.url,
+                  timestamp: resultItem.timestamp
+                });
+              } else if (resultItem.url) {
+                // Has url but no timestamp
+                typedResults.push({
+                  url: resultItem.url,
+                  timestamp: new Date().toISOString()
+                });
+              }
+            }
+          }
+          
+          setResultVideos(typedResults);
+          
+          if (typedResults.length > 0) {
+            setResultVideoUrl(typedResults[typedResults.length - 1].url);
           }
         }
 
@@ -590,7 +627,8 @@ const Dashboard = () => {
       const data = await response.json();
       const videoUrl = data.url || data.videoUrl || data.downloadUrl || data;
       
-      const newResult = {
+      // Create a properly typed result object
+      const newResult: ResultVideo = {
         url: typeof videoUrl === 'string' ? videoUrl : JSON.stringify(videoUrl),
         timestamp: new Date().toISOString()
       };
