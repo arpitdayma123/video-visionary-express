@@ -598,11 +598,12 @@ const Dashboard = () => {
     }, 800);
 
     try {
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+
       const params = new URLSearchParams({
-        videoUrl: selectedVideo.url,
-        voiceUrl: selectedVoice.url,
-        niches: JSON.stringify(selectedNiches),
-        competitors: JSON.stringify(competitors)
+        userId: user.id
       });
 
       const response = await fetch(`https://primary-production-ce25.up.railway.app/webhook-test/trendy?${params.toString()}`, {
@@ -1149,4 +1150,3 @@ const Dashboard = () => {
 };
 
 export default Dashboard;
-
