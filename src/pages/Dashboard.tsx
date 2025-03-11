@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import MainLayout from '@/components/layout/MainLayout';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Upload, Trash2, Video, Mic, Briefcase, User, Check } from 'lucide-react';
+import { Plus, Upload, Trash2, Video, Mic, Briefcase, User, Check, ExternalLink } from 'lucide-react';
 import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { v4 as uuidv4 } from 'uuid';
@@ -45,6 +47,7 @@ const niches = [
 
 const Dashboard = () => {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const { user } = useAuth();
   const [videos, setVideos] = useState<UploadedFile[]>([]);
   const [voiceFiles, setVoiceFiles] = useState<UploadedFile[]>([]);
@@ -57,8 +60,6 @@ const Dashboard = () => {
   const [isDraggingVoice, setIsDraggingVoice] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingProgress, setProcessingProgress] = useState(0);
-  const [resultVideoUrl, setResultVideoUrl] = useState<string | null>(null);
-  const [resultVideos, setResultVideos] = useState<ResultVideo[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -137,38 +138,6 @@ const Dashboard = () => {
               type: voiceData.type || 'audio/mpeg',
               url: voiceData.url
             });
-          }
-        }
-
-        if (profile.result && Array.isArray(profile.result)) {
-          const typedResults: ResultVideo[] = [];
-          
-          for (const item of profile.result) {
-            if (typeof item === 'string') {
-              typedResults.push({
-                url: item,
-                timestamp: new Date().toISOString()
-              });
-            } else if (typeof item === 'object' && item !== null) {
-              const resultItem = item as any;
-              if (resultItem.url && resultItem.timestamp) {
-                typedResults.push({
-                  url: resultItem.url,
-                  timestamp: resultItem.timestamp
-                });
-              } else if (resultItem.url) {
-                typedResults.push({
-                  url: resultItem.url,
-                  timestamp: new Date().toISOString()
-                });
-              }
-            }
-          }
-          
-          setResultVideos(typedResults);
-          
-          if (typedResults.length > 0) {
-            setResultVideoUrl(typedResults[typedResults.length - 1].url);
           }
         }
 
@@ -617,24 +586,11 @@ const Dashboard = () => {
         throw new Error('Failed to process video request');
       }
 
-      const data = await response.json();
-      const videoUrl = data.url || data.videoUrl || data.downloadUrl || data;
-      
-      const newResult: ResultVideo = {
-        url: typeof videoUrl === 'string' ? videoUrl : JSON.stringify(videoUrl),
-        timestamp: new Date().toISOString()
-      };
-      
-      const updatedResults = [...resultVideos, newResult];
-      setResultVideos(updatedResults);
-      setResultVideoUrl(newResult.url);
-      
-      await updateProfile({ result: updatedResults });
-      
       toast({
-        title: "Processing complete",
-        description: "Your personalized video is ready to view!",
+        title: "Request sent successfully",
+        description: "Your personalized video is being processed. Check the Results page for updates."
       });
+      
     } catch (error) {
       console.error('Error processing video:', error);
       toast({
@@ -667,6 +623,17 @@ const Dashboard = () => {
   return (
     <MainLayout title="Creator Dashboard" subtitle="Upload your content and create personalized videos">
       <div className="section-container py-12">
+        <div className="flex justify-end mb-6">
+          <Button 
+            onClick={() => navigate('/results')}
+            variant="outline"
+            className="gap-2"
+          >
+            <ExternalLink className="h-4 w-4" />
+            View Results
+          </Button>
+        </div>
+
         <form onSubmit={handleSubmit} className="space-y-12">
           <section className="animate-fade-in">
             <div className="flex items-center mb-4">
@@ -1150,3 +1117,4 @@ const Dashboard = () => {
 };
 
 export default Dashboard;
+
