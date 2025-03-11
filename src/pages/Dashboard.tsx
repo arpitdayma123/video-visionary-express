@@ -486,7 +486,7 @@ const Dashboard = () => {
       
       toast({
         title: "Target Video Selected",
-        description: `"${video.name}" is now your target video."
+        description: `"${video.name}" is now your target video.`
       });
     } catch (error) {
       console.error('Error selecting video:', error);
@@ -505,7 +505,7 @@ const Dashboard = () => {
       
       toast({
         title: "Target Voice Selected",
-        description: `"${voice.name}" is now your target voice."
+        description: `"${voice.name}" is now your target voice.`
       });
     } catch (error) {
       console.error('Error selecting voice:', error);
