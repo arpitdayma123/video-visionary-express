@@ -24,10 +24,25 @@ const AuthForm = () => {
 
     try {
       if (mode === 'sign-up') {
+        // Validate email and password before submission
+        if (!email || !password) {
+          throw new Error('Email and password are required');
+        }
+        
+        if (password.length < 6) {
+          throw new Error('Password must be at least 6 characters long');
+        }
+
+        console.log('Attempting to sign up with:', { email });
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
+          options: {
+            emailRedirectTo: window.location.origin,
+          }
         });
+
+        console.log('Sign up response:', { data, error });
 
         if (error) throw error;
 
@@ -36,10 +51,13 @@ const AuthForm = () => {
           description: "Please check your email to verify your account.",
         });
       } else {
+        console.log('Attempting to sign in with:', { email });
         const { data, error } = await supabase.auth.signInWithPassword({
           email,
           password,
         });
+
+        console.log('Sign in response:', { data, error });
 
         if (error) throw error;
 
@@ -49,6 +67,7 @@ const AuthForm = () => {
         });
       }
     } catch (error: any) {
+      console.error('Authentication error:', error);
       toast({
         title: "Authentication error",
         description: error.message || "An error occurred during authentication.",
@@ -160,6 +179,7 @@ const AuthForm = () => {
                     onChange={(e) => setPassword(e.target.value)}
                     className="pl-10"
                     required
+                    minLength={6}
                   />
                 </div>
                 <p className="text-xs text-muted-foreground">
