@@ -16,6 +16,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 
 type UploadedFile = {
   id: string;
@@ -720,6 +721,7 @@ const Dashboard = () => {
     }
   };
   const isFormComplete = videos.length > 0 && voiceFiles.length > 0 && selectedNiches.length > 0 && competitors.length > 0 && selectedVideo !== null && selectedVoice !== null;
+  
   if (isLoading) {
     return (
       <MainLayout title="Creator Dashboard" subtitle="Loading your content...">
@@ -729,6 +731,7 @@ const Dashboard = () => {
       </MainLayout>
     );
   }
+  
   return (
     <MainLayout title="Creator Dashboard" subtitle="Upload your content and create personalized videos">
       <div className="section-container py-12">
@@ -748,9 +751,9 @@ const Dashboard = () => {
             <p className="text-muted-foreground mb-6">Upload up to 5 MP4 videos (max 30MB each) and select one as your target video</p>
             
             <div className={`file-drop-area p-8 ${isDraggingVideo ? 'active' : ''}`} onDragOver={e => {
-            e.preventDefault();
-            setIsDraggingVideo(true);
-          }} onDragLeave={() => setIsDraggingVideo(false)} onDrop={handleVideoUpload}>
+              e.preventDefault();
+              setIsDraggingVideo(true);
+            }} onDragLeave={() => setIsDraggingVideo(false)} onDrop={handleVideoUpload}>
               <div className="flex flex-col items-center justify-center text-center">
                 <Upload className="h-12 w-12 text-muted-foreground mb-4" />
                 <h3 className="text-lg font-medium mb-2">Drag and drop your videos here</h3>
@@ -762,21 +765,27 @@ const Dashboard = () => {
               </div>
             </div>
 
-            {Object.keys(uploadingVideos).length > 0 && <div className="mt-4 space-y-3">
+            {Object.keys(uploadingVideos).length > 0 && (
+              <div className="mt-4 space-y-3">
                 <h4 className="text-sm font-medium">Uploading videos...</h4>
-                {Object.keys(uploadingVideos).map(id => <div key={id} className="space-y-1">
+                {Object.keys(uploadingVideos).map(id => (
+                  <div key={id} className="space-y-1">
                     <div className="flex justify-between text-xs text-muted-foreground">
                       <span>Uploading</span>
                       <span>{uploadingVideos[id]}%</span>
                     </div>
                     <Progress value={uploadingVideos[id]} className="h-2" />
-                  </div>)}
-              </div>}
+                  </div>
+                ))}
+              </div>
+            )}
 
-            {videos.length > 0 && <div className="mt-6">
+            {videos.length > 0 && (
+              <div className="mt-6">
                 <h3 className="text-lg font-medium mb-4">Uploaded Videos ({videos.length}/5)</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                  {videos.map(video => <Card key={video.id} className={`p-4 animate-zoom-in ${selectedVideo?.id === video.id ? 'ring-2 ring-primary' : ''}`}>
+                  {videos.map(video => (
+                    <Card key={video.id} className={`p-4 animate-zoom-in ${selectedVideo?.id === video.id ? 'ring-2 ring-primary' : ''}`}>
                       <div className="aspect-video mb-3 bg-secondary rounded-md overflow-hidden relative">
                         <video src={video.url} className="w-full h-full object-contain" controls />
                       </div>
@@ -796,11 +805,14 @@ const Dashboard = () => {
                           </button>
                         </div>
                       </div>
-                    </Card>)}
+                    </Card>
+                  ))}
                 </div>
-              </div>}
+              </div>
+            )}
 
-            {selectedVideo && <div className="mt-6 p-4 bg-secondary/30 rounded-lg">
+            {selectedVideo && (
+              <div className="mt-6 p-4 bg-secondary/30 rounded-lg">
                 <h3 className="text-lg font-medium mb-2">Video you have Selected</h3>
                 <div className="flex items-center">
                   <div className="w-20 h-20 mr-4 bg-secondary rounded-md overflow-hidden flex justify-center items-center">
@@ -816,7 +828,8 @@ const Dashboard = () => {
                     </a>
                   </div>
                 </div>
-              </div>}
+              </div>
+            )}
           </section>
 
           <section className="animate-fade-in animation-delay-100">
@@ -827,9 +840,9 @@ const Dashboard = () => {
             <p className="text-muted-foreground mb-6">Upload up to 5 MP3 or WAV files (max 8MB each) and select one as your target voice</p>
             
             <div className={`file-drop-area p-8 ${isDraggingVoice ? 'active' : ''}`} onDragOver={e => {
-            e.preventDefault();
-            setIsDraggingVoice(true);
-          }} onDragLeave={() => setIsDraggingVoice(false)} onDrop={handleVoiceUpload}>
+              e.preventDefault();
+              setIsDraggingVoice(true);
+            }} onDragLeave={() => setIsDraggingVoice(false)} onDrop={handleVoiceUpload}>
               <div className="flex flex-col items-center justify-center text-center">
                 <Upload className="h-12 w-12 text-muted-foreground mb-4" />
                 <h3 className="text-lg font-medium mb-2">Drag and drop your voice files here</h3>
@@ -839,7 +852,3 @@ const Dashboard = () => {
                   Select Voice Files
                 </label>
               </div>
-            </div>
-
-            {Object.keys(uploadingVoices).length > 0 && <div className="mt-4 space-y-3">
-                <h4 className="text-sm
