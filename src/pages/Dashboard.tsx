@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import MainLayout from '@/components/layout/MainLayout';
@@ -589,14 +588,25 @@ const Dashboard = () => {
 
       const responseData = await response.json();
       
-      if (responseData && typeof responseData === 'string') {
-        // If the response is a string URL
-        const videoUrl = responseData;
-        await updateResultInSupabase(videoUrl);
-      } else if (responseData && typeof responseData === 'object' && responseData.url) {
-        // If the response is an object with a url property
-        const videoUrl = responseData.url;
-        await updateResultInSupabase(videoUrl);
+      // Handle the specific array format with resultvideo field
+      if (Array.isArray(responseData) && responseData.length > 0 && responseData[0].resultvideo) {
+        const videoUrl = responseData[0].resultvideo;
+        await downloadAndUploadVideo(videoUrl);
+      } 
+      // Also handle other formats for backward compatibility
+      else if (responseData && typeof responseData === 'string') {
+        await downloadAndUploadVideo(responseData);
+      } 
+      else if (responseData && typeof responseData === 'object' && responseData.url) {
+        await downloadAndUploadVideo(responseData.url);
+      }
+      // Handle any other format that might directly include resultvideo
+      else if (responseData && responseData.resultvideo) {
+        await downloadAndUploadVideo(responseData.resultvideo);
+      }
+      else {
+        console.error('Unexpected response format:', responseData);
+        throw new Error('Unexpected response format from API');
       }
 
       toast({
@@ -617,6 +627,59 @@ const Dashboard = () => {
       setTimeout(() => {
         setIsProcessing(false);
       }, 500);
+    }
+  };
+
+  const downloadAndUploadVideo = async (sourceUrl: string) => {
+    if (!user) return;
+
+    try {
+      console.log('Downloading video from:', sourceUrl);
+      
+      // Download the video
+      const videoResponse = await fetch(sourceUrl);
+      if (!videoResponse.ok) {
+        throw new Error(`Failed to download video: ${videoResponse.statusText}`);
+      }
+      
+      // Get the video as a blob
+      const videoBlob = await videoResponse.blob();
+      
+      // Generate a unique filename
+      const fileExt = sourceUrl.split('.').pop() || 'mp4';
+      const fileName = `${user.id}/${uuidv4()}.${fileExt}`;
+      const filePath = `videos/${fileName}`;
+      
+      console.log('Uploading video to Supabase storage:', filePath);
+
+      // Upload the video to Supabase storage
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('creator_files')
+        .upload(filePath, videoBlob);
+
+      if (uploadError) {
+        console.error('Error uploading to storage:', uploadError);
+        throw uploadError;
+      }
+
+      // Get the public URL of the uploaded video
+      const { data: urlData } = supabase.storage
+        .from('creator_files')
+        .getPublicUrl(filePath);
+
+      const newVideoUrl = urlData.publicUrl;
+      console.log('Video uploaded successfully, new URL:', newVideoUrl);
+      
+      // Update the result in Supabase profiles table
+      await updateResultInSupabase(newVideoUrl);
+      
+    } catch (error) {
+      console.error('Error in download and upload process:', error);
+      toast({
+        title: "Processing Error",
+        description: "There was an error processing the video. Please try again later.",
+        variant: "destructive"
+      });
     }
   };
 
@@ -672,6 +735,8 @@ const Dashboard = () => {
         console.error('Error updating results:', updateError);
         throw updateError;
       }
+      
+      console.log('Results updated successfully in Supabase');
     } catch (error) {
       console.error('Error saving result to Supabase:', error);
       toast({
@@ -890,218 +955,4 @@ const Dashboard = () => {
             )}
 
             {selectedVoice && (
-              <div className="mt-6 p-4 bg-secondary/30 rounded-lg">
-                <h3 className="text-lg font-medium mb-2">Target Voice Selected</h3>
-                <div className="flex items-center">
-                  <div className="w-20 h-20 mr-4 bg-secondary rounded-md flex justify-center items-center">
-                    <Mic className="h-6 w-6 text-muted-foreground" />
-                  </div>
-                  <div>
-                    <p className="font-medium">{selectedVoice.name}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {(selectedVoice.size / (1024 * 1024)).toFixed(2)} MB
-                    </p>
-                    <a 
-                      href={selectedVoice.url} 
-                      download={selectedVoice.name}
-                      className="text-sm text-primary hover:underline mt-1 inline-block"
-                    >
-                      Download
-                    </a>
-                  </div>
-                </div>
-              </div>
-            )}
-          </section>
-
-          <section className="animate-fade-in animation-delay-200">
-            <div className="flex items-center mb-4">
-              <Briefcase className="mr-2 h-5 w-5 text-primary" />
-              <h2 className="text-2xl font-medium">Niche Selection</h2>
-            </div>
-            <p className="text-muted-foreground mb-6">Select one or more niches that match your content</p>
-
-            <div className="flex flex-wrap gap-2">
-              {niches.map(niche => (
-                <button
-                  key={niche}
-                  type="button"
-                  onClick={() => handleNicheChange(niche)}
-                  className={`px-3 py-1.5 rounded-full text-sm transition-all ${
-                    selectedNiches.includes(niche)
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
-                  }`}
-                >
-                  {niche}
-                </button>
-              ))}
-            </div>
-
-            {selectedNiches.length > 0 && (
-              <p className="mt-4 text-sm text-muted-foreground">
-                Selected: {selectedNiches.length} niche{selectedNiches.length !== 1 ? 's' : ''}
-              </p>
-            )}
-          </section>
-
-          <section className="animate-fade-in animation-delay-300">
-            <div className="flex items-center mb-4">
-              <User className="mr-2 h-5 w-5 text-primary" />
-              <h2 className="text-2xl font-medium">Competitor Usernames</h2>
-            </div>
-            <p className="text-muted-foreground mb-6">Add up to 15 Instagram competitor usernames</p>
-
-            <div className="flex mb-4">
-              <input
-                type="text"
-                value={newCompetitor}
-                onChange={(e) => setNewCompetitor(e.target.value)}
-                placeholder="Enter Instagram username"
-                className="flex-1 px-3 py-2 border border-input rounded-l-lg focus:outline-none focus:ring-2 focus:ring-primary"
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    handleAddCompetitor();
-                  }
-                }}
-              />
-              <button
-                type="button"
-                onClick={handleAddCompetitor}
-                className="px-4 py-2 bg-primary text-primary-foreground rounded-r-lg hover:bg-primary/90 transition-colors"
-              >
-                <Plus className="h-5 w-5" />
-              </button>
-            </div>
-
-            {competitors.length > 0 && (
-              <div className="mt-4">
-                <h3 className="text-lg font-medium mb-4">Added Competitors ({competitors.length}/15)</h3>
-                <div className="flex flex-wrap gap-2">
-                  {competitors.map((competitor, index) => (
-                    <div 
-                      key={index} 
-                      className="inline-flex items-center bg-secondary rounded-full pl-3 pr-1 py-1 animate-zoom-in"
-                    >
-                      <span className="text-sm">@{competitor}</span>
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveCompetitor(index)}
-                        className="ml-2 p-1 rounded-full hover:bg-secondary-foreground/10 transition-colors"
-                      >
-                        <Trash2 className="h-3 w-3 text-muted-foreground" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </section>
-
-          <section className="animate-fade-in">
-            <div className="flex items-center mb-4">
-              <User className="mr-2 h-5 w-5 text-primary" />
-              <h2 className="text-2xl font-medium">Profile Summary</h2>
-            </div>
-            <div className="bg-secondary/20 rounded-lg p-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <h3 className="text-lg font-medium mb-3">Target Video</h3>
-                  {selectedVideo ? (
-                    <div className="bg-white/10 p-4 rounded-lg">
-                      <div className="flex items-center">
-                        <div className="w-16 h-16 mr-3 bg-secondary rounded-md overflow-hidden flex-shrink-0">
-                          <video src={selectedVideo.url} className="w-full h-full object-cover" />
-                        </div>
-                        <div>
-                          <p className="font-medium">{selectedVideo.name}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {(selectedVideo.size / (1024 * 1024)).toFixed(2)} MB
-                          </p>
-                          <a 
-                            href={selectedVideo.url} 
-                            download={selectedVideo.name}
-                            className="text-sm text-primary hover:underline mt-1 inline-block"
-                          >
-                            Download
-                          </a>
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="bg-secondary/30 p-4 rounded-lg text-center">
-                      <p className="text-muted-foreground">No target video selected</p>
-                    </div>
-                  )}
-                </div>
-                
-                <div>
-                  <h3 className="text-lg font-medium mb-3">Target Voice</h3>
-                  {selectedVoice ? (
-                    <div className="bg-white/10 p-4 rounded-lg">
-                      <div className="flex items-center">
-                        <div className="w-16 h-16 mr-3 bg-secondary rounded-md flex-shrink-0 flex justify-center items-center">
-                          <Mic className="h-6 w-6 text-muted-foreground" />
-                        </div>
-                        <div>
-                          <p className="font-medium">{selectedVoice.name}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {(selectedVoice.size / (1024 * 1024)).toFixed(2)} MB
-                          </p>
-                          <a 
-                            href={selectedVoice.url} 
-                            download={selectedVoice.name}
-                            className="text-sm text-primary hover:underline mt-1 inline-block"
-                          >
-                            Download
-                          </a>
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="bg-secondary/30 p-4 rounded-lg text-center">
-                      <p className="text-muted-foreground">No target voice selected</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </section>
-
-          <div className="pt-6 animate-fade-in animation-delay-400">
-            {isProcessing ? (
-              <div className="space-y-4">
-                <div className="h-2 w-full bg-secondary rounded-full overflow-hidden">
-                  <div 
-                    className="h-full bg-primary transition-all duration-500 ease-out"
-                    style={{ width: `${processingProgress}%` }}
-                  ></div>
-                </div>
-                <p className="text-center text-muted-foreground">
-                  Processing your content... {processingProgress}%
-                </p>
-              </div>
-            ) : (
-              <button
-                type="submit"
-                disabled={!isFormComplete}
-                className={`w-full py-3 rounded-lg text-center transition-all ${
-                  isFormComplete
-                    ? 'bg-primary text-primary-foreground hover:bg-primary/90 button-hover-effect'
-                    : 'bg-secondary text-muted-foreground cursor-not-allowed'
-                }`}
-              >
-                {isFormComplete ? 'Create Personalized Video' : (
-                  `Please ${!selectedVideo ? 'select a target video' : !selectedVoice ? 'select a target voice' : 'complete all fields'}`
-                )}
-              </button>
-            )}
-          </div>
-        </form>
-      </div>
-    </MainLayout>
-  );
-};
-
-export default Dashboard;
+              <div className="mt-6 p-4 bg-secondary/
