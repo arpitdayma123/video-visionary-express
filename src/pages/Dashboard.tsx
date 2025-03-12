@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import MainLayout from '@/components/layout/MainLayout';
@@ -955,4 +956,127 @@ const Dashboard = () => {
             )}
 
             {selectedVoice && (
-              <div className="mt-6 p-4 bg-secondary/
+              <div className="mt-6 p-4 bg-secondary/30 rounded-lg">
+                <h3 className="text-lg font-medium mb-2">Target Voice Selected</h3>
+                <div className="flex items-center">
+                  <div className="w-20 h-20 mr-4 bg-secondary rounded-md overflow-hidden flex items-center justify-center">
+                    <Mic className="h-10 w-10 text-muted-foreground" />
+                  </div>
+                  <div>
+                    <p className="font-medium">{selectedVoice.name}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {(selectedVoice.size / (1024 * 1024)).toFixed(2)} MB
+                    </p>
+                    <a 
+                      href={selectedVoice.url} 
+                      download={selectedVoice.name}
+                      className="text-sm text-primary hover:underline mt-1 inline-block"
+                    >
+                      Download
+                    </a>
+                  </div>
+                </div>
+              </div>
+            )}
+          </section>
+
+          <section className="animate-fade-in animation-delay-200">
+            <div className="flex items-center mb-4">
+              <Briefcase className="mr-2 h-5 w-5 text-primary" />
+              <h2 className="text-2xl font-medium">Niche Selection</h2>
+            </div>
+            <p className="text-muted-foreground mb-6">Select the niches you want to target with your content</p>
+            
+            <div className="flex flex-wrap gap-3">
+              {niches.map(niche => (
+                <button
+                  key={niche}
+                  type="button"
+                  onClick={() => handleNicheChange(niche)}
+                  className={`px-4 py-2 rounded-full border transition-colors ${
+                    selectedNiches.includes(niche)
+                      ? 'bg-primary text-primary-foreground border-primary'
+                      : 'bg-transparent border-border hover:border-primary'
+                  }`}
+                >
+                  {niche}
+                </button>
+              ))}
+            </div>
+          </section>
+
+          <section className="animate-fade-in animation-delay-300">
+            <div className="flex items-center mb-4">
+              <User className="mr-2 h-5 w-5 text-primary" />
+              <h2 className="text-2xl font-medium">Competitor Usernames</h2>
+            </div>
+            <p className="text-muted-foreground mb-6">Add usernames of competitors in your niche (up to 15)</p>
+            
+            <div className="flex items-center mb-6">
+              <input
+                type="text"
+                value={newCompetitor}
+                onChange={(e) => setNewCompetitor(e.target.value)}
+                placeholder="Enter username"
+                className="flex-1 px-4 py-2 border border-border rounded-l-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+              />
+              <button
+                type="button"
+                onClick={handleAddCompetitor}
+                disabled={newCompetitor.trim() === '' || competitors.length >= 15}
+                className="px-4 py-2 bg-primary text-primary-foreground rounded-r-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Plus className="h-5 w-5" />
+              </button>
+            </div>
+            
+            {competitors.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {competitors.map((competitor, index) => (
+                  <div 
+                    key={index} 
+                    className="flex items-center px-3 py-1.5 bg-secondary rounded-full"
+                  >
+                    <span className="mr-2">{competitor}</span>
+                    <button 
+                      type="button"
+                      onClick={() => handleRemoveCompetitor(index)}
+                      className="p-0.5 rounded-full hover:bg-secondary-foreground/10 transition-colors"
+                    >
+                      <Trash2 className="h-3 w-3 text-muted-foreground" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+
+          <div className="pt-6 border-t border-border animate-fade-in animation-delay-400">
+            <Button 
+              type="submit" 
+              className="w-full md:w-auto"
+              disabled={!isFormComplete || isProcessing}
+            >
+              {isProcessing ? (
+                <div className="flex items-center">
+                  <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-primary-foreground mr-2"></div>
+                  Processing ({processingProgress}%)
+                </div>
+              ) : (
+                "Generate Personalized Video"
+              )}
+            </Button>
+            
+            {!isFormComplete && (
+              <p className="text-sm text-muted-foreground mt-2">
+                Please complete all sections before submitting
+              </p>
+            )}
+          </div>
+        </form>
+      </div>
+    </MainLayout>
+  );
+};
+
+export default Dashboard;
