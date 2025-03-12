@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import MainLayout from '@/components/layout/MainLayout';
@@ -586,6 +587,18 @@ const Dashboard = () => {
         throw new Error('Failed to process video request');
       }
 
+      const responseData = await response.json();
+      
+      if (responseData && typeof responseData === 'string') {
+        // If the response is a string URL
+        const videoUrl = responseData;
+        await updateResultInSupabase(videoUrl);
+      } else if (responseData && typeof responseData === 'object' && responseData.url) {
+        // If the response is an object with a url property
+        const videoUrl = responseData.url;
+        await updateResultInSupabase(videoUrl);
+      }
+
       toast({
         title: "Request sent successfully",
         description: "Your personalized video is being processed. Check the Results page for updates."
@@ -604,6 +617,68 @@ const Dashboard = () => {
       setTimeout(() => {
         setIsProcessing(false);
       }, 500);
+    }
+  };
+
+  const updateResultInSupabase = async (videoUrl: string) => {
+    if (!user) return;
+
+    try {
+      // First get the current result array
+      const { data: profileData, error: fetchError } = await supabase
+        .from('profiles')
+        .select('result')
+        .eq('id', user.id)
+        .single();
+
+      if (fetchError) {
+        console.error('Error fetching existing results:', fetchError);
+        throw fetchError;
+      }
+
+      // Prepare the new result entry
+      const newResultEntry = {
+        url: videoUrl,
+        timestamp: new Date().toISOString()
+      };
+
+      // Process the current result data
+      let currentResults = [];
+      if (profileData.result) {
+        // Handle different types of existing data
+        if (Array.isArray(profileData.result)) {
+          currentResults = profileData.result;
+        } else if (typeof profileData.result === 'string') {
+          try {
+            currentResults = JSON.parse(profileData.result);
+          } catch (e) {
+            currentResults = [];
+          }
+        }
+      }
+
+      // Add the new result to the array
+      currentResults.push(newResultEntry);
+
+      // Update the profile with the new results array
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({
+          result: currentResults
+        })
+        .eq('id', user.id);
+
+      if (updateError) {
+        console.error('Error updating results:', updateError);
+        throw updateError;
+      }
+    } catch (error) {
+      console.error('Error saving result to Supabase:', error);
+      toast({
+        title: "Storage Error",
+        description: "Your video was processed but we couldn't save it to your profile. Please check Results page later.",
+        variant: "destructive"
+      });
     }
   };
 
