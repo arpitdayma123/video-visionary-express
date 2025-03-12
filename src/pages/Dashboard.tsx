@@ -9,7 +9,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { v4 as uuidv4 } from 'uuid';
 import { Progress } from '@/components/ui/progress';
-
 type UploadedFile = {
   id: string;
   name: string;
@@ -17,39 +16,19 @@ type UploadedFile = {
   type: string;
   url: string;
 };
-
 type ResultVideo = {
   url: string;
   timestamp: string;
 };
-
-const niches = [
-  "Fashion & Style",
-  "Beauty & Makeup", 
-  "Fitness & Health",
-  "Food & Cooking",
-  "Travel & Adventure",
-  "Lifestyle",
-  "Technology",
-  "Business & Entrepreneurship",
-  "Education & Learning",
-  "Entertainment",
-  "Gaming",
-  "Art & Design",
-  "Photography",
-  "DIY & Crafts",
-  "Parenting",
-  "Music",
-  "Sports",
-  "Pets & Animals",
-  "Motivational & Inspirational",
-  "Comedy & Humor"
-];
-
+const niches = ["Fashion & Style", "Beauty & Makeup", "Fitness & Health", "Food & Cooking", "Travel & Adventure", "Lifestyle", "Technology", "Business & Entrepreneurship", "Education & Learning", "Entertainment", "Gaming", "Art & Design", "Photography", "DIY & Crafts", "Parenting", "Music", "Sports", "Pets & Animals", "Motivational & Inspirational", "Comedy & Humor"];
 const Dashboard = () => {
-  const { toast } = useToast();
+  const {
+    toast
+  } = useToast();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const {
+    user
+  } = useAuth();
   const [videos, setVideos] = useState<UploadedFile[]>([]);
   const [voiceFiles, setVoiceFiles] = useState<UploadedFile[]>([]);
   const [selectedVideo, setSelectedVideo] = useState<UploadedFile | null>(null);
@@ -62,23 +41,23 @@ const Dashboard = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingProgress, setProcessingProgress] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
-  const [uploadingVideos, setUploadingVideos] = useState<{[key: string]: number}>({});
-  const [uploadingVoices, setUploadingVoices] = useState<{[key: string]: number}>({});
-
+  const [uploadingVideos, setUploadingVideos] = useState<{
+    [key: string]: number;
+  }>({});
+  const [uploadingVoices, setUploadingVoices] = useState<{
+    [key: string]: number;
+  }>({});
   useEffect(() => {
     if (!user) {
       setIsLoading(false);
       return;
     }
-    
     const loadUserProfile = async () => {
       try {
-        const { data: profile, error } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', user.id)
-          .single();
-
+        const {
+          data: profile,
+          error
+        } = await supabase.from('profiles').select('*').eq('id', user.id).single();
         if (error) {
           console.error('Error fetching profile:', error);
           toast({
@@ -89,7 +68,6 @@ const Dashboard = () => {
           setIsLoading(false);
           return;
         }
-
         if (profile.videos && profile.videos.length > 0) {
           setVideos(profile.videos.map((video: any) => ({
             id: video.id || uuidv4(),
@@ -99,7 +77,6 @@ const Dashboard = () => {
             url: video.url
           })));
         }
-
         if (profile.voice_files && profile.voice_files.length > 0) {
           setVoiceFiles(profile.voice_files.map((file: any) => ({
             id: file.id || uuidv4(),
@@ -109,15 +86,12 @@ const Dashboard = () => {
             url: file.url
           })));
         }
-
         if (profile.selected_niches && profile.selected_niches.length > 0) {
           setSelectedNiches(profile.selected_niches);
         }
-
         if (profile.competitors && profile.competitors.length > 0) {
           setCompetitors(profile.competitors);
         }
-
         if (profile.selected_video && typeof profile.selected_video === 'object') {
           const videoData = profile.selected_video as any;
           if (videoData.id && videoData.name && videoData.url) {
@@ -130,7 +104,6 @@ const Dashboard = () => {
             });
           }
         }
-
         if (profile.selected_voice && typeof profile.selected_voice === 'object') {
           const voiceData = profile.selected_voice as any;
           if (voiceData.id && voiceData.name && voiceData.url) {
@@ -143,7 +116,6 @@ const Dashboard = () => {
             });
           }
         }
-
         setIsLoading(false);
       } catch (error) {
         console.error('Unexpected error loading profile:', error);
@@ -155,19 +127,14 @@ const Dashboard = () => {
         setIsLoading(false);
       }
     };
-
     loadUserProfile();
   }, [user, toast]);
-
   const updateProfile = async (updates: any) => {
     if (!user) return;
-
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .update(updates)
-        .eq('id', user.id);
-
+      const {
+        error
+      } = await supabase.from('profiles').update(updates).eq('id', user.id);
       if (error) throw error;
     } catch (error) {
       console.error('Error updating profile:', error);
@@ -178,7 +145,6 @@ const Dashboard = () => {
       });
     }
   };
-
   const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement> | React.DragEvent<HTMLDivElement>) => {
     if (!user) {
       toast({
@@ -188,9 +154,7 @@ const Dashboard = () => {
       });
       return;
     }
-
     let files: FileList | null = null;
-    
     if ('dataTransfer' in e) {
       e.preventDefault();
       files = e.dataTransfer.files;
@@ -198,16 +162,13 @@ const Dashboard = () => {
     } else if (e.target.files) {
       files = e.target.files;
     }
-
     if (files && files.length > 0) {
       const fileArray = Array.from(files);
-      
       const invalidFiles = fileArray.filter(file => {
         const isValidType = file.type === 'video/mp4';
         const isValidSize = file.size <= 30 * 1024 * 1024;
         return !isValidType || !isValidSize;
       });
-
       if (invalidFiles.length > 0) {
         toast({
           title: "Invalid files detected",
@@ -216,7 +177,6 @@ const Dashboard = () => {
         });
         return;
       }
-
       if (videos.length + fileArray.length > 5) {
         toast({
           title: "Too many videos",
@@ -225,29 +185,25 @@ const Dashboard = () => {
         });
         return;
       }
-
       const newVideos = [...videos];
-      const uploadingProgress = { ...uploadingVideos };
-
+      const uploadingProgress = {
+        ...uploadingVideos
+      };
       for (const file of fileArray) {
         try {
           const uploadId = uuidv4();
           uploadingProgress[uploadId] = 0;
           setUploadingVideos(uploadingProgress);
-
           const fileExt = file.name.split('.').pop();
           const fileName = `${user.id}/${uuidv4()}.${fileExt}`;
           const filePath = `videos/${fileName}`;
-
           const progressCallback = (progress: number) => {
             setUploadingVideos(current => ({
               ...current,
               [uploadId]: progress
             }));
           };
-
           progressCallback(1);
-
           const progressInterval = setInterval(() => {
             setUploadingVideos(current => {
               const currentProgress = current[uploadId] || 0;
@@ -261,21 +217,16 @@ const Dashboard = () => {
               };
             });
           }, 500);
-
-          const { data: uploadData, error: uploadError } = await supabase.storage
-            .from('creator_files')
-            .upload(filePath, file);
-
+          const {
+            data: uploadData,
+            error: uploadError
+          } = await supabase.storage.from('creator_files').upload(filePath, file);
           clearInterval(progressInterval);
-          
           if (uploadError) throw uploadError;
-
           progressCallback(100);
-
-          const { data: urlData } = supabase.storage
-            .from('creator_files')
-            .getPublicUrl(filePath);
-
+          const {
+            data: urlData
+          } = supabase.storage.from('creator_files').getPublicUrl(filePath);
           const newVideo = {
             id: uuidv4(),
             name: file.name,
@@ -283,29 +234,26 @@ const Dashboard = () => {
             type: file.type,
             url: urlData.publicUrl
           };
-
           newVideos.push(newVideo);
           setVideos(newVideos);
           setSelectedVideo(newVideo);
-
           setTimeout(() => {
             setUploadingVideos(current => {
-              const updated = { ...current };
+              const updated = {
+                ...current
+              };
               delete updated[uploadId];
               return updated;
             });
           }, 1000);
-
           toast({
             title: "Video uploaded",
             description: `Successfully uploaded ${file.name}.`
           });
-          
-          await updateProfile({ 
+          await updateProfile({
             videos: newVideos,
             selected_video: newVideo
           });
-
         } catch (error) {
           console.error('Error uploading video:', error);
           toast({
@@ -317,7 +265,6 @@ const Dashboard = () => {
       }
     }
   };
-
   const handleVoiceUpload = async (e: React.ChangeEvent<HTMLInputElement> | React.DragEvent<HTMLDivElement>) => {
     if (!user) {
       toast({
@@ -327,9 +274,7 @@ const Dashboard = () => {
       });
       return;
     }
-
     let files: FileList | null = null;
-    
     if ('dataTransfer' in e) {
       e.preventDefault();
       files = e.dataTransfer.files;
@@ -337,16 +282,13 @@ const Dashboard = () => {
     } else if (e.target.files) {
       files = e.target.files;
     }
-
     if (files && files.length > 0) {
       const fileArray = Array.from(files);
-      
       const invalidFiles = fileArray.filter(file => {
         const isValidType = file.type === 'audio/mpeg' || file.type === 'audio/wav';
         const isValidSize = file.size <= 8 * 1024 * 1024;
         return !isValidType || !isValidSize;
       });
-
       if (invalidFiles.length > 0) {
         toast({
           title: "Invalid files detected",
@@ -355,7 +297,6 @@ const Dashboard = () => {
         });
         return;
       }
-
       if (voiceFiles.length + fileArray.length > 5) {
         toast({
           title: "Too many voice files",
@@ -364,29 +305,25 @@ const Dashboard = () => {
         });
         return;
       }
-
       const newVoiceFiles = [...voiceFiles];
-      const uploadingProgress = { ...uploadingVoices };
-
+      const uploadingProgress = {
+        ...uploadingVoices
+      };
       for (const file of fileArray) {
         try {
           const uploadId = uuidv4();
           uploadingProgress[uploadId] = 0;
           setUploadingVoices(uploadingProgress);
-
           const fileExt = file.name.split('.').pop();
           const fileName = `${user.id}/${uuidv4()}.${fileExt}`;
           const filePath = `voices/${fileName}`;
-
           const progressCallback = (progress: number) => {
             setUploadingVoices(current => ({
               ...current,
               [uploadId]: progress
             }));
           };
-
           progressCallback(1);
-
           const progressInterval = setInterval(() => {
             setUploadingVoices(current => {
               const currentProgress = current[uploadId] || 0;
@@ -400,21 +337,16 @@ const Dashboard = () => {
               };
             });
           }, 500);
-
-          const { data: uploadData, error: uploadError } = await supabase.storage
-            .from('creator_files')
-            .upload(filePath, file);
-
+          const {
+            data: uploadData,
+            error: uploadError
+          } = await supabase.storage.from('creator_files').upload(filePath, file);
           clearInterval(progressInterval);
-          
           if (uploadError) throw uploadError;
-
           progressCallback(100);
-
-          const { data: urlData } = supabase.storage
-            .from('creator_files')
-            .getPublicUrl(filePath);
-
+          const {
+            data: urlData
+          } = supabase.storage.from('creator_files').getPublicUrl(filePath);
           const newVoiceFile = {
             id: uuidv4(),
             name: file.name,
@@ -422,29 +354,26 @@ const Dashboard = () => {
             type: file.type,
             url: urlData.publicUrl
           };
-
           newVoiceFiles.push(newVoiceFile);
           setVoiceFiles(newVoiceFiles);
           setSelectedVoice(newVoiceFile);
-
           setTimeout(() => {
             setUploadingVoices(current => {
-              const updated = { ...current };
+              const updated = {
+                ...current
+              };
               delete updated[uploadId];
               return updated;
             });
           }, 1000);
-
           toast({
             title: "Voice file uploaded",
             description: `Successfully uploaded ${file.name}.`
           });
-          
-          await updateProfile({ 
+          await updateProfile({
             voice_files: newVoiceFiles,
             selected_voice: newVoiceFile
           });
-
         } catch (error) {
           console.error('Error uploading voice file:', error);
           toast({
@@ -456,19 +385,18 @@ const Dashboard = () => {
       }
     }
   };
-
   const handleNicheChange = async (niche: string) => {
     try {
       let updatedNiches;
-      
       if (selectedNiches.includes(niche)) {
         updatedNiches = selectedNiches.filter(n => n !== niche);
       } else {
         updatedNiches = [...selectedNiches, niche];
       }
-      
       setSelectedNiches(updatedNiches);
-      await updateProfile({ selected_niches: updatedNiches });
+      await updateProfile({
+        selected_niches: updatedNiches
+      });
     } catch (error) {
       console.error('Error updating niches:', error);
       toast({
@@ -478,10 +406,8 @@ const Dashboard = () => {
       });
     }
   };
-
   const handleAddCompetitor = async () => {
     if (newCompetitor.trim() === '') return;
-    
     if (competitors.length >= 15) {
       toast({
         title: "Maximum competitors reached",
@@ -490,12 +416,13 @@ const Dashboard = () => {
       });
       return;
     }
-
     try {
       const updatedCompetitors = [...competitors, newCompetitor.trim()];
       setCompetitors(updatedCompetitors);
       setNewCompetitor('');
-      await updateProfile({ competitors: updatedCompetitors });
+      await updateProfile({
+        competitors: updatedCompetitors
+      });
     } catch (error) {
       console.error('Error adding competitor:', error);
       toast({
@@ -505,12 +432,13 @@ const Dashboard = () => {
       });
     }
   };
-
   const handleRemoveCompetitor = async (index: number) => {
     try {
       const updatedCompetitors = competitors.filter((_, i) => i !== index);
       setCompetitors(updatedCompetitors);
-      await updateProfile({ competitors: updatedCompetitors });
+      await updateProfile({
+        competitors: updatedCompetitors
+      });
     } catch (error) {
       console.error('Error removing competitor:', error);
       toast({
@@ -520,31 +448,28 @@ const Dashboard = () => {
       });
     }
   };
-
   const handleRemoveVideo = async (id: string) => {
     try {
       const videoToRemove = videos.find(video => video.id === id);
       if (!videoToRemove) return;
-
       if (selectedVideo && selectedVideo.id === id) {
         setSelectedVideo(null);
-        await updateProfile({ selected_video: null });
+        await updateProfile({
+          selected_video: null
+        });
       }
-
       try {
         const urlParts = videoToRemove.url.split('/');
         const filePath = urlParts.slice(urlParts.indexOf('creator_files') + 1).join('/');
-        await supabase.storage
-          .from('creator_files')
-          .remove([filePath]);
+        await supabase.storage.from('creator_files').remove([filePath]);
       } catch (storageError) {
         console.warn('Could not remove file from storage:', storageError);
       }
-
       const updatedVideos = videos.filter(video => video.id !== id);
       setVideos(updatedVideos);
-      await updateProfile({ videos: updatedVideos });
-      
+      await updateProfile({
+        videos: updatedVideos
+      });
       toast({
         title: "Video removed",
         description: "Successfully removed the video."
@@ -558,31 +483,28 @@ const Dashboard = () => {
       });
     }
   };
-
   const handleRemoveVoiceFile = async (id: string) => {
     try {
       const fileToRemove = voiceFiles.find(file => file.id === id);
       if (!fileToRemove) return;
-
       if (selectedVoice && selectedVoice.id === id) {
         setSelectedVoice(null);
-        await updateProfile({ selected_voice: null });
+        await updateProfile({
+          selected_voice: null
+        });
       }
-
       try {
         const urlParts = fileToRemove.url.split('/');
         const filePath = urlParts.slice(urlParts.indexOf('creator_files') + 1).join('/');
-        await supabase.storage
-          .from('creator_files')
-          .remove([filePath]);
+        await supabase.storage.from('creator_files').remove([filePath]);
       } catch (storageError) {
         console.warn('Could not remove file from storage:', storageError);
       }
-
       const updatedVoiceFiles = voiceFiles.filter(file => file.id !== id);
       setVoiceFiles(updatedVoiceFiles);
-      await updateProfile({ voice_files: updatedVoiceFiles });
-      
+      await updateProfile({
+        voice_files: updatedVoiceFiles
+      });
       toast({
         title: "Voice file removed",
         description: "Successfully removed the voice file."
@@ -596,12 +518,12 @@ const Dashboard = () => {
       });
     }
   };
-
   const handleSelectVideo = async (video: UploadedFile) => {
     try {
       setSelectedVideo(video);
-      await updateProfile({ selected_video: video });
-      
+      await updateProfile({
+        selected_video: video
+      });
       toast({
         title: "Target Video Selected",
         description: `"${video.name}" is now your target video.`
@@ -615,12 +537,12 @@ const Dashboard = () => {
       });
     }
   };
-
   const handleSelectVoice = async (voice: UploadedFile) => {
     try {
       setSelectedVoice(voice);
-      await updateProfile({ selected_voice: voice });
-      
+      await updateProfile({
+        selected_voice: voice
+      });
       toast({
         title: "Target Voice Selected",
         description: `"${voice.name}" is now your target voice.`
@@ -634,10 +556,8 @@ const Dashboard = () => {
       });
     }
   };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
     if (videos.length === 0 || voiceFiles.length === 0 || selectedNiches.length === 0 || competitors.length === 0 || !selectedVideo || !selectedVoice) {
       toast({
         title: "Incomplete form",
@@ -646,9 +566,7 @@ const Dashboard = () => {
       });
       return;
     }
-
     setIsProcessing(true);
-    
     const interval = setInterval(() => {
       setProcessingProgress(prev => {
         if (prev >= 100) {
@@ -658,52 +576,40 @@ const Dashboard = () => {
         return prev + 10;
       });
     }, 800);
-
     try {
       if (!user) {
         throw new Error('User not authenticated');
       }
-
       const params = new URLSearchParams({
         userId: user.id
       });
-
       const response = await fetch(`https://primary-production-ce25.up.railway.app/webhook-test/trendy?${params.toString()}`, {
         method: 'GET',
         headers: {
-          'Accept': 'application/json',
-        },
+          'Accept': 'application/json'
+        }
       });
-
       if (!response.ok) {
         throw new Error('Failed to process video request');
       }
-
       const responseData = await response.json();
-      
       if (Array.isArray(responseData) && responseData.length > 0 && responseData[0].resultvideo) {
         const videoUrl = responseData[0].resultvideo;
         await downloadAndUploadVideo(videoUrl);
-      } 
-      else if (responseData && typeof responseData === 'string') {
+      } else if (responseData && typeof responseData === 'string') {
         await downloadAndUploadVideo(responseData);
-      } 
-      else if (responseData && typeof responseData === 'object' && responseData.url) {
+      } else if (responseData && typeof responseData === 'object' && responseData.url) {
         await downloadAndUploadVideo(responseData.url);
-      }
-      else if (responseData && responseData.resultvideo) {
+      } else if (responseData && responseData.resultvideo) {
         await downloadAndUploadVideo(responseData.resultvideo);
-      }
-      else {
+      } else {
         console.error('Unexpected response format:', responseData);
         throw new Error('Unexpected response format from API');
       }
-
       toast({
         title: "Request sent successfully",
         description: "Your personalized video is being processed. Check the Results page for updates."
       });
-      
     } catch (error) {
       console.error('Error processing video:', error);
       toast({
@@ -719,44 +625,33 @@ const Dashboard = () => {
       }, 500);
     }
   };
-
   const downloadAndUploadVideo = async (sourceUrl: string) => {
     if (!user) return;
-
     try {
       console.log('Downloading video from:', sourceUrl);
-      
       const videoResponse = await fetch(sourceUrl);
       if (!videoResponse.ok) {
         throw new Error(`Failed to download video: ${videoResponse.statusText}`);
       }
-      
       const videoBlob = await videoResponse.blob();
-      
       const fileExt = sourceUrl.split('.').pop() || 'mp4';
       const fileName = `${user.id}/${uuidv4()}.${fileExt}`;
       const filePath = `videos/${fileName}`;
-      
       console.log('Uploading video to Supabase storage:', filePath);
-
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('creator_files')
-        .upload(filePath, videoBlob);
-
+      const {
+        data: uploadData,
+        error: uploadError
+      } = await supabase.storage.from('creator_files').upload(filePath, videoBlob);
       if (uploadError) {
         console.error('Error uploading to storage:', uploadError);
         throw uploadError;
       }
-
-      const { data: urlData } = supabase.storage
-        .from('creator_files')
-        .getPublicUrl(filePath);
-
+      const {
+        data: urlData
+      } = supabase.storage.from('creator_files').getPublicUrl(filePath);
       const newVideoUrl = urlData.publicUrl;
       console.log('Video uploaded successfully, new URL:', newVideoUrl);
-      
       await updateResultInSupabase(newVideoUrl);
-      
     } catch (error) {
       console.error('Error in download and upload process:', error);
       toast({
@@ -766,27 +661,21 @@ const Dashboard = () => {
       });
     }
   };
-
   const updateResultInSupabase = async (videoUrl: string) => {
     if (!user) return;
-
     try {
-      const { data: profileData, error: fetchError } = await supabase
-        .from('profiles')
-        .select('result')
-        .eq('id', user.id)
-        .single();
-
+      const {
+        data: profileData,
+        error: fetchError
+      } = await supabase.from('profiles').select('result').eq('id', user.id).single();
       if (fetchError) {
         console.error('Error fetching existing results:', fetchError);
         throw fetchError;
       }
-
       const newResultEntry = {
         url: videoUrl,
         timestamp: new Date().toISOString()
       };
-
       let currentResults = [];
       if (profileData.result) {
         if (Array.isArray(profileData.result)) {
@@ -799,21 +688,16 @@ const Dashboard = () => {
           }
         }
       }
-
       currentResults.push(newResultEntry);
-
-      const { error: updateError } = await supabase
-        .from('profiles')
-        .update({
-          result: currentResults
-        })
-        .eq('id', user.id);
-
+      const {
+        error: updateError
+      } = await supabase.from('profiles').update({
+        result: currentResults
+      }).eq('id', user.id);
       if (updateError) {
         console.error('Error updating results:', updateError);
         throw updateError;
       }
-      
       console.log('Results updated successfully in Supabase');
     } catch (error) {
       console.error('Error saving result to Supabase:', error);
@@ -824,29 +708,18 @@ const Dashboard = () => {
       });
     }
   };
-
-  const isFormComplete = videos.length > 0 && voiceFiles.length > 0 && selectedNiches.length > 0 && 
-                         competitors.length > 0 && selectedVideo !== null && selectedVoice !== null;
-
+  const isFormComplete = videos.length > 0 && voiceFiles.length > 0 && selectedNiches.length > 0 && competitors.length > 0 && selectedVideo !== null && selectedVoice !== null;
   if (isLoading) {
-    return (
-      <MainLayout title="Creator Dashboard" subtitle="Loading your content...">
+    return <MainLayout title="Creator Dashboard" subtitle="Loading your content...">
         <div className="min-h-[60vh] flex items-center justify-center">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
         </div>
-      </MainLayout>
-    );
+      </MainLayout>;
   }
-
-  return (
-    <MainLayout title="Creator Dashboard" subtitle="Upload your content and create personalized videos">
+  return <MainLayout title="Creator Dashboard" subtitle="Upload your content and create personalized videos">
       <div className="section-container py-12">
         <div className="flex justify-end mb-6">
-          <Button 
-            onClick={() => navigate('/results')}
-            variant="outline"
-            className="gap-2"
-          >
+          <Button onClick={() => navigate('/results')} variant="outline" className="gap-2">
             <ExternalLink className="h-4 w-4" />
             View Results
           </Button>
@@ -860,59 +733,38 @@ const Dashboard = () => {
             </div>
             <p className="text-muted-foreground mb-6">Upload up to 5 MP4 videos (max 30MB each) and select one as your target video</p>
             
-            <div 
-              className={`file-drop-area p-8 ${isDraggingVideo ? 'active' : ''}`}
-              onDragOver={(e) => {
-                e.preventDefault();
-                setIsDraggingVideo(true);
-              }}
-              onDragLeave={() => setIsDraggingVideo(false)}
-              onDrop={handleVideoUpload}
-            >
+            <div className={`file-drop-area p-8 ${isDraggingVideo ? 'active' : ''}`} onDragOver={e => {
+            e.preventDefault();
+            setIsDraggingVideo(true);
+          }} onDragLeave={() => setIsDraggingVideo(false)} onDrop={handleVideoUpload}>
               <div className="flex flex-col items-center justify-center text-center">
                 <Upload className="h-12 w-12 text-muted-foreground mb-4" />
                 <h3 className="text-lg font-medium mb-2">Drag and drop your videos here</h3>
                 <p className="text-muted-foreground mb-4">Or click to browse files</p>
                 <label className="button-hover-effect px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors cursor-pointer">
-                  <input 
-                    type="file" 
-                    accept="video/mp4" 
-                    multiple 
-                    className="hidden" 
-                    onChange={handleVideoUpload}
-                  />
+                  <input type="file" accept="video/mp4" multiple className="hidden" onChange={handleVideoUpload} />
                   Select Videos
                 </label>
               </div>
             </div>
 
-            {Object.keys(uploadingVideos).length > 0 && (
-              <div className="mt-4 space-y-3">
+            {Object.keys(uploadingVideos).length > 0 && <div className="mt-4 space-y-3">
                 <h4 className="text-sm font-medium">Uploading videos...</h4>
-                {Object.keys(uploadingVideos).map((id) => (
-                  <div key={id} className="space-y-1">
+                {Object.keys(uploadingVideos).map(id => <div key={id} className="space-y-1">
                     <div className="flex justify-between text-xs text-muted-foreground">
                       <span>Uploading</span>
                       <span>{uploadingVideos[id]}%</span>
                     </div>
                     <Progress value={uploadingVideos[id]} className="h-2" />
-                  </div>
-                ))}
-              </div>
-            )}
+                  </div>)}
+              </div>}
 
-            {videos.length > 0 && (
-              <div className="mt-6">
+            {videos.length > 0 && <div className="mt-6">
                 <h3 className="text-lg font-medium mb-4">Uploaded Videos ({videos.length}/5)</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                  {videos.map(video => (
-                    <Card key={video.id} className={`p-4 animate-zoom-in ${selectedVideo?.id === video.id ? 'ring-2 ring-primary' : ''}`}>
+                  {videos.map(video => <Card key={video.id} className={`p-4 animate-zoom-in ${selectedVideo?.id === video.id ? 'ring-2 ring-primary' : ''}`}>
                       <div className="aspect-video mb-3 bg-secondary rounded-md overflow-hidden relative">
-                        <video 
-                          src={video.url} 
-                          className="w-full h-full object-contain" 
-                          controls 
-                        />
+                        <video src={video.url} className="w-full h-full object-contain" controls />
                       </div>
                       <div className="flex justify-between items-center">
                         <div className="truncate mr-2">
@@ -922,36 +774,20 @@ const Dashboard = () => {
                           </p>
                         </div>
                         <div className="flex">
-                          <button 
-                            type="button"
-                            onClick={() => handleSelectVideo(video)}
-                            className={`p-1.5 rounded-full mr-1 transition-colors ${
-                              selectedVideo?.id === video.id 
-                                ? 'bg-primary text-primary-foreground' 
-                                : 'hover:bg-secondary-foreground/10'
-                            }`}
-                            title="Select as target video"
-                          >
+                          <button type="button" onClick={() => handleSelectVideo(video)} className={`p-1.5 rounded-full mr-1 transition-colors ${selectedVideo?.id === video.id ? 'bg-primary text-primary-foreground' : 'hover:bg-secondary-foreground/10'}`} title="Select as target video">
                             <Check className={`h-4 w-4 ${selectedVideo?.id === video.id ? 'text-white' : 'text-muted-foreground'}`} />
                           </button>
-                          <button 
-                            type="button"
-                            onClick={() => handleRemoveVideo(video.id)}
-                            className="p-1.5 rounded-full hover:bg-secondary-foreground/10 transition-colors"
-                          >
+                          <button type="button" onClick={() => handleRemoveVideo(video.id)} className="p-1.5 rounded-full hover:bg-secondary-foreground/10 transition-colors">
                             <Trash2 className="h-4 w-4 text-muted-foreground" />
                           </button>
                         </div>
                       </div>
-                    </Card>
-                  ))}
+                    </Card>)}
                 </div>
-              </div>
-            )}
+              </div>}
 
-            {selectedVideo && (
-              <div className="mt-6 p-4 bg-secondary/30 rounded-lg">
-                <h3 className="text-lg font-medium mb-2">Target Video Selected</h3>
+            {selectedVideo && <div className="mt-6 p-4 bg-secondary/30 rounded-lg">
+                <h3 className="text-lg font-medium mb-2">Video you have Selected</h3>
                 <div className="flex items-center">
                   <div className="w-20 h-20 mr-4 bg-secondary rounded-md overflow-hidden flex justify-center items-center">
                     <video src={selectedVideo.url} className="h-full w-auto max-w-full object-contain" />
@@ -961,17 +797,12 @@ const Dashboard = () => {
                     <p className="text-sm text-muted-foreground">
                       {(selectedVideo.size / (1024 * 1024)).toFixed(2)} MB
                     </p>
-                    <a 
-                      href={selectedVideo.url} 
-                      download={selectedVideo.name}
-                      className="text-sm text-primary hover:underline mt-1 inline-block"
-                    >
+                    <a href={selectedVideo.url} download={selectedVideo.name} className="text-sm text-primary hover:underline mt-1 inline-block">
                       Download
                     </a>
                   </div>
                 </div>
-              </div>
-            )}
+              </div>}
           </section>
 
           <section className="animate-fade-in animation-delay-100">
@@ -981,53 +812,36 @@ const Dashboard = () => {
             </div>
             <p className="text-muted-foreground mb-6">Upload up to 5 MP3 or WAV files (max 8MB each) and select one as your target voice</p>
             
-            <div 
-              className={`file-drop-area p-8 ${isDraggingVoice ? 'active' : ''}`}
-              onDragOver={(e) => {
-                e.preventDefault();
-                setIsDraggingVoice(true);
-              }}
-              onDragLeave={() => setIsDraggingVoice(false)}
-              onDrop={handleVoiceUpload}
-            >
+            <div className={`file-drop-area p-8 ${isDraggingVoice ? 'active' : ''}`} onDragOver={e => {
+            e.preventDefault();
+            setIsDraggingVoice(true);
+          }} onDragLeave={() => setIsDraggingVoice(false)} onDrop={handleVoiceUpload}>
               <div className="flex flex-col items-center justify-center text-center">
                 <Upload className="h-12 w-12 text-muted-foreground mb-4" />
                 <h3 className="text-lg font-medium mb-2">Drag and drop your voice files here</h3>
                 <p className="text-muted-foreground mb-4">Or click to browse files</p>
                 <label className="button-hover-effect px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors cursor-pointer">
-                  <input 
-                    type="file" 
-                    accept="audio/mpeg,audio/wav" 
-                    multiple 
-                    className="hidden" 
-                    onChange={handleVoiceUpload}
-                  />
+                  <input type="file" accept="audio/mpeg,audio/wav" multiple className="hidden" onChange={handleVoiceUpload} />
                   Select Voice Files
                 </label>
               </div>
             </div>
 
-            {Object.keys(uploadingVoices).length > 0 && (
-              <div className="mt-4 space-y-3">
+            {Object.keys(uploadingVoices).length > 0 && <div className="mt-4 space-y-3">
                 <h4 className="text-sm font-medium">Uploading voice files...</h4>
-                {Object.keys(uploadingVoices).map((id) => (
-                  <div key={id} className="space-y-1">
+                {Object.keys(uploadingVoices).map(id => <div key={id} className="space-y-1">
                     <div className="flex justify-between text-xs text-muted-foreground">
                       <span>Uploading</span>
                       <span>{uploadingVoices[id]}%</span>
                     </div>
                     <Progress value={uploadingVoices[id]} className="h-2" />
-                  </div>
-                ))}
-              </div>
-            )}
+                  </div>)}
+              </div>}
 
-            {voiceFiles.length > 0 && (
-              <div className="mt-6">
+            {voiceFiles.length > 0 && <div className="mt-6">
                 <h3 className="text-lg font-medium mb-4">Uploaded Voice Files ({voiceFiles.length}/5)</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                  {voiceFiles.map(file => (
-                    <Card key={file.id} className={`p-4 animate-zoom-in ${selectedVoice?.id === file.id ? 'ring-2 ring-primary' : ''}`}>
+                  {voiceFiles.map(file => <Card key={file.id} className={`p-4 animate-zoom-in ${selectedVoice?.id === file.id ? 'ring-2 ring-primary' : ''}`}>
                       <div className="bg-secondary rounded-md p-4 mb-3 flex justify-center items-center">
                         <audio src={file.url} className="w-full" controls />
                       </div>
@@ -1039,36 +853,20 @@ const Dashboard = () => {
                           </p>
                         </div>
                         <div className="flex">
-                          <button 
-                            type="button"
-                            onClick={() => handleSelectVoice(file)}
-                            className={`p-1.5 rounded-full mr-1 transition-colors ${
-                              selectedVoice?.id === file.id 
-                                ? 'bg-primary text-primary-foreground' 
-                                : 'hover:bg-secondary-foreground/10'
-                            }`}
-                            title="Select as target voice"
-                          >
+                          <button type="button" onClick={() => handleSelectVoice(file)} className={`p-1.5 rounded-full mr-1 transition-colors ${selectedVoice?.id === file.id ? 'bg-primary text-primary-foreground' : 'hover:bg-secondary-foreground/10'}`} title="Select as target voice">
                             <Check className={`h-4 w-4 ${selectedVoice?.id === file.id ? 'text-white' : 'text-muted-foreground'}`} />
                           </button>
-                          <button 
-                            type="button"
-                            onClick={() => handleRemoveVoiceFile(file.id)}
-                            className="p-1.5 rounded-full hover:bg-secondary-foreground/10 transition-colors"
-                          >
+                          <button type="button" onClick={() => handleRemoveVoiceFile(file.id)} className="p-1.5 rounded-full hover:bg-secondary-foreground/10 transition-colors">
                             <Trash2 className="h-4 w-4 text-muted-foreground" />
                           </button>
                         </div>
                       </div>
-                    </Card>
-                  ))}
+                    </Card>)}
                 </div>
-              </div>
-            )}
+              </div>}
 
-            {selectedVoice && (
-              <div className="mt-6 p-4 bg-secondary/30 rounded-lg">
-                <h3 className="text-lg font-medium mb-2">Target Voice Selected</h3>
+            {selectedVoice && <div className="mt-6 p-4 bg-secondary/30 rounded-lg">
+                <h3 className="text-lg font-medium mb-2">Voice you have Selected</h3>
                 <div className="flex items-center">
                   <div className="w-20 h-20 mr-4 bg-secondary rounded-md overflow-hidden flex items-center justify-center">
                     <Mic className="h-10 w-10 text-muted-foreground" />
@@ -1078,17 +876,12 @@ const Dashboard = () => {
                     <p className="text-sm text-muted-foreground">
                       {(selectedVoice.size / (1024 * 1024)).toFixed(2)} MB
                     </p>
-                    <a 
-                      href={selectedVoice.url} 
-                      download={selectedVoice.name}
-                      className="text-sm text-primary hover:underline mt-1 inline-block"
-                    >
+                    <a href={selectedVoice.url} download={selectedVoice.name} className="text-sm text-primary hover:underline mt-1 inline-block">
                       Download
                     </a>
                   </div>
                 </div>
-              </div>
-            )}
+              </div>}
           </section>
 
           <section className="animate-fade-in animation-delay-200">
@@ -1099,20 +892,9 @@ const Dashboard = () => {
             <p className="text-muted-foreground mb-6">Select the niches you want to target with your content</p>
             
             <div className="flex flex-wrap gap-3">
-              {niches.map(niche => (
-                <button
-                  key={niche}
-                  type="button"
-                  onClick={() => handleNicheChange(niche)}
-                  className={`px-4 py-2 rounded-full border transition-colors ${
-                    selectedNiches.includes(niche)
-                      ? 'bg-primary text-primary-foreground border-primary'
-                      : 'bg-transparent border-border hover:border-primary'
-                  }`}
-                >
+              {niches.map(niche => <button key={niche} type="button" onClick={() => handleNicheChange(niche)} className={`px-4 py-2 rounded-full border transition-colors ${selectedNiches.includes(niche) ? 'bg-primary text-primary-foreground border-primary' : 'bg-transparent border-border hover:border-primary'}`}>
                   {niche}
-                </button>
-              ))}
+                </button>)}
             </div>
           </section>
 
@@ -1124,70 +906,36 @@ const Dashboard = () => {
             <p className="text-muted-foreground mb-6">Add usernames of competitors in your niche (up to 15)</p>
             
             <div className="flex items-center mb-6">
-              <input
-                type="text"
-                value={newCompetitor}
-                onChange={(e) => setNewCompetitor(e.target.value)}
-                placeholder="Enter username"
-                className="flex-1 px-4 py-2 border border-border rounded-l-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-              />
-              <button
-                type="button"
-                onClick={handleAddCompetitor}
-                disabled={newCompetitor.trim() === '' || competitors.length >= 15}
-                className="px-4 py-2 bg-primary text-primary-foreground rounded-r-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
+              <input type="text" value={newCompetitor} onChange={e => setNewCompetitor(e.target.value)} placeholder="Enter username" className="flex-1 px-4 py-2 border border-border rounded-l-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent" />
+              <button type="button" onClick={handleAddCompetitor} disabled={newCompetitor.trim() === '' || competitors.length >= 15} className="px-4 py-2 bg-primary text-primary-foreground rounded-r-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed">
                 <Plus className="h-5 w-5" />
               </button>
             </div>
             
-            {competitors.length > 0 && (
-              <div className="flex flex-wrap gap-2">
-                {competitors.map((competitor, index) => (
-                  <div 
-                    key={index} 
-                    className="flex items-center px-3 py-1.5 bg-secondary rounded-full"
-                  >
+            {competitors.length > 0 && <div className="flex flex-wrap gap-2">
+                {competitors.map((competitor, index) => <div key={index} className="flex items-center px-3 py-1.5 bg-secondary rounded-full">
                     <span className="mr-2">{competitor}</span>
-                    <button 
-                      type="button"
-                      onClick={() => handleRemoveCompetitor(index)}
-                      className="p-0.5 rounded-full hover:bg-secondary-foreground/10 transition-colors"
-                    >
+                    <button type="button" onClick={() => handleRemoveCompetitor(index)} className="p-0.5 rounded-full hover:bg-secondary-foreground/10 transition-colors">
                       <Trash2 className="h-3 w-3 text-muted-foreground" />
                     </button>
-                  </div>
-                ))}
-              </div>
-            )}
+                  </div>)}
+              </div>}
           </section>
 
           <div className="pt-6 border-t border-border animate-fade-in animation-delay-400">
-            <Button 
-              type="submit" 
-              className="w-full md:w-auto"
-              disabled={!isFormComplete || isProcessing}
-            >
-              {isProcessing ? (
-                <div className="flex items-center">
+            <Button type="submit" className="w-full md:w-auto" disabled={!isFormComplete || isProcessing}>
+              {isProcessing ? <div className="flex items-center">
                   <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-primary-foreground mr-2"></div>
                   Processing ({processingProgress}%)
-                </div>
-              ) : (
-                "Generate Personalized Video"
-              )}
+                </div> : "Generate Personalized Video"}
             </Button>
             
-            {!isFormComplete && (
-              <p className="text-sm text-muted-foreground mt-2">
+            {!isFormComplete && <p className="text-sm text-muted-foreground mt-2">
                 Please complete all sections before submitting
-              </p>
-            )}
+              </p>}
           </div>
         </form>
       </div>
-    </MainLayout>
-  );
+    </MainLayout>;
 };
-
 export default Dashboard;
