@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import MainLayout from '@/components/layout/MainLayout';
@@ -9,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { v4 as uuidv4 } from 'uuid';
+import { Progress } from '@/components/ui/progress';
 
 type UploadedFile = {
   id: string;
@@ -62,6 +62,8 @@ const Dashboard = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingProgress, setProcessingProgress] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  const [uploadingVideos, setUploadingVideos] = useState<{[key: string]: number}>({});
+  const [uploadingVoices, setUploadingVoices] = useState<{[key: string]: number}>({});
 
   useEffect(() => {
     if (!user) {
@@ -225,18 +227,50 @@ const Dashboard = () => {
       }
 
       const newVideos = [...videos];
+      const uploadingProgress = { ...uploadingVideos };
 
       for (const file of fileArray) {
         try {
+          const uploadId = uuidv4();
+          uploadingProgress[uploadId] = 0;
+          setUploadingVideos(uploadingProgress);
+
           const fileExt = file.name.split('.').pop();
           const fileName = `${user.id}/${uuidv4()}.${fileExt}`;
           const filePath = `videos/${fileName}`;
+
+          const progressCallback = (progress: number) => {
+            setUploadingVideos(current => ({
+              ...current,
+              [uploadId]: progress
+            }));
+          };
+
+          progressCallback(1);
+
+          const progressInterval = setInterval(() => {
+            setUploadingVideos(current => {
+              const currentProgress = current[uploadId] || 0;
+              if (currentProgress >= 90) {
+                clearInterval(progressInterval);
+                return current;
+              }
+              return {
+                ...current,
+                [uploadId]: Math.min(90, currentProgress + 10)
+              };
+            });
+          }, 500);
 
           const { data: uploadData, error: uploadError } = await supabase.storage
             .from('creator_files')
             .upload(filePath, file);
 
+          clearInterval(progressInterval);
+          
           if (uploadError) throw uploadError;
+
+          progressCallback(100);
 
           const { data: urlData } = supabase.storage
             .from('creator_files')
@@ -251,11 +285,27 @@ const Dashboard = () => {
           };
 
           newVideos.push(newVideo);
+          setVideos(newVideos);
+          setSelectedVideo(newVideo);
+
+          setTimeout(() => {
+            setUploadingVideos(current => {
+              const updated = { ...current };
+              delete updated[uploadId];
+              return updated;
+            });
+          }, 1000);
 
           toast({
             title: "Video uploaded",
             description: `Successfully uploaded ${file.name}.`
           });
+          
+          await updateProfile({ 
+            videos: newVideos,
+            selected_video: newVideo
+          });
+
         } catch (error) {
           console.error('Error uploading video:', error);
           toast({
@@ -265,9 +315,6 @@ const Dashboard = () => {
           });
         }
       }
-
-      setVideos(newVideos);
-      await updateProfile({ videos: newVideos });
     }
   };
 
@@ -319,18 +366,50 @@ const Dashboard = () => {
       }
 
       const newVoiceFiles = [...voiceFiles];
+      const uploadingProgress = { ...uploadingVoices };
 
       for (const file of fileArray) {
         try {
+          const uploadId = uuidv4();
+          uploadingProgress[uploadId] = 0;
+          setUploadingVoices(uploadingProgress);
+
           const fileExt = file.name.split('.').pop();
           const fileName = `${user.id}/${uuidv4()}.${fileExt}`;
           const filePath = `voices/${fileName}`;
+
+          const progressCallback = (progress: number) => {
+            setUploadingVoices(current => ({
+              ...current,
+              [uploadId]: progress
+            }));
+          };
+
+          progressCallback(1);
+
+          const progressInterval = setInterval(() => {
+            setUploadingVoices(current => {
+              const currentProgress = current[uploadId] || 0;
+              if (currentProgress >= 90) {
+                clearInterval(progressInterval);
+                return current;
+              }
+              return {
+                ...current,
+                [uploadId]: Math.min(90, currentProgress + 10)
+              };
+            });
+          }, 500);
 
           const { data: uploadData, error: uploadError } = await supabase.storage
             .from('creator_files')
             .upload(filePath, file);
 
+          clearInterval(progressInterval);
+          
           if (uploadError) throw uploadError;
+
+          progressCallback(100);
 
           const { data: urlData } = supabase.storage
             .from('creator_files')
@@ -345,11 +424,27 @@ const Dashboard = () => {
           };
 
           newVoiceFiles.push(newVoiceFile);
+          setVoiceFiles(newVoiceFiles);
+          setSelectedVoice(newVoiceFile);
+
+          setTimeout(() => {
+            setUploadingVoices(current => {
+              const updated = { ...current };
+              delete updated[uploadId];
+              return updated;
+            });
+          }, 1000);
 
           toast({
             title: "Voice file uploaded",
             description: `Successfully uploaded ${file.name}.`
           });
+          
+          await updateProfile({ 
+            voice_files: newVoiceFiles,
+            selected_voice: newVoiceFile
+          });
+
         } catch (error) {
           console.error('Error uploading voice file:', error);
           toast({
@@ -359,9 +454,6 @@ const Dashboard = () => {
           });
         }
       }
-
-      setVoiceFiles(newVoiceFiles);
-      await updateProfile({ voice_files: newVoiceFiles });
     }
   };
 
@@ -589,19 +681,16 @@ const Dashboard = () => {
 
       const responseData = await response.json();
       
-      // Handle the specific array format with resultvideo field
       if (Array.isArray(responseData) && responseData.length > 0 && responseData[0].resultvideo) {
         const videoUrl = responseData[0].resultvideo;
         await downloadAndUploadVideo(videoUrl);
       } 
-      // Also handle other formats for backward compatibility
       else if (responseData && typeof responseData === 'string') {
         await downloadAndUploadVideo(responseData);
       } 
       else if (responseData && typeof responseData === 'object' && responseData.url) {
         await downloadAndUploadVideo(responseData.url);
       }
-      // Handle any other format that might directly include resultvideo
       else if (responseData && responseData.resultvideo) {
         await downloadAndUploadVideo(responseData.resultvideo);
       }
@@ -637,23 +726,19 @@ const Dashboard = () => {
     try {
       console.log('Downloading video from:', sourceUrl);
       
-      // Download the video
       const videoResponse = await fetch(sourceUrl);
       if (!videoResponse.ok) {
         throw new Error(`Failed to download video: ${videoResponse.statusText}`);
       }
       
-      // Get the video as a blob
       const videoBlob = await videoResponse.blob();
       
-      // Generate a unique filename
       const fileExt = sourceUrl.split('.').pop() || 'mp4';
       const fileName = `${user.id}/${uuidv4()}.${fileExt}`;
       const filePath = `videos/${fileName}`;
       
       console.log('Uploading video to Supabase storage:', filePath);
 
-      // Upload the video to Supabase storage
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('creator_files')
         .upload(filePath, videoBlob);
@@ -663,7 +748,6 @@ const Dashboard = () => {
         throw uploadError;
       }
 
-      // Get the public URL of the uploaded video
       const { data: urlData } = supabase.storage
         .from('creator_files')
         .getPublicUrl(filePath);
@@ -671,7 +755,6 @@ const Dashboard = () => {
       const newVideoUrl = urlData.publicUrl;
       console.log('Video uploaded successfully, new URL:', newVideoUrl);
       
-      // Update the result in Supabase profiles table
       await updateResultInSupabase(newVideoUrl);
       
     } catch (error) {
@@ -688,7 +771,6 @@ const Dashboard = () => {
     if (!user) return;
 
     try {
-      // First get the current result array
       const { data: profileData, error: fetchError } = await supabase
         .from('profiles')
         .select('result')
@@ -700,16 +782,13 @@ const Dashboard = () => {
         throw fetchError;
       }
 
-      // Prepare the new result entry
       const newResultEntry = {
         url: videoUrl,
         timestamp: new Date().toISOString()
       };
 
-      // Process the current result data
       let currentResults = [];
       if (profileData.result) {
-        // Handle different types of existing data
         if (Array.isArray(profileData.result)) {
           currentResults = profileData.result;
         } else if (typeof profileData.result === 'string') {
@@ -721,10 +800,8 @@ const Dashboard = () => {
         }
       }
 
-      // Add the new result to the array
       currentResults.push(newResultEntry);
 
-      // Update the profile with the new results array
       const { error: updateError } = await supabase
         .from('profiles')
         .update({
@@ -809,14 +886,33 @@ const Dashboard = () => {
               </div>
             </div>
 
+            {Object.keys(uploadingVideos).length > 0 && (
+              <div className="mt-4 space-y-3">
+                <h4 className="text-sm font-medium">Uploading videos...</h4>
+                {Object.keys(uploadingVideos).map((id) => (
+                  <div key={id} className="space-y-1">
+                    <div className="flex justify-between text-xs text-muted-foreground">
+                      <span>Uploading</span>
+                      <span>{uploadingVideos[id]}%</span>
+                    </div>
+                    <Progress value={uploadingVideos[id]} className="h-2" />
+                  </div>
+                ))}
+              </div>
+            )}
+
             {videos.length > 0 && (
               <div className="mt-6">
                 <h3 className="text-lg font-medium mb-4">Uploaded Videos ({videos.length}/5)</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                   {videos.map(video => (
                     <Card key={video.id} className={`p-4 animate-zoom-in ${selectedVideo?.id === video.id ? 'ring-2 ring-primary' : ''}`}>
-                      <div className="aspect-video mb-3 bg-secondary rounded-md overflow-hidden">
-                        <video src={video.url} className="w-full h-full object-cover" controls />
+                      <div className="aspect-video mb-3 bg-secondary rounded-md overflow-hidden relative">
+                        <video 
+                          src={video.url} 
+                          className="w-full h-full object-contain" 
+                          controls 
+                        />
                       </div>
                       <div className="flex justify-between items-center">
                         <div className="truncate mr-2">
@@ -857,8 +953,8 @@ const Dashboard = () => {
               <div className="mt-6 p-4 bg-secondary/30 rounded-lg">
                 <h3 className="text-lg font-medium mb-2">Target Video Selected</h3>
                 <div className="flex items-center">
-                  <div className="w-20 h-20 mr-4 bg-secondary rounded-md overflow-hidden">
-                    <video src={selectedVideo.url} className="w-full h-full object-cover" />
+                  <div className="w-20 h-20 mr-4 bg-secondary rounded-md overflow-hidden flex justify-center items-center">
+                    <video src={selectedVideo.url} className="h-full w-auto max-w-full object-contain" />
                   </div>
                   <div>
                     <p className="font-medium">{selectedVideo.name}</p>
@@ -910,6 +1006,21 @@ const Dashboard = () => {
                 </label>
               </div>
             </div>
+
+            {Object.keys(uploadingVoices).length > 0 && (
+              <div className="mt-4 space-y-3">
+                <h4 className="text-sm font-medium">Uploading voice files...</h4>
+                {Object.keys(uploadingVoices).map((id) => (
+                  <div key={id} className="space-y-1">
+                    <div className="flex justify-between text-xs text-muted-foreground">
+                      <span>Uploading</span>
+                      <span>{uploadingVoices[id]}%</span>
+                    </div>
+                    <Progress value={uploadingVoices[id]} className="h-2" />
+                  </div>
+                ))}
+              </div>
+            )}
 
             {voiceFiles.length > 0 && (
               <div className="mt-6">
