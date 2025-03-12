@@ -994,93 +994,6 @@ const Dashboard = () => {
             </div>
           </section>
 
-          {resultVideoUrl && (
-            <section className="animate-fade-in">
-              <div className="flex items-center mb-4">
-                <Video className="mr-2 h-5 w-5 text-primary" />
-                <h2 className="text-2xl font-medium">Your Personalized Video</h2>
-              </div>
-              <p className="text-muted-foreground mb-6">Your personalized video is ready to download and share</p>
-              
-              <div className="bg-card border border-border rounded-xl overflow-hidden">
-                <div className="aspect-video w-full">
-                  <video src={resultVideoUrl} className="w-full h-full object-cover" controls autoPlay />
-                </div>
-                <div className="p-4">
-                  <h3 className="text-lg font-medium mb-2">Personalized Content</h3>
-                  <p className="text-muted-foreground mb-4">
-                    This video has been optimized based on your uploads and selected parameters.
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    <a 
-                      href={resultVideoUrl} 
-                      download="personalized-video.mp4"
-                      className="button-hover-effect px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
-                    >
-                      Download Video
-                    </a>
-                    <button
-                      type="button"
-                      className="px-4 py-2 rounded-lg border border-input hover:bg-secondary transition-colors"
-                      onClick={() => {
-                        navigator.clipboard.writeText(resultVideoUrl);
-                        toast({
-                          title: "Link copied",
-                          description: "Video link copied to clipboard",
-                        });
-                      }}
-                    >
-                      Copy Link
-                    </button>
-                  </div>
-                </div>
-              </div>
-              
-              {resultVideos.length > 1 && (
-                <div className="mt-6">
-                  <h3 className="text-lg font-medium mb-3">Previous Generated Videos</h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                    {resultVideos.slice(0, -1).reverse().map((result, index) => (
-                      <Card key={index} className="p-4 animate-zoom-in">
-                        <div className="aspect-video mb-3 bg-secondary rounded-md overflow-hidden">
-                          <video src={result.url} className="w-full h-full object-cover" controls />
-                        </div>
-                        <div>
-                          <p className="font-medium">Generated Video {resultVideos.length - index - 1}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {new Date(result.timestamp).toLocaleString()}
-                          </p>
-                          <div className="flex mt-2 space-x-2">
-                            <a 
-                              href={result.url} 
-                              download={`video-${index}.mp4`}
-                              className="text-xs text-primary hover:underline"
-                            >
-                              Download
-                            </a>
-                            <button
-                              type="button"
-                              className="text-xs text-primary hover:underline"
-                              onClick={() => {
-                                navigator.clipboard.writeText(result.url);
-                                toast({
-                                  title: "Link copied",
-                                  description: "Video link copied to clipboard",
-                                });
-                              }}
-                            >
-                              Copy Link
-                            </button>
-                          </div>
-                        </div>
-                      </Card>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </section>
-          )}
-
           <div className="pt-6 animate-fade-in animation-delay-400">
             {isProcessing ? (
               <div className="space-y-4">
@@ -1117,4 +1030,3 @@ const Dashboard = () => {
 };
 
 export default Dashboard;
-
