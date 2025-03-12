@@ -2,13 +2,21 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import MainLayout from '@/components/layout/MainLayout';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Upload, Trash2, Video, Mic, Briefcase, User, Check, ExternalLink } from 'lucide-react';
+import { Plus, Upload, Trash2, Video, Mic, Briefcase, User, Check, ExternalLink, ChevronDown } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { v4 as uuidv4 } from 'uuid';
 import { Progress } from '@/components/ui/progress';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuCheckboxItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Label } from "@/components/ui/label";
+
 type UploadedFile = {
   id: string;
   name: string;
@@ -16,11 +24,14 @@ type UploadedFile = {
   type: string;
   url: string;
 };
+
 type ResultVideo = {
   url: string;
   timestamp: string;
 };
+
 const niches = ["Fashion & Style", "Beauty & Makeup", "Fitness & Health", "Food & Cooking", "Travel & Adventure", "Lifestyle", "Technology", "Business & Entrepreneurship", "Education & Learning", "Entertainment", "Gaming", "Art & Design", "Photography", "DIY & Crafts", "Parenting", "Music", "Sports", "Pets & Animals", "Motivational & Inspirational", "Comedy & Humor"];
+
 const Dashboard = () => {
   const {
     toast
@@ -710,13 +721,16 @@ const Dashboard = () => {
   };
   const isFormComplete = videos.length > 0 && voiceFiles.length > 0 && selectedNiches.length > 0 && competitors.length > 0 && selectedVideo !== null && selectedVoice !== null;
   if (isLoading) {
-    return <MainLayout title="Creator Dashboard" subtitle="Loading your content...">
+    return (
+      <MainLayout title="Creator Dashboard" subtitle="Loading your content...">
         <div className="min-h-[60vh] flex items-center justify-center">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
         </div>
-      </MainLayout>;
+      </MainLayout>
+    );
   }
-  return <MainLayout title="Creator Dashboard" subtitle="Upload your content and create personalized videos">
+  return (
+    <MainLayout title="Creator Dashboard" subtitle="Upload your content and create personalized videos">
       <div className="section-container py-12">
         <div className="flex justify-end mb-6">
           <Button onClick={() => navigate('/results')} variant="outline" className="gap-2">
@@ -828,114 +842,4 @@ const Dashboard = () => {
             </div>
 
             {Object.keys(uploadingVoices).length > 0 && <div className="mt-4 space-y-3">
-                <h4 className="text-sm font-medium">Uploading voice files...</h4>
-                {Object.keys(uploadingVoices).map(id => <div key={id} className="space-y-1">
-                    <div className="flex justify-between text-xs text-muted-foreground">
-                      <span>Uploading</span>
-                      <span>{uploadingVoices[id]}%</span>
-                    </div>
-                    <Progress value={uploadingVoices[id]} className="h-2" />
-                  </div>)}
-              </div>}
-
-            {voiceFiles.length > 0 && <div className="mt-6">
-                <h3 className="text-lg font-medium mb-4">Uploaded Voice Files ({voiceFiles.length}/5)</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                  {voiceFiles.map(file => <Card key={file.id} className={`p-4 animate-zoom-in ${selectedVoice?.id === file.id ? 'ring-2 ring-primary' : ''}`}>
-                      <div className="bg-secondary rounded-md p-4 mb-3 flex justify-center items-center">
-                        <audio src={file.url} className="w-full" controls />
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <div className="truncate mr-2">
-                          <p className="font-medium truncate">{file.name}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {(file.size / (1024 * 1024)).toFixed(2)} MB
-                          </p>
-                        </div>
-                        <div className="flex">
-                          <button type="button" onClick={() => handleSelectVoice(file)} className={`p-1.5 rounded-full mr-1 transition-colors ${selectedVoice?.id === file.id ? 'bg-primary text-primary-foreground' : 'hover:bg-secondary-foreground/10'}`} title="Select as target voice">
-                            <Check className={`h-4 w-4 ${selectedVoice?.id === file.id ? 'text-white' : 'text-muted-foreground'}`} />
-                          </button>
-                          <button type="button" onClick={() => handleRemoveVoiceFile(file.id)} className="p-1.5 rounded-full hover:bg-secondary-foreground/10 transition-colors">
-                            <Trash2 className="h-4 w-4 text-muted-foreground" />
-                          </button>
-                        </div>
-                      </div>
-                    </Card>)}
-                </div>
-              </div>}
-
-            {selectedVoice && <div className="mt-6 p-4 bg-secondary/30 rounded-lg">
-                <h3 className="text-lg font-medium mb-2">Voice you have Selected</h3>
-                <div className="flex items-center">
-                  <div className="w-20 h-20 mr-4 bg-secondary rounded-md overflow-hidden flex items-center justify-center">
-                    <Mic className="h-10 w-10 text-muted-foreground" />
-                  </div>
-                  <div>
-                    <p className="font-medium">{selectedVoice.name}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {(selectedVoice.size / (1024 * 1024)).toFixed(2)} MB
-                    </p>
-                    <a href={selectedVoice.url} download={selectedVoice.name} className="text-sm text-primary hover:underline mt-1 inline-block">
-                      Download
-                    </a>
-                  </div>
-                </div>
-              </div>}
-          </section>
-
-          <section className="animate-fade-in animation-delay-200">
-            <div className="flex items-center mb-4">
-              <Briefcase className="mr-2 h-5 w-5 text-primary" />
-              <h2 className="text-2xl font-medium">Niche Selection</h2>
-            </div>
-            <p className="text-muted-foreground mb-6">Select the niches you want to target with your content</p>
-            
-            <div className="flex flex-wrap gap-3">
-              {niches.map(niche => <button key={niche} type="button" onClick={() => handleNicheChange(niche)} className={`px-4 py-2 rounded-full border transition-colors ${selectedNiches.includes(niche) ? 'bg-primary text-primary-foreground border-primary' : 'bg-transparent border-border hover:border-primary'}`}>
-                  {niche}
-                </button>)}
-            </div>
-          </section>
-
-          <section className="animate-fade-in animation-delay-300">
-            <div className="flex items-center mb-4">
-              <User className="mr-2 h-5 w-5 text-primary" />
-              <h2 className="text-2xl font-medium">Competitor Usernames</h2>
-            </div>
-            <p className="text-muted-foreground mb-6">Add usernames of competitors in your niche (up to 15)</p>
-            
-            <div className="flex items-center mb-6">
-              <input type="text" value={newCompetitor} onChange={e => setNewCompetitor(e.target.value)} placeholder="Enter username" className="flex-1 px-4 py-2 border border-border rounded-l-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent" />
-              <button type="button" onClick={handleAddCompetitor} disabled={newCompetitor.trim() === '' || competitors.length >= 15} className="px-4 py-2 bg-primary text-primary-foreground rounded-r-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed">
-                <Plus className="h-5 w-5" />
-              </button>
-            </div>
-            
-            {competitors.length > 0 && <div className="flex flex-wrap gap-2">
-                {competitors.map((competitor, index) => <div key={index} className="flex items-center px-3 py-1.5 bg-secondary rounded-full">
-                    <span className="mr-2">{competitor}</span>
-                    <button type="button" onClick={() => handleRemoveCompetitor(index)} className="p-0.5 rounded-full hover:bg-secondary-foreground/10 transition-colors">
-                      <Trash2 className="h-3 w-3 text-muted-foreground" />
-                    </button>
-                  </div>)}
-              </div>}
-          </section>
-
-          <div className="pt-6 border-t border-border animate-fade-in animation-delay-400">
-            <Button type="submit" className="w-full md:w-auto" disabled={!isFormComplete || isProcessing}>
-              {isProcessing ? <div className="flex items-center">
-                  <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-primary-foreground mr-2"></div>
-                  Processing ({processingProgress}%)
-                </div> : "Generate Personalized Video"}
-            </Button>
-            
-            {!isFormComplete && <p className="text-sm text-muted-foreground mt-2">
-                Please complete all sections before submitting
-              </p>}
-          </div>
-        </form>
-      </div>
-    </MainLayout>;
-};
-export default Dashboard;
+                <h4 className="text-sm
