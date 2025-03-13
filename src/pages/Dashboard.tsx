@@ -886,10 +886,12 @@ const Dashboard = () => {
               </div>
             )}
 
-            {videos.length > 0 && <div className="mt-6">
+            {videos.length > 0 && (
+              <div className="mt-6">
                 <h3 className="text-lg font-medium mb-4">Uploaded Videos ({videos.length}/5)</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                  {videos.map(video => <Card key={video.id} className={`p-4 animate-zoom-in ${selectedVideo?.id === video.id ? 'ring-2 ring-primary' : ''}`}>
+                  {videos.map(video => (
+                    <Card key={video.id} className={`p-4 animate-zoom-in ${selectedVideo?.id === video.id ? 'ring-2 ring-primary' : ''}`}>
                       <div className="aspect-video mb-3 bg-secondary rounded-md overflow-hidden relative">
                         <video src={video.url} className="w-full h-full object-contain" controls />
                       </div>
@@ -901,17 +903,24 @@ const Dashboard = () => {
                           </p>
                         </div>
                         <div className="flex">
-                          <button type="button" onClick={() => handleSelectVideo(video)} className={`p-1.5 rounded-full mr-1 transition-colors ${selectedVideo?.id === video.id ? 'bg-primary text-primary-foreground' : 'hover:bg-secondary-foreground/10'}`} title="Select as target video">
+                          <button 
+                            type="button" 
+                            onClick={() => handleSelectVideo(video)} 
+                            className={`p-1.5 rounded-full mr-1 transition-colors ${selectedVideo?.id === video.id ? 'bg-primary text-primary-foreground' : 'hover:bg-secondary-foreground/10'}`} 
+                            title="Select as target video"
+                          >
                             <Check className={`h-4 w-4 ${selectedVideo?.id === video.id ? 'text-white' : 'text-muted-foreground'}`} />
                           </button>
-                          <button type="button" onClick={() => handleRemoveVideo(video.id)} className="p-1.5 rounded-full hover:bg-secondary-foreground/10 transition-colors">
+                          <button 
+                            type="button" 
+                            onClick={() => handleRemoveVideo(video.id)} 
+                            className="p-1.5 rounded-full hover:bg-secondary-foreground/10 transition-colors"
+                          >
                             <Trash2 className="h-4 w-4 text-muted-foreground" />
                           </button>
                         </div>
                       </div>
-                    </Card>)}
+                    </Card>
+                  ))}
                 </div>
-              </div>}
-
-            {selectedVideo && <div className="mt-6 p-4 bg-secondary/30 rounded-lg">
-                <h3 className="text
+              </div>
