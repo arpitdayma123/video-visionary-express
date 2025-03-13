@@ -898,4 +898,4 @@ const Dashboard = () => {
                           <button type="button" onClick={() => handleSelectVideo(video)} className={`p-1.5 rounded-full mr-1 transition-colors ${selectedVideo?.id === video.id ? 'bg-primary text-primary-foreground' : 'hover:bg-secondary-foreground/10'}`} title="Select as target video">
                             <Check className={`h-4 w-4 ${selectedVideo?.id === video.id ? 'text-white' : 'text-muted-foreground'}`} />
                           </button>
-                          <button type="button" onClick={() => handleRemoveVideo(video.id)} className="p-1.
+                          <button type="button" onClick={() => handleRemoveVideo(video.id)} className="p
