@@ -863,21 +863,27 @@ const Dashboard = () => {
               </div>
             </div>
 
-            {Object.keys(uploadingVideos).length > 0 && <div className="mt-4 space-y-3">
+            {Object.keys(uploadingVideos).length > 0 && (
+              <div className="mt-4 space-y-3">
                 <h4 className="text-sm font-medium">Uploading videos...</h4>
-                {Object.keys(uploadingVideos).map(id => <div key={id} className="space-y-1">
+                {Object.keys(uploadingVideos).map(id => (
+                  <div key={id} className="space-y-1">
                     <div className="flex justify-between text-xs text-muted-foreground">
                       <span>Uploading</span>
                       <span>{uploadingVideos[id]}%</span>
                     </div>
                     <Progress value={uploadingVideos[id]} className="h-2" />
-                  </div>)}
-              </div>}
+                  </div>
+                ))}
+              </div>
+            )}
 
-            {videos.length > 0 && <div className="mt-6">
+            {videos.length > 0 && (
+              <div className="mt-6">
                 <h3 className="text-lg font-medium mb-4">Uploaded Videos ({videos.length}/5)</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                  {videos.map(video => <Card key={video.id} className={`p-4 animate-zoom-in ${selectedVideo?.id === video.id ? 'ring-2 ring-primary' : ''}`}>
+                  {videos.map(video => (
+                    <Card key={video.id} className={`p-4 animate-zoom-in ${selectedVideo?.id === video.id ? 'ring-2 ring-primary' : ''}`}>
                       <div className="aspect-video mb-3 bg-secondary rounded-md overflow-hidden relative">
                         <video src={video.url} className="w-full h-full object-contain" controls />
                       </div>
@@ -892,4 +898,4 @@ const Dashboard = () => {
                           <button type="button" onClick={() => handleSelectVideo(video)} className={`p-1.5 rounded-full mr-1 transition-colors ${selectedVideo?.id === video.id ? 'bg-primary text-primary-foreground' : 'hover:bg-secondary-foreground/10'}`} title="Select as target video">
                             <Check className={`h-4 w-4 ${selectedVideo?.id === video.id ? 'text-white' : 'text-muted-foreground'}`} />
                           </button>
-                          <button type="button" onClick={() => handleRemoveVideo(video.id)} className="p-1.5 rounded-full hover:bg-secondary-foreground/10 transition-
+                          <button type="button" onClick={() => handleRemoveVideo(video.id)} className="p-1.
