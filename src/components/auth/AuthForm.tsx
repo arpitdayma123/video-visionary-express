@@ -18,16 +18,48 @@ const AuthForm = () => {
   const [loading, setLoading] = useState(false);
   const [mode, setMode] = useState<AuthMode>('sign-in');
 
+  const validateInputs = () => {
+    if (!email || !email.includes('@')) {
+      toast({
+        title: "Invalid email",
+        description: "Please enter a valid email address.",
+        variant: "destructive",
+      });
+      return false;
+    }
+
+    if (!password || password.length < 6) {
+      toast({
+        title: "Invalid password",
+        description: "Password must be at least 6 characters long.",
+        variant: "destructive",
+      });
+      return false;
+    }
+
+    return true;
+  };
+
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!validateInputs()) return;
+    
     setLoading(true);
 
     try {
       if (mode === 'sign-up') {
+        console.log('Attempting to sign up with:', { email });
+        
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
+          options: {
+            emailRedirectTo: `${window.location.origin}/dashboard`,
+          }
         });
+
+        console.log('Sign up response:', { data, error });
 
         if (error) throw error;
 
@@ -36,10 +68,14 @@ const AuthForm = () => {
           description: "Please check your email to verify your account.",
         });
       } else {
+        console.log('Attempting to sign in with:', { email });
+        
         const { data, error } = await supabase.auth.signInWithPassword({
           email,
           password,
         });
+
+        console.log('Sign in response:', { data, error });
 
         if (error) throw error;
 
@@ -49,9 +85,20 @@ const AuthForm = () => {
         });
       }
     } catch (error: any) {
+      console.error('Authentication error:', error);
+      
+      let errorMessage = error.message || "An error occurred during authentication.";
+      
+      // Provide more user-friendly error messages for common errors
+      if (errorMessage.includes('User already registered')) {
+        errorMessage = "This email is already registered. Please sign in instead.";
+      } else if (errorMessage.includes('Invalid login credentials')) {
+        errorMessage = "Invalid email or password. Please try again.";
+      }
+      
       toast({
         title: "Authentication error",
-        description: error.message || "An error occurred during authentication.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -160,6 +207,7 @@ const AuthForm = () => {
                     onChange={(e) => setPassword(e.target.value)}
                     className="pl-10"
                     required
+                    minLength={6}
                   />
                 </div>
                 <p className="text-xs text-muted-foreground">

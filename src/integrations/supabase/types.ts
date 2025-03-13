@@ -203,6 +203,72 @@ export type Database = {
           },
         ]
       }
+      zocktodumbme: {
+        Row: {
+          created_at: string
+          id: string
+        }
+        Insert: {
+          created_at?: string
+          id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+        }
+        Relationships: []
+      }
+      zocktomain: {
+        Row: {
+          "agent script": string | null
+          audio: string | null
+          caption: string | null
+          comment_count: number | null
+          created_at: string
+          follower_count: number | null
+          id: string
+          like_count: number | null
+          "reel url": string | null
+          reshare_count: number | null
+          thumbanil: string | null
+          username: string | null
+          videoid: string | null
+          views: number | null
+        }
+        Insert: {
+          "agent script"?: string | null
+          audio?: string | null
+          caption?: string | null
+          comment_count?: number | null
+          created_at?: string
+          follower_count?: number | null
+          id: string
+          like_count?: number | null
+          "reel url"?: string | null
+          reshare_count?: number | null
+          thumbanil?: string | null
+          username?: string | null
+          videoid?: string | null
+          views?: number | null
+        }
+        Update: {
+          "agent script"?: string | null
+          audio?: string | null
+          caption?: string | null
+          comment_count?: number | null
+          created_at?: string
+          follower_count?: number | null
+          id?: string
+          like_count?: number | null
+          "reel url"?: string | null
+          reshare_count?: number | null
+          thumbanil?: string | null
+          username?: string | null
+          videoid?: string | null
+          views?: number | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
