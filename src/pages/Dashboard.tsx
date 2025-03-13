@@ -826,7 +826,8 @@ const Dashboard = () => {
       </MainLayout>;
   }
   
-  return <MainLayout title="Creator Dashboard" subtitle="Upload your content and create personalized videos">
+  return (
+    <MainLayout title="Creator Dashboard" subtitle="Upload your content and create personalized videos">
       <div className="section-container py-12">
         <div className="flex justify-between items-center mb-6">
           <div className="bg-secondary/40 px-4 py-2 rounded-lg">
@@ -847,10 +848,15 @@ const Dashboard = () => {
             </div>
             <p className="text-muted-foreground mb-6">Upload up to 5 MP4 videos (max 30MB each) and select one as your target video</p>
             
-            <div className={`file-drop-area p-8 ${isDraggingVideo ? 'active' : ''}`} onDragOver={e => {
-            e.preventDefault();
-            setIsDraggingVideo(true);
-          }} onDragLeave={() => setIsDraggingVideo(false)} onDrop={handleVideoUpload}>
+            <div 
+              className={`file-drop-area p-8 ${isDraggingVideo ? 'active' : ''}`} 
+              onDragOver={e => {
+                e.preventDefault();
+                setIsDraggingVideo(true);
+              }} 
+              onDragLeave={() => setIsDraggingVideo(false)} 
+              onDrop={handleVideoUpload}
+            >
               <div className="flex flex-col items-center justify-center text-center">
                 <Upload className="h-12 w-12 text-muted-foreground mb-4" />
                 <h3 className="text-lg font-medium mb-2">Drag and drop your videos here</h3>
@@ -903,4 +909,164 @@ const Dashboard = () => {
             {selectedVideo && <div className="mt-6 p-4 bg-secondary/30 rounded-lg">
                 <h3 className="text-lg font-medium mb-2">Video you have Selected</h3>
                 <div className="flex items-center">
-                  <div className="w-20 h-20
+                  <div className="w-20 h-20">
+                    <video src={selectedVideo.url} className="w-full h-full object-cover" controls />
+                  </div>
+                  <div className="ml-4">
+                    <p className="font-medium">{selectedVideo.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {(selectedVideo.size / (1024 * 1024)).toFixed(2)} MB
+                    </p>
+                  </div>
+                </div>
+              </div>}
+          </section>
+
+          {/* Voice Upload Section */}
+          <section className="animate-fade-in">
+            <div className="flex items-center mb-4">
+              <Mic className="mr-2 h-5 w-5 text-primary" />
+              <h2 className="text-2xl font-medium">Voice Upload</h2>
+            </div>
+            <p className="text-muted-foreground mb-6">Upload up to 5 audio files (MP3 or WAV, max 8MB each) and select one as your target voice</p>
+            
+            <div 
+              className={`file-drop-area p-8 ${isDraggingVoice ? 'active' : ''}`} 
+              onDragOver={e => {
+                e.preventDefault();
+                setIsDraggingVoice(true);
+              }} 
+              onDragLeave={() => setIsDraggingVoice(false)} 
+              onDrop={handleVoiceUpload}
+            >
+              <div className="flex flex-col items-center justify-center text-center">
+                <Upload className="h-12 w-12 text-muted-foreground mb-4" />
+                <h3 className="text-lg font-medium mb-2">Drag and drop your audio files here</h3>
+                <p className="text-muted-foreground mb-4">Or click to browse files</p>
+                <label className="button-hover-effect px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors cursor-pointer">
+                  <input type="file" accept="audio/mpeg,audio/wav" multiple className="hidden" onChange={handleVoiceUpload} />
+                  Select Audio
+                </label>
+              </div>
+            </div>
+
+            {Object.keys(uploadingVoices).length > 0 && <div className="mt-4 space-y-3">
+                <h4 className="text-sm font-medium">Uploading audio files...</h4>
+                {Object.keys(uploadingVoices).map(id => <div key={id} className="space-y-1">
+                    <div className="flex justify-between text-xs text-muted-foreground">
+                      <span>Uploading</span>
+                      <span>{uploadingVoices[id]}%</span>
+                    </div>
+                    <Progress value={uploadingVoices[id]} className="h-2" />
+                  </div>)}
+              </div>}
+
+            {voiceFiles.length > 0 && <div className="mt-6">
+                <h3 className="text-lg font-medium mb-4">Uploaded Audio Files ({voiceFiles.length}/5)</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                  {voiceFiles.map(file => <Card key={file.id} className={`p-4 animate-zoom-in ${selectedVoice?.id === file.id ? 'ring-2 ring-primary' : ''}`}>
+                      <div className="flex justify-between items-center">
+                        <div className="truncate mr-2">
+                          <p className="font-medium truncate">{file.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {(file.size / (1024 * 1024)).toFixed(2)} MB
+                          </p>
+                        </div>
+                        <div className="flex">
+                          <button type="button" onClick={() => handleSelectVoice(file)} className={`p-1.5 rounded-full mr-1 transition-colors ${selectedVoice?.id === file.id ? 'bg-primary text-primary-foreground' : 'hover:bg-secondary-foreground/10'}`} title="Select as target voice">
+                            <Check className={`h-4 w-4 ${selectedVoice?.id === file.id ? 'text-white' : 'text-muted-foreground'}`} />
+                          </button>
+                          <button type="button" onClick={() => handleRemoveVoiceFile(file.id)} className="p-1.5 rounded-full hover:bg-secondary-foreground/10 transition-colors">
+                            <Trash2 className="h-4 w-4 text-muted-foreground" />
+                          </button>
+                        </div>
+                      </div>
+                    </Card>)}
+                </div>
+              </div>}
+
+            {selectedVoice && <div className="mt-6 p-4 bg-secondary/30 rounded-lg">
+                <h3 className="text-lg font-medium mb-2">Voice you have Selected</h3>
+                <div className="flex items-center">
+                  <audio src={selectedVoice.url} className="w-full" controls />
+                  <div className="ml-4">
+                    <p className="font-medium">{selectedVoice.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {(selectedVoice.size / (1024 * 1024)).toFixed(2)} MB
+                    </p>
+                  </div>
+                </div>
+              </div>}
+          </section>
+
+          {/* Niche Selection Section */}
+          <section className="animate-fade-in">
+            <div className="flex items-center mb-4">
+              <Briefcase className="mr-2 h-5 w-5 text-primary" />
+              <h2 className="text-2xl font-medium">Niche Selection</h2>
+            </div>
+            <p className="text-muted-foreground mb-6">Select the niches relevant to your content</p>
+            <div className="grid grid-cols-2 gap-4">
+              {niches.map(niche => (
+                <button
+                  key={niche}
+                  onClick={() => handleNicheChange(niche)}
+                  className={`p-2 rounded-lg ${selectedNiches.includes(niche) ? 'bg-primary text-white' : 'bg-secondary text-black'}`}
+                >
+                  {niche}
+                </button>
+              ))}
+            </div>
+          </section>
+
+          {/* Competitor Section */}
+          <section className="animate-fade-in">
+            <div className="flex items-center mb-4">
+              <User className="mr-2 h-5 w-5 text-primary" />
+              <h2 className="text-2xl font-medium">Competitors</h2>
+            </div>
+            <p className="text-muted-foreground mb-6">Add competitor usernames (max 15)</p>
+            <div className="flex mb-4">
+              <input
+                type="text"
+                value={newCompetitor}
+                onChange={e => setNewCompetitor(e.target.value)}
+                className="border border-gray-300 rounded-lg p-2 flex-1"
+                placeholder="Add competitor username"
+              />
+              <button
+                type="button"
+                onClick={handleAddCompetitor}
+                className="ml-2 bg-primary text-white rounded-lg px-4 py-2"
+              >
+                Add
+              </button>
+            </div>
+            <div className="space-y-2">
+              {competitors.map((competitor, index) => (
+                <div key={index} className="flex justify-between items-center">
+                  <span>{competitor}</span>
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveCompetitor(index)}
+                    className="text-red-500"
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <div className="flex justify-end">
+            <button type="submit" className="bg-primary text-white rounded-lg px-4 py-2">
+              Generate Video
+            </button>
+          </div>
+        </form>
+      </div>
+    </MainLayout>
+  );
+};
+
+export default Dashboard;
