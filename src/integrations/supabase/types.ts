@@ -42,6 +42,7 @@ export type Database = {
         Row: {
           competitors: string[] | null
           created_at: string | null
+          credit: number
           id: string
           result: Json | null
           selected_niches: string[] | null
@@ -54,6 +55,7 @@ export type Database = {
         Insert: {
           competitors?: string[] | null
           created_at?: string | null
+          credit?: number
           id: string
           result?: Json | null
           selected_niches?: string[] | null
@@ -66,6 +68,7 @@ export type Database = {
         Update: {
           competitors?: string[] | null
           created_at?: string | null
+          credit?: number
           id?: string
           result?: Json | null
           selected_niches?: string[] | null
