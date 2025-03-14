@@ -5,7 +5,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Plus, Upload, Trash2, Video, Mic, Briefcase, User, Check, ExternalLink } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { v4 as uuidv4 } from 'uuid';
 import { Progress } from '@/components/ui/progress';
@@ -919,4 +919,4 @@ const Dashboard = () => {
                             onClick={() => handleRemoveVideo(video.id)} 
                             className="p-1.5 rounded-full hover:bg-secondary-foreground/10 transition-colors"
                           >
-                            <Trash2 className="h-4 w-4 text-muted-foreground
+                            <Trash2 className="h-4 w-4 text-muted-foreground"
