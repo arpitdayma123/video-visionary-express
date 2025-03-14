@@ -48,6 +48,7 @@ export type Database = {
           selected_niches: string[] | null
           selected_video: Json | null
           selected_voice: Json | null
+          status: string | null
           updated_at: string | null
           videos: Json[] | null
           voice_files: Json[] | null
@@ -61,6 +62,7 @@ export type Database = {
           selected_niches?: string[] | null
           selected_video?: Json | null
           selected_voice?: Json | null
+          status?: string | null
           updated_at?: string | null
           videos?: Json[] | null
           voice_files?: Json[] | null
@@ -74,6 +76,7 @@ export type Database = {
           selected_niches?: string[] | null
           selected_video?: Json | null
           selected_voice?: Json | null
+          status?: string | null
           updated_at?: string | null
           videos?: Json[] | null
           voice_files?: Json[] | null
