@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import MainLayout from '@/components/layout/MainLayout';
 import { useToast } from '@/hooks/use-toast';
@@ -151,31 +150,36 @@ const Results = () => {
                 </div>
                 <div className="p-4">
                   <h3 className="text-lg font-medium mb-2">Generated Video {index + 1}</h3>
-                  <p className="text-sm text-muted-foreground mb-3">
-                    {new Date(video.timestamp).toLocaleString()}
-                  </p>
-                  <div className="flex space-x-2">
-                    <a 
-                      href={video.url} 
-                      download={`video-${index}.mp4`}
-                      className="text-sm text-primary hover:underline"
-                    >
-                      Download
-                    </a>
-                    <button
-                      type="button"
-                      className="text-sm text-primary hover:underline"
-                      onClick={() => {
-                        navigator.clipboard.writeText(video.url);
-                        toast({
-                          title: "Link copied",
-                          description: "Video link copied to clipboard",
-                        });
-                      }}
-                    >
-                      Copy Link
-                    </button>
-                  </div>
+                  
+                  {!(processingStatus && index === 0) && (
+                    <>
+                      <p className="text-sm text-muted-foreground mb-3">
+                        {new Date(video.timestamp).toLocaleString()}
+                      </p>
+                      <div className="flex space-x-2">
+                        <a 
+                          href={video.url} 
+                          download={`video-${index}.mp4`}
+                          className="text-sm text-primary hover:underline"
+                        >
+                          Download
+                        </a>
+                        <button
+                          type="button"
+                          className="text-sm text-primary hover:underline"
+                          onClick={() => {
+                            navigator.clipboard.writeText(video.url);
+                            toast({
+                              title: "Link copied",
+                              description: "Video link copied to clipboard",
+                            });
+                          }}
+                        >
+                          Copy Link
+                        </button>
+                      </div>
+                    </>
+                  )}
                 </div>
               </Card>
             ))}
