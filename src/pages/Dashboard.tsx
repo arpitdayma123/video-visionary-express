@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import MainLayout from '@/components/layout/MainLayout';
@@ -5,7 +6,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Plus, Upload, Trash2, Video, Mic, Briefcase, User, Check, ExternalLink } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { supabase from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { v4 as uuidv4 } from 'uuid';
 import { Progress } from '@/components/ui/progress';
@@ -919,4 +920,217 @@ const Dashboard = () => {
                             onClick={() => handleRemoveVideo(video.id)} 
                             className="p-1.5 rounded-full hover:bg-secondary-foreground/10 transition-colors"
                           >
-                            <Trash2 className="h-4 w-4 text-muted-foreground"
+                            <Trash2 className="h-4 w-4 text-muted-foreground" />
+                          </button>
+                        </div>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            )}
+          </section>
+
+          {/* Voice Upload Section */}
+          <section className="animate-fade-in">
+            <div className="flex items-center mb-4">
+              <Mic className="mr-2 h-5 w-5 text-primary" />
+              <h2 className="text-2xl font-medium">Voice Upload</h2>
+            </div>
+            <p className="text-muted-foreground mb-6">Upload up to 5 voice files (MP3/WAV, max 8MB each) and select one as your target voice</p>
+            
+            <div 
+              className={`file-drop-area p-8 ${isDraggingVoice ? 'active' : ''}`} 
+              onDragOver={e => {
+                e.preventDefault();
+                setIsDraggingVoice(true);
+              }} 
+              onDragLeave={() => setIsDraggingVoice(false)} 
+              onDrop={handleVoiceUpload}
+            >
+              <div className="flex flex-col items-center justify-center text-center">
+                <Upload className="h-12 w-12 text-muted-foreground mb-4" />
+                <h3 className="text-lg font-medium mb-2">Drag and drop your voice files here</h3>
+                <p className="text-muted-foreground mb-4">Or click to browse files</p>
+                <label className="button-hover-effect px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors cursor-pointer">
+                  <input type="file" accept="audio/mpeg,audio/wav" multiple className="hidden" onChange={handleVoiceUpload} />
+                  Select Voice Files
+                </label>
+              </div>
+            </div>
+
+            {Object.keys(uploadingVoices).length > 0 && (
+              <div className="mt-4 space-y-3">
+                <h4 className="text-sm font-medium">Uploading voice files...</h4>
+                {Object.keys(uploadingVoices).map(id => (
+                  <div key={id} className="space-y-1">
+                    <div className="flex justify-between text-xs text-muted-foreground">
+                      <span>Uploading</span>
+                      <span>{uploadingVoices[id]}%</span>
+                    </div>
+                    <Progress value={uploadingVoices[id]} className="h-2" />
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {voiceFiles.length > 0 && (
+              <div className="mt-6">
+                <h3 className="text-lg font-medium mb-4">Uploaded Voice Files ({voiceFiles.length}/5)</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                  {voiceFiles.map(voice => (
+                    <Card key={voice.id} className={`p-4 animate-zoom-in ${selectedVoice?.id === voice.id ? 'ring-2 ring-primary' : ''}`}>
+                      <div className="mb-3 bg-secondary rounded-md overflow-hidden relative p-3">
+                        <audio src={voice.url} className="w-full" controls />
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <div className="truncate mr-2">
+                          <p className="font-medium truncate">{voice.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {(voice.size / (1024 * 1024)).toFixed(2)} MB
+                          </p>
+                        </div>
+                        <div className="flex">
+                          <button 
+                            type="button" 
+                            onClick={() => handleSelectVoice(voice)} 
+                            className={`p-1.5 rounded-full mr-1 transition-colors ${selectedVoice?.id === voice.id ? 'bg-primary text-primary-foreground' : 'hover:bg-secondary-foreground/10'}`} 
+                            title="Select as target voice"
+                          >
+                            <Check className={`h-4 w-4 ${selectedVoice?.id === voice.id ? 'text-white' : 'text-muted-foreground'}`} />
+                          </button>
+                          <button 
+                            type="button" 
+                            onClick={() => handleRemoveVoiceFile(voice.id)} 
+                            className="p-1.5 rounded-full hover:bg-secondary-foreground/10 transition-colors"
+                          >
+                            <Trash2 className="h-4 w-4 text-muted-foreground" />
+                          </button>
+                        </div>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            )}
+          </section>
+
+          {/* Niche Selection Section */}
+          <section className="animate-fade-in">
+            <div className="flex items-center mb-4">
+              <Briefcase className="mr-2 h-5 w-5 text-primary" />
+              <h2 className="text-2xl font-medium">Select Your Niches</h2>
+            </div>
+            <p className="text-muted-foreground mb-6">Choose niches that align with your content (select at least one)</p>
+            
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+              {niches.map(niche => (
+                <div 
+                  key={niche}
+                  onClick={() => handleNicheChange(niche)}
+                  className={`p-3 border rounded-lg cursor-pointer transition-all ${
+                    selectedNiches.includes(niche) 
+                      ? 'bg-primary/10 border-primary' 
+                      : 'hover:bg-secondary'
+                  }`}
+                >
+                  <div className="flex items-center">
+                    <div className={`w-4 h-4 rounded-full mr-2 flex items-center justify-center ${
+                      selectedNiches.includes(niche) ? 'bg-primary' : 'border'
+                    }`}>
+                      {selectedNiches.includes(niche) && <Check className="w-3 h-3 text-primary-foreground" />}
+                    </div>
+                    <span className="text-sm">{niche}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {/* Competitor Section */}
+          <section className="animate-fade-in">
+            <div className="flex items-center mb-4">
+              <User className="mr-2 h-5 w-5 text-primary" />
+              <h2 className="text-2xl font-medium">Add Competitors</h2>
+            </div>
+            <p className="text-muted-foreground mb-6">Enter usernames of competitors in your niche (up to 15)</p>
+            
+            <div className="space-y-4">
+              <div className="flex gap-3">
+                <input
+                  type="text"
+                  value={newCompetitor}
+                  onChange={(e) => setNewCompetitor(e.target.value)}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  placeholder="Enter competitor username"
+                />
+                <Button 
+                  type="button" 
+                  onClick={handleAddCompetitor} 
+                  className="gap-1" 
+                  disabled={newCompetitor.trim() === '' || competitors.length >= 15}
+                >
+                  <Plus className="h-4 w-4" />
+                  Add
+                </Button>
+              </div>
+              
+              {competitors.length > 0 && (
+                <div className="flex flex-wrap gap-2 mt-4">
+                  {competitors.map((competitor, index) => (
+                    <div key={index} className="flex items-center bg-secondary rounded-full px-3 py-1">
+                      <span className="text-sm">{competitor}</span>
+                      <button 
+                        type="button"
+                        onClick={() => handleRemoveCompetitor(index)} 
+                        className="ml-2 p-1 rounded-full hover:bg-secondary-foreground/10"
+                      >
+                        <Trash2 className="h-3 w-3 text-muted-foreground" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </section>
+
+          {/* Submit Section */}
+          <section className="animate-fade-in">
+            <div className="flex justify-between items-center pt-4 border-t">
+              <div>
+                <h3 className="text-lg font-medium">Process Your Content</h3>
+                <p className="text-muted-foreground mt-1">
+                  Credits will be deducted once processing starts
+                </p>
+              </div>
+              <Button 
+                type="submit" 
+                disabled={!isFormComplete || isProcessing || userCredits < 1} 
+                className="min-w-[150px]"
+              >
+                {isProcessing ? (
+                  <>
+                    <div className="animate-spin mr-2 h-4 w-4 border-2 border-t-transparent border-white rounded-full" />
+                    Processing...
+                  </>
+                ) : 'Generate Video'}
+              </Button>
+            </div>
+            
+            {isProcessing && (
+              <div className="mt-4 space-y-1">
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>Processing your request</span>
+                  <span>{processingProgress}%</span>
+                </div>
+                <Progress value={processingProgress} className="h-2" />
+              </div>
+            )}
+          </section>
+        </form>
+      </div>
+    </MainLayout>
+  );
+};
+
+export default Dashboard;
