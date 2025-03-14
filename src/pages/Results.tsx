@@ -6,6 +6,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card } from '@/components/ui/card';
 import { Video } from 'lucide-react';
+import { AspectRatio } from '@/components/ui/aspect-ratio';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Progress } from '@/components/ui/progress';
 
 type ResultVideo = {
   url: string;
@@ -17,6 +20,7 @@ const Results = () => {
   const { user } = useAuth();
   const [resultVideos, setResultVideos] = useState<ResultVideo[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [processingStatus, setProcessingStatus] = useState(false);
 
   useEffect(() => {
     const fetchUserResults = async () => {
@@ -28,7 +32,7 @@ const Results = () => {
       try {
         const { data: profileData, error } = await supabase
           .from('profiles')
-          .select('result')
+          .select('result, status')
           .eq('id', user.id)
           .single();
 
@@ -41,6 +45,13 @@ const Results = () => {
           });
           setIsLoading(false);
           return;
+        }
+
+        // Check if status is processing
+        if (profileData.status === 'Processing') {
+          setProcessingStatus(true);
+        } else {
+          setProcessingStatus(false);
         }
 
         if (profileData.result) {
@@ -103,16 +114,40 @@ const Results = () => {
   return (
     <MainLayout title="Your Results" subtitle="View all your generated videos">
       <div className="section-container py-12">
+        {processingStatus && (
+          <Card className="mb-8 bg-amber-50 border-amber-200">
+            <div className="p-4">
+              <h3 className="text-lg font-medium text-amber-800 mb-2">Video Processing in Progress</h3>
+              <p className="text-amber-700">
+                We're currently processing your most recent video request. You'll be able to generate a new video once it's complete.
+              </p>
+              <Progress className="mt-4 h-2" value={75} />
+            </div>
+          </Card>
+        )}
+        
         {resultVideos.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {resultVideos.map((video, index) => (
               <Card key={index} className="overflow-hidden animate-fade-in">
-                <div className="aspect-video w-full">
-                  <video 
-                    src={video.url} 
-                    className="w-full h-full object-cover" 
-                    controls 
-                  />
+                <div className="relative">
+                  {processingStatus && index === 0 ? (
+                    <div className="aspect-video w-full relative">
+                      <div className="absolute inset-0 bg-gray-100 flex flex-col items-center justify-center p-4 text-center">
+                        <Video className="h-12 w-12 text-primary mb-3" />
+                        <h3 className="text-lg font-medium mb-2">We are processing your video</h3>
+                        <p className="text-sm text-muted-foreground">Please wait until it's completed.</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="w-full">
+                      <video 
+                        src={video.url} 
+                        className="w-full h-auto" 
+                        controls 
+                      />
+                    </div>
+                  )}
                 </div>
                 <div className="p-4">
                   <h3 className="text-lg font-medium mb-2">Generated Video {index + 1}</h3>
