@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import MainLayout from '@/components/layout/MainLayout';
@@ -695,26 +694,14 @@ const Dashboard = () => {
         throw new Error('Failed to process video request');
       }
       
-      const responseData = await response.json();
-      
-      if (Array.isArray(responseData) && responseData.length > 0 && responseData[0].resultvideo) {
-        const videoUrl = responseData[0].resultvideo;
-        await downloadAndUploadVideo(videoUrl);
-      } else if (responseData && typeof responseData === 'string') {
-        await downloadAndUploadVideo(responseData);
-      } else if (responseData && typeof responseData === 'object' && responseData.url) {
-        await downloadAndUploadVideo(responseData.url);
-      } else if (responseData && responseData.resultvideo) {
-        await downloadAndUploadVideo(responseData.resultvideo);
-      } else {
-        console.error('Unexpected response format:', responseData);
-        throw new Error('Unexpected response format from API');
-      }
+      // Modified: Instead of processing the response to get a video URL,
+      // simply display a message to check the results page after 5 minutes
       
       toast({
         title: "Request sent successfully",
-        description: "Your personalized video is being processed. Check the Results page for updates."
+        description: "Your personalized video is being processed. Please check the Results page after 5 minutes to see your video."
       });
+      
     } catch (error) {
       console.error('Error processing video:', error);
       
@@ -732,91 +719,6 @@ const Dashboard = () => {
       setTimeout(() => {
         setIsProcessing(false);
       }, 500);
-    }
-  };
-
-  const downloadAndUploadVideo = async (sourceUrl: string) => {
-    if (!user) return;
-    try {
-      console.log('Downloading video from:', sourceUrl);
-      const videoResponse = await fetch(sourceUrl);
-      if (!videoResponse.ok) {
-        throw new Error(`Failed to download video: ${videoResponse.statusText}`);
-      }
-      const videoBlob = await videoResponse.blob();
-      const fileExt = sourceUrl.split('.').pop() || 'mp4';
-      const fileName = `${user.id}/${uuidv4()}.${fileExt}`;
-      const filePath = `videos/${fileName}`;
-      console.log('Uploading video to Supabase storage:', filePath);
-      const {
-        data: uploadData,
-        error: uploadError
-      } = await supabase.storage.from('creator_files').upload(filePath, videoBlob);
-      if (uploadError) {
-        console.error('Error uploading to storage:', uploadError);
-        throw uploadError;
-      }
-      const {
-        data: urlData
-      } = supabase.storage.from('creator_files').getPublicUrl(filePath);
-      const newVideoUrl = urlData.publicUrl;
-      console.log('Video uploaded successfully, new URL:', newVideoUrl);
-      await updateResultInSupabase(newVideoUrl);
-    } catch (error) {
-      console.error('Error in download and upload process:', error);
-      toast({
-        title: "Processing Error",
-        description: "There was an error processing the video. Please try again later.",
-        variant: "destructive"
-      });
-    }
-  };
-
-  const updateResultInSupabase = async (videoUrl: string) => {
-    if (!user) return;
-    try {
-      const {
-        data: profileData,
-        error: fetchError
-      } = await supabase.from('profiles').select('result').eq('id', user.id).single();
-      if (fetchError) {
-        console.error('Error fetching existing results:', fetchError);
-        throw fetchError;
-      }
-      const newResultEntry = {
-        url: videoUrl,
-        timestamp: new Date().toISOString()
-      };
-      let currentResults = [];
-      if (profileData.result) {
-        if (Array.isArray(profileData.result)) {
-          currentResults = profileData.result;
-        } else if (typeof profileData.result === 'string') {
-          try {
-            currentResults = JSON.parse(profileData.result);
-          } catch (e) {
-            currentResults = [];
-          }
-        }
-      }
-      currentResults.push(newResultEntry);
-      const {
-        error: updateError
-      } = await supabase.from('profiles').update({
-        result: currentResults
-      }).eq('id', user.id);
-      if (updateError) {
-        console.error('Error updating results:', updateError);
-        throw updateError;
-      }
-      console.log('Results updated successfully in Supabase');
-    } catch (error) {
-      console.error('Error saving result to Supabase:', error);
-      toast({
-        title: "Storage Error",
-        description: "Your video was processed but we couldn't save it to your profile. Please check Results page later.",
-        variant: "destructive"
-      });
     }
   };
 
