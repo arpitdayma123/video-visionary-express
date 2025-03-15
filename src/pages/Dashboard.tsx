@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import MainLayout from '@/components/layout/MainLayout';
@@ -879,4 +880,107 @@ const Dashboard = () => {
               <Briefcase className="mr-2 h-5 w-5 text-primary" />
               <h2 className="text-2xl font-medium">Target Niches</h2>
             </div>
-            <p className="text-muted-foreground mb-6">Select up to
+            <p className="text-muted-foreground mb-6">Select up to 5 niches that best represent your content style</p>
+            
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+              {niches.map(niche => (
+                <button
+                  key={niche}
+                  type="button"
+                  onClick={() => handleNicheChange(niche)}
+                  className={`px-4 py-3 rounded-lg border text-sm transition-colors ${
+                    selectedNiches.includes(niche)
+                      ? 'bg-primary/10 border-primary/30 text-primary'
+                      : 'bg-card hover:bg-secondary border-border'
+                  }`}
+                >
+                  {niche}
+                </button>
+              ))}
+            </div>
+          </section>
+          
+          {/* Competitor Usernames Section */}
+          <section className="animate-fade-in">
+            <div className="flex items-center mb-4">
+              <User className="mr-2 h-5 w-5 text-primary" />
+              <h2 className="text-2xl font-medium">Competitor Usernames</h2>
+            </div>
+            <p className="text-muted-foreground mb-6">Add usernames of competitors or similar creators (up to 15)</p>
+            
+            <div className="flex mb-4">
+              <input
+                type="text"
+                value={newCompetitor}
+                onChange={e => setNewCompetitor(e.target.value)}
+                placeholder="Enter a username (without @)"
+                className="flex-1 px-4 py-2 border border-border rounded-l-lg focus:outline-none focus:ring-2 focus:ring-primary/50"
+              />
+              <button
+                type="button"
+                onClick={handleAddCompetitor}
+                className="px-4 py-2 bg-primary text-primary-foreground rounded-r-lg hover:bg-primary/90 transition-colors flex items-center"
+              >
+                <Plus className="h-4 w-4 mr-1" />
+                Add
+              </button>
+            </div>
+            
+            {competitors.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-4">
+                {competitors.map((competitor, index) => (
+                  <div key={index} className="bg-secondary/60 px-3 py-1.5 rounded-full flex items-center">
+                    <span className="mr-2">{competitor}</span>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveCompetitor(index)}
+                      className="text-muted-foreground hover:text-destructive transition-colors"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+          
+          {/* Submit Button Section */}
+          <section className="pt-6 border-t border-border">
+            <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
+              <div>
+                <h3 className="text-lg font-medium mb-2">Generate Viral Video</h3>
+                <p className="text-muted-foreground">
+                  {isFormComplete 
+                    ? "You're ready to generate your personalized viral video!"
+                    : "Complete all required fields to generate your video"}
+                </p>
+              </div>
+              
+              <div className="flex items-center gap-4">
+                {isProcessing ? (
+                  <div className="space-y-2 w-40">
+                    <div className="flex justify-between text-xs text-muted-foreground">
+                      <span>Processing</span>
+                      <span>{processingProgress}%</span>
+                    </div>
+                    <Progress value={processingProgress} className="h-2" />
+                  </div>
+                ) : (
+                  <Button 
+                    type="submit"
+                    disabled={!isFormComplete || userStatus === 'Processing'} 
+                    className="py-6 px-8"
+                  >
+                    Generate Video
+                  </Button>
+                )}
+              </div>
+            </div>
+          </section>
+        </form>
+      </div>
+    </MainLayout>
+  );
+};
+
+export default Dashboard;
