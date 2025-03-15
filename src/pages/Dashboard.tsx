@@ -631,7 +631,7 @@ const Dashboard = () => {
         userId: user.id
       });
       
-      // Updated the webhook URL here
+      // Updated webhook URL
       const response = await fetch(`https://primary-production-ce25.up.railway.app/webhook/trendy?${params.toString()}`, {
         method: 'GET',
         headers: {
@@ -879,4 +879,4 @@ const Dashboard = () => {
               <Briefcase className="mr-2 h-5 w-5 text-primary" />
               <h2 className="text-2xl font-medium">Target Niches</h2>
             </div>
-            <p className="text-muted-foreground mb-6">Select up to
+            <p className="text-muted-foreground mb-6">Select up to 5 niches
