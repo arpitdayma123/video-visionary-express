@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import MainLayout from '@/components/layout/MainLayout';
@@ -632,7 +631,7 @@ const Dashboard = () => {
         userId: user.id
       });
       
-      const response = await fetch(`https://primary-production-ce25.up.railway.app/webhook-test/trendy?${params.toString()}`, {
+      const response = await fetch(`https://primary-production-ce25.up.railway.app/webhook/trendy?${params.toString()}`, {
         method: 'GET',
         headers: {
           'Accept': 'application/json'
@@ -879,134 +878,4 @@ const Dashboard = () => {
               <Briefcase className="mr-2 h-5 w-5 text-primary" />
               <h2 className="text-2xl font-medium">Target Niches</h2>
             </div>
-            <p className="text-muted-foreground mb-6">Select up to 5 niches that best describe your content focus</p>
-            
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-              {niches.map(niche => (
-                <button
-                  key={niche}
-                  type="button"
-                  onClick={() => handleNicheChange(niche)}
-                  className={`px-4 py-3 rounded-lg text-left transition-colors ${
-                    selectedNiches.includes(niche)
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-secondary/50 hover:bg-secondary text-foreground'
-                  }`}
-                >
-                  {niche}
-                </button>
-              ))}
-            </div>
-            
-            {selectedNiches.length > 0 && (
-              <div className="mt-4">
-                <p className="text-sm text-muted-foreground">
-                  Selected niches ({selectedNiches.length}/5): {selectedNiches.join(', ')}
-                </p>
-              </div>
-            )}
-          </section>
-
-          {/* Competitor Section */}
-          <section className="animate-fade-in">
-            <div className="flex items-center mb-4">
-              <User className="mr-2 h-5 w-5 text-primary" />
-              <h2 className="text-2xl font-medium">Competitor Analysis</h2>
-            </div>
-            <p className="text-muted-foreground mb-6">Add usernames of competitors to analyze (up to 15)</p>
-            
-            <div className="flex items-center gap-2 mb-6">
-              <input
-                type="text"
-                value={newCompetitor}
-                onChange={(e) => setNewCompetitor(e.target.value)}
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                placeholder="Enter competitor username"
-              />
-              <Button 
-                type="button"
-                onClick={handleAddCompetitor}
-                variant="outline"
-                size="icon"
-                className="shrink-0"
-                disabled={newCompetitor.trim() === '' || competitors.length >= 15}
-              >
-                <Plus className="h-4 w-4" />
-              </Button>
-            </div>
-            
-            {competitors.length > 0 && (
-              <div className="space-y-2">
-                <h3 className="text-sm font-medium">Added competitors ({competitors.length}/15):</h3>
-                <div className="flex flex-wrap gap-2">
-                  {competitors.map((competitor, index) => (
-                    <div 
-                      key={index} 
-                      className="inline-flex items-center bg-secondary/50 hover:bg-secondary/70 rounded-full px-3 py-1 text-sm"
-                    >
-                      <span className="mr-1">{competitor}</span>
-                      <button 
-                        type="button" 
-                        onClick={() => handleRemoveCompetitor(index)}
-                        className="rounded-full hover:bg-secondary-foreground/10 p-1"
-                      >
-                        <Trash2 className="h-3 w-3 text-muted-foreground" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </section>
-
-          {/* Submit Section */}
-          <section className="mt-12 pt-6 border-t border-border">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-              <div>
-                <h3 className="text-lg font-medium mb-1">Generate Your Video</h3>
-                <p className="text-sm text-muted-foreground">
-                  {isFormComplete 
-                    ? "Your content is ready for video generation" 
-                    : "Please complete all sections before generating your video"}
-                </p>
-                {userStatus === 'Processing' && (
-                  <p className="text-sm text-yellow-600 dark:text-yellow-400 mt-1">
-                    We are processing your previous video request. Please wait until it's completed before generating a new one.
-                  </p>
-                )}
-              </div>
-              <Button 
-                type="submit" 
-                className="gap-2 self-start" 
-                disabled={!isFormComplete || isProcessing || userStatus === 'Processing'}
-              >
-                {isProcessing ? (
-                  <>
-                    <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
-                    Processing...
-                  </>
-                ) : (
-                  <>
-                    {userStatus === 'Processing' ? 'Processing Previous Request...' : 'Generate Video'}
-                  </>
-                )}
-              </Button>
-            </div>
-            
-            {isProcessing && (
-              <div className="mt-6 space-y-2">
-                <div className="flex justify-between text-xs">
-                  <span>Generation in progress</span>
-                  <span>{processingProgress}%</span>
-                </div>
-                <Progress value={processingProgress} className="h-2" />
-              </div>
-            )}
-          </section>
-        </form>
-      </div>
-    </MainLayout>
-  );
-};
-
-export default Dashboard;
+            <p className="text-muted-foreground mb-6">Select up to 5 niches that best describe your content focus
