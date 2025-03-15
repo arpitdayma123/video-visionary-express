@@ -1,10 +1,11 @@
+
 import React, { useState, useEffect } from 'react';
 import MainLayout from '@/components/layout/MainLayout';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card } from '@/components/ui/card';
-import { Video } from 'lucide-react';
+import { Video, Loader } from 'lucide-react';
 import { AspectRatio } from '@/components/ui/aspect-ratio';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Progress } from '@/components/ui/progress';
@@ -131,21 +132,35 @@ const Results = () => {
               <Card key={index} className="overflow-hidden animate-fade-in">
                 <div className="relative">
                   {processingStatus && index === 0 ? (
-                    <div className="aspect-video w-full relative">
-                      <div className="absolute inset-0 bg-gray-100 flex flex-col items-center justify-center p-4 text-center">
-                        <Video className="h-12 w-12 text-primary mb-3" />
-                        <h3 className="text-lg font-medium mb-2">We are processing your video</h3>
-                        <p className="text-sm text-muted-foreground">Please wait until it's completed.</p>
+                    <AspectRatio ratio={16/9} className="w-full">
+                      <div className="absolute inset-0 bg-gray-200 flex flex-col items-center justify-center p-4 text-center">
+                        <div className="w-full h-full relative">
+                          {/* Dummy/fake video preview for processing state */}
+                          <div className="absolute inset-0 bg-gradient-to-br from-gray-300 to-gray-400">
+                            {/* Visual pattern to make it look like a frame */}
+                            <div className="absolute inset-0 opacity-10" 
+                                 style={{backgroundImage: 'linear-gradient(0deg, transparent 24%, rgba(0, 0, 0, .2) 25%, rgba(0, 0, 0, .2) 26%, transparent 27%, transparent 74%, rgba(0, 0, 0, .2) 75%, rgba(0, 0, 0, .2) 76%, transparent 77%, transparent), linear-gradient(90deg, transparent 24%, rgba(0, 0, 0, .2) 25%, rgba(0, 0, 0, .2) 26%, transparent 27%, transparent 74%, rgba(0, 0, 0, .2) 75%, rgba(0, 0, 0, .2) 76%, transparent 77%, transparent)', 
+                                  backgroundSize: '50px 50px'}}>
+                            </div>
+                          </div>
+                          
+                          {/* Processing indicator overlay */}
+                          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/30 text-white p-6">
+                            <Loader className="h-10 w-10 animate-spin mb-3" />
+                            <h3 className="text-lg font-medium mb-2">We are processing your video</h3>
+                            <p className="text-sm opacity-90">Please wait until it's completed.</p>
+                          </div>
+                        </div>
                       </div>
-                    </div>
+                    </AspectRatio>
                   ) : (
-                    <div className="w-full">
+                    <AspectRatio ratio={16/9} className="w-full">
                       <video 
                         src={video.url} 
-                        className="w-full h-auto" 
+                        className="w-full h-full object-cover" 
                         controls 
                       />
-                    </div>
+                    </AspectRatio>
                   )}
                 </div>
                 <div className="p-4">
