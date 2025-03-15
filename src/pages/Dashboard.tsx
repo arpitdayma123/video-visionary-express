@@ -596,6 +596,16 @@ const Dashboard = () => {
       return;
     }
     
+    // Check if user has at least 1 credit
+    if (userCredits < 1) {
+      toast({
+        title: "Insufficient Credits",
+        description: "You need at least 1 credit to generate a video. Please purchase credits to continue.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     // Check if user already has a video in processing
     if (userStatus === 'Processing') {
       toast({
@@ -622,17 +632,19 @@ const Dashboard = () => {
         throw new Error('User not authenticated');
       }
       
-      // Update user status to Processing
+      // Update user status to Processing and decrement credits
       await updateProfile({
-        status: 'Processing'
+        status: 'Processing',
+        credit: userCredits - 1
       });
       setUserStatus('Processing');
+      setUserCredits(userCredits - 1);
       
       const params = new URLSearchParams({
         userId: user.id
       });
       
-      const response = await fetch(`https://primary-production-ce25.up.railway.app/webhook-test/trendy?${params.toString()}`, {
+      const response = await fetch(`https://primary-production-ce25.up.railway.app/webhook/trendy?${params.toString()}`, {
         method: 'GET',
         headers: {
           'Accept': 'application/json'
@@ -651,11 +663,13 @@ const Dashboard = () => {
     } catch (error) {
       console.error('Error processing video:', error);
       
-      // Revert status back to Completed if there was an error
+      // Revert status back to Completed and restore credit if there was an error
       await updateProfile({
-        status: 'Completed'
+        status: 'Completed',
+        credit: userCredits
       });
       setUserStatus('Completed');
+      setUserCredits(userCredits);
       
       toast({
         title: "Processing failed",
@@ -966,7 +980,11 @@ const Dashboard = () => {
                 <h3 className="text-lg font-medium mb-1">Generate Your Video</h3>
                 <p className="text-sm text-muted-foreground">
                   {isFormComplete 
-                    ? "Your content is ready for video generation" 
+                    ? userCredits < 1 
+                      ? "You need at least 1 credit to generate a video" 
+                      : userStatus === 'Processing'
+                        ? "We are generating your previous video. Once complete, you can create a new one."
+                        : "Your content is ready for video generation"
                     : "Please complete all sections before generating your video"}
                 </p>
                 {userStatus === 'Processing' && (
@@ -974,11 +992,16 @@ const Dashboard = () => {
                     We are processing your previous video request. Please wait until it's completed before generating a new one.
                   </p>
                 )}
+                {userCredits < 1 && (
+                  <p className="text-sm text-red-600 dark:text-red-400 mt-1">
+                    You need at least 1 credit to generate a video. Please purchase credits to continue.
+                  </p>
+                )}
               </div>
               <Button 
                 type="submit" 
                 className="gap-2 self-start" 
-                disabled={!isFormComplete || isProcessing || userStatus === 'Processing'}
+                disabled={!isFormComplete || isProcessing || userStatus === 'Processing' || userCredits < 1}
               >
                 {isProcessing ? (
                   <>
@@ -987,7 +1010,7 @@ const Dashboard = () => {
                   </>
                 ) : (
                   <>
-                    {userStatus === 'Processing' ? 'Processing Previous Request...' : 'Generate Video'}
+                    {userStatus === 'Processing' ? 'Processing Previous Request...' : userCredits < 1 ? 'Insufficient Credits' : 'Generate Video'}
                   </>
                 )}
               </Button>
