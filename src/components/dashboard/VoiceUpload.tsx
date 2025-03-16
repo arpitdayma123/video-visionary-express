@@ -1,4 +1,3 @@
-
 import React, { useState, useRef } from 'react';
 import { Upload, Trash2, Check, Mic, Square, Pause } from 'lucide-react';
 import { Card } from '@/components/ui/card';
@@ -42,11 +41,13 @@ const VoiceUpload = ({
   
   // Voice recording states
   const [isRecording, setIsRecording] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [recordingBlob, setRecordingBlob] = useState<Blob | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<number | null>(null);
+  const audioStreamRef = useRef<MediaStream | null>(null);
 
   // Function to get media duration
   const getMediaDuration = (file: File): Promise<number> => {
@@ -216,19 +217,20 @@ const VoiceUpload = ({
       const stream = await navigator.mediaDevices.getUserMedia({ 
         audio: {
           sampleRate: 48000, // Higher sample rate for better quality
-          channelCount: 1,
+          channelCount: 2,   // Stereo recording for better quality
           echoCancellation: true,
           noiseSuppression: true,
           autoGainControl: true
         } 
       });
       
+      audioStreamRef.current = stream;
       audioChunksRef.current = [];
       
       // Setup MediaRecorder with better options for high-quality audio
       const options = { 
         mimeType: 'audio/webm;codecs=opus', // Opus codec for better compression quality
-        audioBitsPerSecond: 128000 // Higher bitrate for better quality
+        audioBitsPerSecond: 256000 // Higher bitrate (256kbps) for better quality
       };
       
       // Check if the browser supports the specified MIME type
@@ -255,7 +257,10 @@ const VoiceUpload = ({
         setRecordingBlob(audioBlob);
         
         // Stop all tracks to release microphone
-        stream.getTracks().forEach(track => track.stop());
+        if (audioStreamRef.current) {
+          audioStreamRef.current.getTracks().forEach(track => track.stop());
+          audioStreamRef.current = null;
+        }
         
         // Reset timer
         if (timerRef.current) {
@@ -264,9 +269,10 @@ const VoiceUpload = ({
         }
       };
       
-      // Start recording with a longer timeslice for better quality chunks
-      mediaRecorderRef.current.start(1000);
+      // Start recording with a smaller timeslice for better quality chunks
+      mediaRecorderRef.current.start(500);
       setIsRecording(true);
+      setIsPaused(false);
       setRecordingTime(0);
       
       // Start timer
@@ -293,10 +299,42 @@ const VoiceUpload = ({
     }
   };
   
+  const pauseRecording = () => {
+    if (mediaRecorderRef.current && isRecording && !isPaused) {
+      mediaRecorderRef.current.pause();
+      setIsPaused(true);
+      
+      // Pause timer
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+    }
+  };
+  
+  const resumeRecording = () => {
+    if (mediaRecorderRef.current && isRecording && isPaused) {
+      mediaRecorderRef.current.resume();
+      setIsPaused(false);
+      
+      // Resume timer
+      timerRef.current = window.setInterval(() => {
+        setRecordingTime(prev => {
+          const newTime = prev + 1;
+          if (newTime >= 40) {
+            stopRecording();
+          }
+          return newTime;
+        });
+      }, 1000);
+    }
+  };
+  
   const stopRecording = () => {
     if (mediaRecorderRef.current && isRecording) {
       mediaRecorderRef.current.stop();
       setIsRecording(false);
+      setIsPaused(false);
       
       // Clear timer
       if (timerRef.current) {
@@ -478,78 +516,132 @@ const VoiceUpload = ({
         Upload up to 5 voice files (MP3/WAV, max 8MB each) or record your voice (8-40 seconds) and select one as your target voice
       </p>
       
-      {/* Voice recording UI */}
-      <div className="bg-secondary/30 p-6 rounded-lg mb-6">
-        <h3 className="text-lg font-medium mb-4">Record Your Voice (High Quality)</h3>
-        
-        <div className="flex flex-col items-center">
+      {/* Voice recording UI - Improved design */}
+      <Card className="mb-6 overflow-hidden">
+        <div className="bg-secondary/30 p-6">
+          <div className="flex items-center mb-4">
+            <Mic className="mr-2 h-5 w-5 text-primary" />
+            <h3 className="text-lg font-medium">Record Your Voice (Studio Quality)</h3>
+          </div>
+          
           {!recordingBlob ? (
-            <div className="mb-4 text-center">
+            <div className="mb-4">
               {!isRecording ? (
-                <div>
+                <div className="flex flex-col items-center text-center">
+                  <div className="bg-muted/50 rounded-full p-8 mb-4">
+                    <Mic className="h-12 w-12 text-primary" />
+                  </div>
                   <Button 
                     type="button" 
                     onClick={startRecording}
-                    className="bg-red-500 hover:bg-red-600 text-white px-6 flex items-center gap-2 mb-2"
+                    className="bg-red-500 hover:bg-red-600 text-white px-6 flex items-center gap-2 mb-3"
+                    size="lg"
                   >
                     <Mic className="h-4 w-4" />
                     Start Recording
                   </Button>
-                  <p className="text-xs text-muted-foreground">
-                    Recording must be between 8-40 seconds. High quality audio enabled.
-                  </p>
+                  <div className="text-sm text-muted-foreground max-w-md mx-auto">
+                    <p className="mb-2">Recording must be between 8-40 seconds.</p>
+                    <ul className="list-disc list-inside text-left space-y-1">
+                      <li>High bitrate (256kbps) audio</li>
+                      <li>Stereo channel recording</li>
+                      <li>Noise suppression enabled</li>
+                      <li>Echo cancellation enabled</li>
+                    </ul>
+                  </div>
                 </div>
               ) : (
                 <div className="flex flex-col items-center">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="w-3 h-3 rounded-full bg-red-500 animate-pulse"></div>
-                    <span className="text-lg font-mono">{recordingTime}s</span>
-                    {recordingTime < 8 && (
-                      <span className="text-xs text-amber-500">(Need {8 - recordingTime}s more)</span>
-                    )}
+                  <div className="bg-black/5 dark:bg-white/5 p-6 rounded-xl mb-4 text-center">
+                    <div className="flex items-center justify-center gap-4 mb-4">
+                      <div className="w-3 h-3 rounded-full bg-red-500 animate-pulse"></div>
+                      <span className="text-2xl font-mono tabular-nums">{recordingTime}s</span>
+                      {recordingTime < 8 && (
+                        <span className="text-sm text-amber-500 font-medium">(Need {8 - recordingTime}s more)</span>
+                      )}
+                    </div>
+                    
+                    <div className="mb-4">
+                      <Progress value={(recordingTime / 40) * 100} className="h-2" />
+                    </div>
+                    
+                    <div className="flex justify-center gap-3">
+                      {isPaused ? (
+                        <Button 
+                          type="button" 
+                          onClick={resumeRecording}
+                          variant="outline"
+                          className="gap-2"
+                        >
+                          <Mic className="h-4 w-4" />
+                          Resume
+                        </Button>
+                      ) : (
+                        <Button 
+                          type="button" 
+                          onClick={pauseRecording}
+                          variant="outline"
+                          className="gap-2"
+                        >
+                          <Pause className="h-4 w-4" />
+                          Pause
+                        </Button>
+                      )}
+                      
+                      <Button 
+                        type="button" 
+                        onClick={stopRecording}
+                        variant="secondary"
+                        className="gap-2"
+                      >
+                        <Square className="h-4 w-4" />
+                        Stop Recording
+                      </Button>
+                    </div>
                   </div>
-                  
-                  <Button 
-                    type="button" 
-                    onClick={stopRecording}
-                    variant="secondary"
-                    className="flex items-center gap-2"
-                  >
-                    <Square className="h-4 w-4" />
-                    Stop Recording
-                  </Button>
                 </div>
               )}
             </div>
           ) : (
-            <div className="flex flex-col items-center w-full">
-              <div className="bg-background p-3 rounded-md w-full mb-4">
-                <audio src={URL.createObjectURL(recordingBlob)} className="w-full" controls />
+            <div className="bg-card border rounded-lg overflow-hidden p-4">
+              <div className="flex flex-col mb-3">
+                <h4 className="text-sm font-medium mb-2">Review Recording</h4>
+                <div className="bg-muted/30 p-3 rounded-md mb-2">
+                  <audio src={URL.createObjectURL(recordingBlob)} className="w-full" controls />
+                </div>
+                <div className="flex items-center justify-between">
+                  <p className="text-sm text-muted-foreground">
+                    {recordingTime} seconds {recordingTime < 8 ? "(too short)" : ""}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    {(recordingBlob.size / (1024 * 1024)).toFixed(2)} MB
+                  </p>
+                </div>
               </div>
-              <p className="text-sm mb-3">
-                {recordingTime} seconds {recordingTime < 8 ? "(too short)" : ""}
-              </p>
-              <div className="flex gap-3">
-                <Button 
-                  type="button"
-                  onClick={saveRecording}
-                  className="bg-primary hover:bg-primary/90 text-white"
-                  disabled={recordingTime < 8}
-                >
-                  Save Recording
-                </Button>
+              <div className="flex gap-3 justify-end">
                 <Button 
                   type="button"
                   onClick={discardRecording}
                   variant="outline"
+                  className="gap-2"
                 >
+                  <Trash2 className="h-4 w-4" />
                   Discard
+                </Button>
+                <Button 
+                  type="button"
+                  onClick={saveRecording}
+                  className="bg-primary hover:bg-primary/90 text-white gap-2"
+                  disabled={recordingTime < 8}
+                >
+                  <Check className="h-4 w-4" />
+                  Save Recording
                 </Button>
               </div>
             </div>
           )}
         </div>
-      </div>
+      </Card>
       
       {/* File drop area */}
       <div 
