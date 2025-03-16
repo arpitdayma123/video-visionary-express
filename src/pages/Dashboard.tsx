@@ -1,9 +1,9 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import MainLayout from '@/components/layout/MainLayout';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Upload, Trash2, Video, Mic, Briefcase, User, Check, ExternalLink } from 'lucide-react';
+import { Plus, Upload, Trash2, Video, Mic, Briefcase, User, Check, ExternalLink, Square, Pause } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
@@ -51,6 +51,14 @@ const Dashboard = () => {
   const [uploadingVoices, setUploadingVoices] = useState<{
     [key: string]: number;
   }>({});
+  
+  // Voice recording states
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingTime, setRecordingTime] = useState(0);
+  const [recordingBlob, setRecordingBlob] = useState<Blob | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const timerRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (!user) {
@@ -368,8 +376,23 @@ const Dashboard = () => {
       const uploadingProgress = {
         ...uploadingVoices
       };
+      
+      // Process each valid file
       for (const file of fileArray) {
         try {
+          // Check voice duration
+          const duration = await getMediaDuration(file);
+          
+          // Validate duration (between 8 and 40 seconds)
+          if (duration < 8 || duration > 40) {
+            toast({
+              title: "Invalid voice duration",
+              description: `Voice file must be between 8 and 40 seconds (current: ${Math.round(duration)} seconds).`,
+              variant: "destructive"
+            });
+            continue; // Skip this file but process others
+          }
+          
           const uploadId = uuidv4();
           uploadingProgress[uploadId] = 0;
           setUploadingVoices(uploadingProgress);
@@ -406,13 +429,17 @@ const Dashboard = () => {
           const {
             data: urlData
           } = supabase.storage.from('creator_files').getPublicUrl(filePath);
+          
+          // Include duration in the new voice file object
           const newVoiceFile = {
             id: uuidv4(),
             name: file.name,
             size: file.size,
             type: file.type,
-            url: urlData.publicUrl
+            url: urlData.publicUrl,
+            duration: duration
           };
+          
           newVoiceFiles.push(newVoiceFile);
           setVoiceFiles(newVoiceFiles);
           setSelectedVoice(newVoiceFile);
@@ -425,10 +452,13 @@ const Dashboard = () => {
               return updated;
             });
           }, 1000);
+          
+          // Update success message to include duration
           toast({
             title: "Voice file uploaded",
-            description: `Successfully uploaded ${file.name}.`
+            description: `Successfully uploaded ${file.name} (${Math.round(duration)} seconds).`
           });
+          
           await updateProfile({
             voice_files: newVoiceFiles,
             selected_voice: newVoiceFile
@@ -443,6 +473,183 @@ const Dashboard = () => {
         }
       }
     }
+  };
+
+  // Voice recording functions
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      audioChunksRef.current = [];
+      
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+      
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) {
+          audioChunksRef.current.push(e.data);
+        }
+      };
+      
+      mediaRecorder.onstop = async () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/wav' });
+        setRecordingBlob(audioBlob);
+        
+        // Stop all tracks to release microphone
+        stream.getTracks().forEach(track => track.stop());
+        
+        // Reset timer
+        if (timerRef.current) {
+          clearInterval(timerRef.current);
+          timerRef.current = null;
+        }
+      };
+      
+      // Start recording
+      mediaRecorder.start();
+      setIsRecording(true);
+      setRecordingTime(0);
+      
+      // Start timer
+      timerRef.current = window.setInterval(() => {
+        setRecordingTime(prev => {
+          const newTime = prev + 1;
+          
+          // Auto-stop recording if it reaches 40 seconds
+          if (newTime >= 40) {
+            stopRecording();
+          }
+          
+          return newTime;
+        });
+      }, 1000);
+      
+    } catch (error) {
+      console.error('Error starting recording:', error);
+      toast({
+        title: "Recording Failed",
+        description: "Could not access microphone. Please check your browser permissions.",
+        variant: "destructive"
+      });
+    }
+  };
+  
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+      
+      // Clear timer
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+    }
+  };
+  
+  const saveRecording = async () => {
+    if (!recordingBlob || !user) return;
+    
+    try {
+      // Validate recording duration
+      if (recordingTime < 8) {
+        toast({
+          title: "Recording too short",
+          description: "Voice recording must be at least 8 seconds long.",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      const uploadId = uuidv4();
+      setUploadingVoices(prev => ({ ...prev, [uploadId]: 0 }));
+      
+      // Create file from blob
+      const fileName = `recorded_voice_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.wav`;
+      const filePath = `voices/${user.id}/${uuidv4()}.wav`;
+      
+      // Upload progress simulation
+      const progressInterval = setInterval(() => {
+        setUploadingVoices(current => {
+          const currentProgress = current[uploadId] || 0;
+          if (currentProgress >= 90) {
+            clearInterval(progressInterval);
+            return current;
+          }
+          return {
+            ...current,
+            [uploadId]: Math.min(90, currentProgress + 10)
+          };
+        });
+      }, 300);
+      
+      // Upload to Supabase
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('creator_files')
+        .upload(filePath, recordingBlob);
+        
+      clearInterval(progressInterval);
+      
+      if (uploadError) throw uploadError;
+      
+      setUploadingVoices(prev => ({ ...prev, [uploadId]: 100 }));
+      
+      // Get public URL
+      const { data: urlData } = supabase.storage
+        .from('creator_files')
+        .getPublicUrl(filePath);
+      
+      // Create voice file object
+      const newVoiceFile = {
+        id: uuidv4(),
+        name: fileName,
+        size: recordingBlob.size,
+        type: 'audio/wav',
+        url: urlData.publicUrl,
+        duration: recordingTime
+      };
+      
+      // Update state
+      const updatedVoiceFiles = [...voiceFiles, newVoiceFile];
+      setVoiceFiles(updatedVoiceFiles);
+      setSelectedVoice(newVoiceFile);
+      
+      // Clean up
+      setTimeout(() => {
+        setUploadingVoices(current => {
+          const updated = { ...current };
+          delete updated[uploadId];
+          return updated;
+        });
+      }, 1000);
+      
+      // Reset recording state
+      setRecordingBlob(null);
+      setRecordingTime(0);
+      
+      // Update user profile
+      await updateProfile({
+        voice_files: updatedVoiceFiles,
+        selected_voice: newVoiceFile
+      });
+      
+      toast({
+        title: "Recording saved",
+        description: `Successfully saved voice recording (${recordingTime} seconds).`
+      });
+      
+    } catch (error) {
+      console.error('Error saving recording:', error);
+      toast({
+        title: "Save Failed",
+        description: "Failed to save voice recording.",
+        variant: "destructive"
+      });
+    }
+  };
+  
+  const discardRecording = () => {
+    setRecordingBlob(null);
+    setRecordingTime(0);
   };
 
   const handleNicheChange = async (niche: string) => {
@@ -852,8 +1059,84 @@ const Dashboard = () => {
               <Mic className="mr-2 h-5 w-5 text-primary" />
               <h2 className="text-2xl font-medium">Voice Upload</h2>
             </div>
-            <p className="text-muted-foreground mb-6">Upload up to 5 voice files (MP3/WAV, max 8MB each) and select one as your target voice</p>
+            <p className="text-muted-foreground mb-6">
+              Upload up to 5 voice files (MP3/WAV, max 8MB each) or record your voice (8-40 seconds) and select one as your target voice
+            </p>
             
+            {/* Voice recording UI */}
+            <div className="bg-secondary/30 p-6 rounded-lg mb-6">
+              <h3 className="text-lg font-medium mb-4">Record Your Voice</h3>
+              
+              <div className="flex flex-col items-center">
+                {!recordingBlob ? (
+                  <div className="mb-4 text-center">
+                    {!isRecording ? (
+                      <div>
+                        <Button 
+                          type="button" 
+                          onClick={startRecording}
+                          className="bg-red-500 hover:bg-red-600 text-white px-6 flex items-center gap-2 mb-2"
+                        >
+                          <Mic className="h-4 w-4" />
+                          Start Recording
+                        </Button>
+                        <p className="text-xs text-muted-foreground">
+                          Recording must be between 8-40 seconds
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center">
+                        <div className="flex items-center gap-3 mb-4">
+                          <div className="w-3 h-3 rounded-full bg-red-500 animate-pulse"></div>
+                          <span className="text-lg font-mono">{recordingTime}s</span>
+                          {recordingTime < 8 && (
+                            <span className="text-xs text-amber-500">(Need {8 - recordingTime}s more)</span>
+                          )}
+                        </div>
+                        
+                        <Button 
+                          type="button" 
+                          onClick={stopRecording}
+                          variant="secondary"
+                          className="flex items-center gap-2"
+                        >
+                          <Square className="h-4 w-4" />
+                          Stop Recording
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center w-full">
+                    <div className="bg-background p-3 rounded-md w-full mb-4">
+                      <audio src={URL.createObjectURL(recordingBlob)} className="w-full" controls />
+                    </div>
+                    <p className="text-sm mb-3">
+                      {recordingTime} seconds {recordingTime < 8 ? "(too short)" : ""}
+                    </p>
+                    <div className="flex gap-3">
+                      <Button 
+                        type="button"
+                        onClick={saveRecording}
+                        className="bg-primary hover:bg-primary/90 text-white"
+                        disabled={recordingTime < 8}
+                      >
+                        Save Recording
+                      </Button>
+                      <Button 
+                        type="button"
+                        onClick={discardRecording}
+                        variant="outline"
+                      >
+                        Discard
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            {/* File drop area */}
             <div 
               className={`file-drop-area p-8 ${isDraggingVoice ? 'active' : ''}`} 
               onDragOver={e => {
@@ -903,6 +1186,7 @@ const Dashboard = () => {
                           <p className="font-medium truncate">{voice.name}</p>
                           <p className="text-xs text-muted-foreground">
                             {(voice.size / (1024 * 1024)).toFixed(2)} MB
+                            {voice.duration && ` • ${Math.round(voice.duration)}s`}
                           </p>
                         </div>
                         <div className="flex">
