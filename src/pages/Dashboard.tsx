@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import MainLayout from '@/components/layout/MainLayout';
@@ -64,6 +65,8 @@ const Dashboard = () => {
           setIsLoading(false);
           return;
         }
+        
+        console.log("Profile loaded:", profile);
         
         // Set user credits
         setUserCredits(profile.credit || 0);

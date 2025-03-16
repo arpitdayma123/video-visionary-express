@@ -86,13 +86,13 @@ const GenerateVideo = ({
           <p className="text-sm text-muted-foreground">This will use 1 credit</p>
           
           {userStatus === 'Processing' && (
-            <div className="mt-2 text-sm text-yellow-600 dark:text-yellow-400">
+            <div className="mt-2 text-sm font-medium text-yellow-600 dark:text-yellow-400">
               We are processing your old video. Once it's done, you can generate a new video.
             </div>
           )}
           
           {userCredits < 1 && (
-            <div className="mt-2 text-sm text-red-600 dark:text-red-400">
+            <div className="mt-2 text-sm font-medium text-red-600 dark:text-red-400">
               Insufficient credits.
             </div>
           )}

@@ -14,7 +14,7 @@ const CreditDisplay = ({ userCredits, userStatus }: CreditDisplayProps) => {
         <span className="font-medium">{userCredits}</span>
       </div>
       {userStatus === 'Processing' && (
-        <div className="bg-yellow-100 text-yellow-800 dark:bg-yellow-800/30 dark:text-yellow-200 px-4 py-2 rounded-lg">
+        <div className="bg-yellow-100 text-yellow-800 dark:bg-yellow-800/30 dark:text-yellow-200 px-4 py-2 rounded-lg font-medium">
           <span className="text-sm">Processing video...</span>
         </div>
       )}
