@@ -45,10 +45,12 @@ const VoiceUpload = ({
   const [isPaused, setIsPaused] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [recordingBlob, setRecordingBlob] = useState<Blob | null>(null);
+  const [isConverting, setIsConverting] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<number | null>(null);
   const audioStreamRef = useRef<MediaStream | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
 
   // Check if the maximum limit of voice files has been reached
   const hasReachedVoiceLimit = voiceFiles.length >= 5;
@@ -213,6 +215,120 @@ const VoiceUpload = ({
     }
   };
 
+  // Convert audio blob to WAV format
+  const convertToWav = async (audioBlob: Blob): Promise<Blob> => {
+    setIsConverting(true);
+    try {
+      // Create audio context
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      audioContextRef.current = audioContext;
+      
+      // Read the blob as array buffer
+      const arrayBuffer = await audioBlob.arrayBuffer();
+      
+      // Decode the audio data
+      const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+      
+      // Create WAV file from audio buffer
+      const wavBlob = await encodeWavFile(audioBuffer);
+      
+      return wavBlob;
+    } catch (error) {
+      console.error('Error converting to WAV:', error);
+      toast({
+        title: "Conversion Failed",
+        description: "Failed to convert to WAV format. Using original format instead.",
+        variant: "destructive"
+      });
+      // Return original blob if conversion fails
+      return audioBlob;
+    } finally {
+      setIsConverting(false);
+    }
+  };
+
+  // Encode audio buffer to WAV file
+  const encodeWavFile = (audioBuffer: AudioBuffer): Promise<Blob> => {
+    return new Promise((resolve) => {
+      const numberOfChannels = audioBuffer.numberOfChannels;
+      const sampleRate = audioBuffer.sampleRate;
+      const length = audioBuffer.length;
+      
+      // Create buffer with WAV format data
+      const wavDataView = createWavDataView(numberOfChannels, sampleRate, length);
+      
+      // Write audio data to buffer
+      writeAudioBufferToWav(wavDataView, audioBuffer, numberOfChannels, length);
+      
+      // Create blob from buffer
+      const wavBlob = new Blob([wavDataView], { type: 'audio/wav' });
+      resolve(wavBlob);
+    });
+  };
+
+  // Create WAV header and data view
+  const createWavDataView = (numberOfChannels: number, sampleRate: number, length: number): DataView => {
+    // WAV header is 44 bytes
+    // Data size is number of samples * number of channels * 2 (16-bit samples)
+    const dataSize = length * numberOfChannels * 2;
+    const buffer = new ArrayBuffer(44 + dataSize);
+    const view = new DataView(buffer);
+    
+    // Write WAV header
+    // "RIFF" chunk descriptor
+    writeString(view, 0, 'RIFF');
+    view.setUint32(4, 36 + dataSize, true);
+    writeString(view, 8, 'WAVE');
+    
+    // "fmt " sub-chunk
+    writeString(view, 12, 'fmt ');
+    view.setUint32(16, 16, true); // fmt chunk size
+    view.setUint16(20, 1, true); // Audio format (1 for PCM)
+    view.setUint16(22, numberOfChannels, true);
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * numberOfChannels * 2, true); // Byte rate
+    view.setUint16(32, numberOfChannels * 2, true); // Block align
+    view.setUint16(34, 16, true); // Bits per sample
+    
+    // "data" sub-chunk
+    writeString(view, 36, 'data');
+    view.setUint32(40, dataSize, true);
+    
+    return view;
+  };
+
+  // Helper to write strings to DataView
+  const writeString = (view: DataView, offset: number, string: string): void => {
+    for (let i = 0; i < string.length; i++) {
+      view.setUint8(offset + i, string.charCodeAt(i));
+    }
+  };
+
+  // Write audio buffer data to WAV DataView
+  const writeAudioBufferToWav = (
+    view: DataView, 
+    audioBuffer: AudioBuffer, 
+    numberOfChannels: number, 
+    length: number
+  ): void => {
+    const buffers = [];
+    for (let channel = 0; channel < numberOfChannels; channel++) {
+      buffers.push(audioBuffer.getChannelData(channel));
+    }
+    
+    // Interleave channels and convert to 16-bit samples
+    let offset = 44;
+    for (let i = 0; i < length; i++) {
+      for (let channel = 0; channel < numberOfChannels; channel++) {
+        // Convert float32 to int16
+        const sample = Math.max(-1, Math.min(1, buffers[channel][i]));
+        const value = sample < 0 ? sample * 0x8000 : sample * 0x7FFF;
+        view.setInt16(offset, value, true);
+        offset += 2;
+      }
+    }
+  };
+
   // Voice recording functions
   const startRecording = async () => {
     // Check if maximum limit has been reached
@@ -360,15 +476,25 @@ const VoiceUpload = ({
         });
         return;
       }
+      
+      // Show converting message
+      toast({
+        title: "Processing recording",
+        description: "Converting your recording to high-quality WAV format...",
+      });
+      
+      // Convert to WAV format for higher quality
+      const wavBlob = await convertToWav(recordingBlob);
+      
       const uploadId = uuidv4();
       setUploadingVoices(prev => ({
         ...prev,
         [uploadId]: 0
       }));
 
-      // Create file from blob with higher quality audio file extension
-      const fileName = `recorded_voice_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.webm`;
-      const filePath = `voices/${userId}/${uuidv4()}.webm`;
+      // Create file from WAV blob
+      const fileName = `recorded_voice_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.wav`;
+      const filePath = `voices/${userId}/${uuidv4()}.wav`;
 
       // Upload progress simulation
       const progressInterval = setInterval(() => {
@@ -389,7 +515,7 @@ const VoiceUpload = ({
       const {
         data: uploadData,
         error: uploadError
-      } = await supabase.storage.from('creator_files').upload(filePath, recordingBlob);
+      } = await supabase.storage.from('creator_files').upload(filePath, wavBlob);
       clearInterval(progressInterval);
       if (uploadError) throw uploadError;
       setUploadingVoices(prev => ({
@@ -406,8 +532,8 @@ const VoiceUpload = ({
       const newVoiceFile = {
         id: uuidv4(),
         name: fileName,
-        size: recordingBlob.size,
-        type: 'audio/webm;codecs=opus',
+        size: wavBlob.size,
+        type: 'audio/wav',
         url: urlData.publicUrl,
         duration: recordingTime
       };
@@ -439,7 +565,7 @@ const VoiceUpload = ({
       });
       toast({
         title: "Recording saved",
-        description: `Successfully saved high quality voice recording (${recordingTime} seconds).`
+        description: `Successfully saved as WAV format (${recordingTime} seconds).`
       });
     } catch (error) {
       console.error('Error saving recording:', error);
@@ -631,9 +757,18 @@ const VoiceUpload = ({
                     <Trash2 className="h-4 w-4" />
                     Discard
                   </Button>
-                  <Button type="button" onClick={saveRecording} className="bg-primary hover:bg-primary/90 text-white gap-2" disabled={recordingTime < 8}>
-                    <Check className="h-4 w-4" />
-                    Save Recording
+                  <Button 
+                    type="button" 
+                    onClick={saveRecording} 
+                    className="bg-primary hover:bg-primary/90 text-white gap-2" 
+                    disabled={recordingTime < 8 || isConverting}
+                  >
+                    {isConverting ? "Converting to WAV..." : (
+                      <>
+                        <Check className="h-4 w-4" />
+                        Save as WAV
+                      </>
+                    )}
                   </Button>
                 </div>
               </div>}
