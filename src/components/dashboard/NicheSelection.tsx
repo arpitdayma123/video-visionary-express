@@ -2,6 +2,15 @@
 import React from 'react';
 import { Briefcase } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { 
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue 
+} from "@/components/ui/select";
+import { X } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
 interface NicheSelectionProps {
   selectedNiches: string[];
@@ -40,6 +49,23 @@ const NicheSelection = ({
     }
   };
 
+  const handleRemoveNiche = async (niche: string) => {
+    try {
+      const updatedNiches = selectedNiches.filter(n => n !== niche);
+      setSelectedNiches(updatedNiches);
+      await updateProfile({
+        selected_niches: updatedNiches
+      });
+    } catch (error) {
+      console.error('Error removing niche:', error);
+      toast({
+        title: "Update Failed",
+        description: "Failed to remove niche selection.",
+        variant: "destructive"
+      });
+    }
+  };
+
   return (
     <section className="animate-fade-in">
       <div className="flex items-center mb-4">
@@ -48,45 +74,49 @@ const NicheSelection = ({
       </div>
       <p className="text-muted-foreground mb-6">Choose niches that best describe your content (select multiple)</p>
       
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-        {niches.map(niche => (
-          <button
-            key={niche}
-            type="button"
-            onClick={() => handleNicheChange(niche)}
-            className={`py-2 px-3 rounded-md text-sm text-start transition-colors ${
-              selectedNiches.includes(niche)
-                ? 'bg-primary text-primary-foreground'
-                : 'bg-secondary/50 hover:bg-secondary'
-            }`}
-          >
-            {niche}
-          </button>
-        ))}
-      </div>
-
-      {selectedNiches.length > 0 && (
-        <div className="mt-4">
-          <p className="text-sm text-muted-foreground mb-2">Selected niches:</p>
-          <div className="flex flex-wrap gap-2">
-            {selectedNiches.map(niche => (
-              <div key={niche} className="bg-primary/10 text-primary px-3 py-1 rounded-full text-sm flex items-center">
-                {niche}
-                <button
-                  type="button"
-                  onClick={() => handleNicheChange(niche)}
-                  className="ml-2 h-4 w-4 rounded-full inline-flex items-center justify-center hover:bg-primary/20"
-                >
-                  <span className="sr-only">Remove</span>
-                  <svg width="6" height="6" viewBox="0 0 6 6" fill="none" xmlns="http://www.w3.org/2000/svg" className="stroke-current">
-                    <path d="M1 1L5 5M1 5L5 1" strokeWidth="1.5" strokeLinecap="round" />
-                  </svg>
-                </button>
-              </div>
-            ))}
-          </div>
+      <div className="space-y-4">
+        <div className="relative">
+          <Select onValueChange={(value) => handleNicheChange(value)}>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Select a niche" />
+            </SelectTrigger>
+            <SelectContent>
+              {niches
+                .filter(niche => !selectedNiches.includes(niche))
+                .map(niche => (
+                  <SelectItem key={niche} value={niche}>
+                    {niche}
+                  </SelectItem>
+                ))}
+            </SelectContent>
+          </Select>
         </div>
-      )}
+
+        {selectedNiches.length > 0 && (
+          <div className="mt-4">
+            <p className="text-sm text-muted-foreground mb-2">Selected niches:</p>
+            <div className="flex flex-wrap gap-2">
+              {selectedNiches.map(niche => (
+                <Badge 
+                  key={niche} 
+                  variant="secondary"
+                  className="text-sm px-3 py-1 flex items-center gap-1"
+                >
+                  {niche}
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveNiche(niche)}
+                    className="ml-1 rounded-full inline-flex items-center justify-center hover:bg-background/20"
+                  >
+                    <X className="h-3 w-3" />
+                    <span className="sr-only">Remove {niche}</span>
+                  </button>
+                </Badge>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
     </section>
   );
 };
