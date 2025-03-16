@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import MainLayout from '@/components/layout/MainLayout';
@@ -913,4 +914,433 @@ const Dashboard = () => {
         }
       });
       
-      if
+      if (!response.ok) {
+        throw new Error('Failed to start processing');
+      }
+      
+      // Redirect to results page
+      setTimeout(() => {
+        navigate('/results');
+      }, 2000);
+      
+    } catch (error) {
+      console.error('Error generating content:', error);
+      setIsProcessing(false);
+      clearInterval(interval);
+      setProcessingProgress(0);
+      
+      // Reset status to Completed in case of error
+      if (user) {
+        await updateProfile({
+          status: 'Completed'
+        });
+        setUserStatus('Completed');
+      }
+      
+      toast({
+        title: "Generation Failed",
+        description: "Failed to start content generation. Please try again later.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  return (
+    <MainLayout>
+      <div className="container mx-auto pb-12 pt-6">
+        <div className="grid grid-cols-1 gap-8">
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h1 className="text-3xl font-bold">Create Video</h1>
+              <Button 
+                onClick={() => navigate('/results')} 
+                variant="outline" 
+                className="flex items-center gap-2"
+              >
+                <Video className="size-4" />
+                View Results
+              </Button>
+            </div>
+            
+            <form onSubmit={handleSubmit} className="space-y-8">
+              <Card className="p-6 space-y-4">
+                <h2 className="text-xl font-semibold flex items-center gap-2">
+                  <Video className="size-5" />
+                  Upload Target Video
+                </h2>
+                <p className="text-muted-foreground">
+                  Upload a vertical video (MP4) that you want to use as a template for your content.
+                  <span className="block mt-1 text-sm font-medium text-blue-600">Video should be between 50-100 seconds.</span>
+                </p>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Left side: Video upload */}
+                  <div 
+                    className={`flex flex-col justify-center items-center border-2 border-dashed rounded-lg p-6 h-64 transition-colors ${isDraggingVideo ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'}`}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      setIsDraggingVideo(true);
+                    }}
+                    onDragLeave={() => setIsDraggingVideo(false)}
+                    onDrop={handleVideoUpload}
+                  >
+                    <Upload className="size-10 mb-4 text-muted-foreground" />
+                    <p className="mb-2 text-sm font-medium">Drag & drop a video file or</p>
+                    <input 
+                      type="file" 
+                      id="video-upload" 
+                      accept="video/mp4" 
+                      className="hidden" 
+                      onChange={handleVideoUpload} 
+                    />
+                    <label 
+                      htmlFor="video-upload" 
+                      className="button bg-primary text-primary-foreground hover:bg-primary/90 px-4 py-2 rounded-md text-sm font-medium cursor-pointer"
+                    >
+                      Choose File
+                    </label>
+                    <p className="mt-2 text-xs text-muted-foreground">MP4 format, max 30MB</p>
+                  </div>
+                  
+                  {/* Right side: Uploaded videos */}
+                  <div className="border rounded-lg p-4 max-h-64 overflow-y-auto">
+                    <h3 className="font-medium mb-2">Your Videos ({videos.length}/5)</h3>
+                    {videos.length === 0 ? (
+                      <p className="text-muted-foreground text-sm">No videos uploaded yet.</p>
+                    ) : (
+                      <ul className="space-y-2">
+                        {videos.map((video) => (
+                          <li key={video.id} className={`relative border rounded-md p-2 text-sm flex justify-between items-center ${selectedVideo?.id === video.id ? 'bg-primary/10 border-primary' : ''}`}>
+                            <div className="flex items-center gap-2 overflow-hidden">
+                              <Video className="size-4 flex-shrink-0" />
+                              <span className="truncate">{video.name}</span>
+                              {video.duration && (
+                                <span className="text-xs bg-muted px-1.5 py-0.5 rounded-full">
+                                  {Math.round(video.duration)}s
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-1">
+                              {selectedVideo?.id === video.id ? (
+                                <Button variant="ghost" size="icon" className="h-7 w-7 text-green-600" disabled>
+                                  <Check className="size-3.5" />
+                                </Button>
+                              ) : (
+                                <Button 
+                                  variant="ghost" 
+                                  size="icon" 
+                                  className="h-7 w-7 hover:text-primary" 
+                                  onClick={() => handleSelectVideo(video)}
+                                >
+                                  <Check className="size-3.5" />
+                                </Button>
+                              )}
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-7 w-7 hover:text-destructive" 
+                                onClick={() => handleRemoveVideo(video.id)}
+                              >
+                                <Trash2 className="size-3.5" />
+                              </Button>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {Object.keys(uploadingVideos).length > 0 && (
+                      <div className="mt-2 space-y-2">
+                        {Object.entries(uploadingVideos).map(([id, progress]) => (
+                          <div key={id} className="space-y-1">
+                            <div className="flex justify-between text-xs">
+                              <span>Uploading...</span>
+                              <span>{progress}%</span>
+                            </div>
+                            <Progress value={progress} className="h-1" />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </Card>
+              
+              <Card className="p-6 space-y-4">
+                <h2 className="text-xl font-semibold flex items-center gap-2">
+                  <Mic className="size-5" />
+                  Upload or Record Voice
+                </h2>
+                <p className="text-muted-foreground">
+                  Upload an audio recording of your voice that will be used for the generated content.
+                  <span className="block mt-1 text-sm font-medium text-blue-600">Voice recording should be between 8-40 seconds.</span>
+                </p>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Left side: Upload voice */}
+                  <div 
+                    className={`flex flex-col justify-center items-center border-2 border-dashed rounded-lg p-6 h-64 transition-colors ${isDraggingVoice ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'}`}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      setIsDraggingVoice(true);
+                    }}
+                    onDragLeave={() => setIsDraggingVoice(false)}
+                    onDrop={handleVoiceUpload}
+                  >
+                    <Upload className="size-10 mb-4 text-muted-foreground" />
+                    <p className="mb-2 text-sm font-medium">Drag & drop an audio file or</p>
+                    <input 
+                      type="file" 
+                      id="voice-upload" 
+                      accept="audio/mpeg,audio/wav" 
+                      className="hidden" 
+                      onChange={handleVoiceUpload} 
+                    />
+                    <label 
+                      htmlFor="voice-upload" 
+                      className="button bg-primary text-primary-foreground hover:bg-primary/90 px-4 py-2 rounded-md text-sm font-medium cursor-pointer"
+                    >
+                      Choose File
+                    </label>
+                    <p className="mt-2 text-xs text-muted-foreground">MP3 or WAV format, max 8MB</p>
+                  </div>
+                  
+                  {/* Right side: Record your voice */}
+                  <div className="flex flex-col border-2 border-dashed rounded-lg p-6 h-64 transition-colors hover:border-primary/50">
+                    <div className="flex flex-col flex-grow justify-center items-center">
+                      {!recordingBlob ? (
+                        <>
+                          <Mic className={`size-10 mb-4 ${isRecording ? 'text-red-500 animate-pulse' : 'text-muted-foreground'}`} />
+                          <p className="mb-2 text-sm font-medium">
+                            {isRecording ? `Recording: ${recordingTime}s` : "Record your voice"}
+                          </p>
+                          <div className="flex gap-2">
+                            {isRecording ? (
+                              <Button
+                                type="button"
+                                onClick={stopRecording}
+                                variant="destructive"
+                                className="flex items-center gap-1.5"
+                              >
+                                <Square className="size-3.5" />
+                                Stop Recording
+                              </Button>
+                            ) : (
+                              <Button
+                                type="button"
+                                onClick={startRecording}
+                                variant="default"
+                                className="flex items-center gap-1.5"
+                              >
+                                <Mic className="size-3.5" />
+                                Start Recording
+                              </Button>
+                            )}
+                          </div>
+                          {isRecording && (
+                            <p className="mt-2 text-xs text-red-500">Recording will automatically stop after 40 seconds</p>
+                          )}
+                        </>
+                      ) : (
+                        <>
+                          <div className="text-center">
+                            <div className="inline-flex items-center justify-center size-16 bg-primary/10 rounded-full mb-4">
+                              <Mic className="size-8 text-primary" />
+                            </div>
+                            <p className="font-medium mb-2">Voice Recorded</p>
+                            <p className="text-sm text-muted-foreground mb-4">
+                              {recordingTime} seconds
+                            </p>
+                            <div className="flex gap-2 justify-center">
+                              <Button
+                                type="button"
+                                onClick={saveRecording}
+                                variant="default"
+                                className="flex items-center gap-1.5"
+                              >
+                                <Check className="size-3.5" />
+                                Save Recording
+                              </Button>
+                              <Button
+                                type="button"
+                                onClick={discardRecording}
+                                variant="outline"
+                                className="flex items-center gap-1.5"
+                              >
+                                <Trash2 className="size-3.5" />
+                                Discard
+                              </Button>
+                            </div>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {/* Voice files list */}
+                  <div className="col-span-1 md:col-span-2 border rounded-lg p-4 max-h-64 overflow-y-auto">
+                    <h3 className="font-medium mb-2">Your Voice Files ({voiceFiles.length}/5)</h3>
+                    {voiceFiles.length === 0 ? (
+                      <p className="text-muted-foreground text-sm">No voice files uploaded yet.</p>
+                    ) : (
+                      <ul className="space-y-2">
+                        {voiceFiles.map((file) => (
+                          <li key={file.id} className={`relative border rounded-md p-2 text-sm flex justify-between items-center ${selectedVoice?.id === file.id ? 'bg-primary/10 border-primary' : ''}`}>
+                            <div className="flex items-center gap-2 overflow-hidden">
+                              <Mic className="size-4 flex-shrink-0" />
+                              <span className="truncate">{file.name}</span>
+                              {file.duration && (
+                                <span className="text-xs bg-muted px-1.5 py-0.5 rounded-full">
+                                  {Math.round(file.duration)}s
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-1">
+                              {selectedVoice?.id === file.id ? (
+                                <Button variant="ghost" size="icon" className="h-7 w-7 text-green-600" disabled>
+                                  <Check className="size-3.5" />
+                                </Button>
+                              ) : (
+                                <Button 
+                                  variant="ghost" 
+                                  size="icon" 
+                                  className="h-7 w-7 hover:text-primary" 
+                                  onClick={() => handleSelectVoice(file)}
+                                >
+                                  <Check className="size-3.5" />
+                                </Button>
+                              )}
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-7 w-7 hover:text-destructive" 
+                                onClick={() => handleRemoveVoiceFile(file.id)}
+                              >
+                                <Trash2 className="size-3.5" />
+                              </Button>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {Object.keys(uploadingVoices).length > 0 && (
+                      <div className="mt-2 space-y-2">
+                        {Object.entries(uploadingVoices).map(([id, progress]) => (
+                          <div key={id} className="space-y-1">
+                            <div className="flex justify-between text-xs">
+                              <span>Uploading...</span>
+                              <span>{progress}%</span>
+                            </div>
+                            <Progress value={progress} className="h-1" />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </Card>
+              
+              <Card className="p-6 space-y-4">
+                <h2 className="text-xl font-semibold flex items-center gap-2">
+                  <Briefcase className="size-5" />
+                  Choose Your Niches
+                </h2>
+                <p className="text-muted-foreground">
+                  Select the niches that are most relevant to your content.
+                </p>
+                
+                <div className="flex flex-wrap gap-2">
+                  {niches.map((niche) => (
+                    <button
+                      key={niche}
+                      type="button"
+                      className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${selectedNiches.includes(niche) ? 'bg-primary text-primary-foreground' : 'bg-muted hover:bg-muted/80'}`}
+                      onClick={() => handleNicheChange(niche)}
+                    >
+                      {niche}
+                    </button>
+                  ))}
+                </div>
+              </Card>
+              
+              <Card className="p-6 space-y-4">
+                <h2 className="text-xl font-semibold flex items-center gap-2">
+                  <User className="size-5" />
+                  Add Competitor Usernames
+                </h2>
+                <p className="text-muted-foreground">
+                  Add usernames of creators in your niche to help us generate content similar to theirs.
+                </p>
+                
+                <div className="flex flex-col gap-4">
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={newCompetitor}
+                      onChange={(e) => setNewCompetitor(e.target.value)}
+                      placeholder="@username"
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    />
+                    <Button type="button" onClick={handleAddCompetitor} disabled={newCompetitor.trim() === ''}>
+                      <Plus className="size-4 mr-1" />
+                      Add
+                    </Button>
+                  </div>
+                  
+                  <div>
+                    <h3 className="font-medium mb-2">Added Competitors ({competitors.length}/15)</h3>
+                    {competitors.length === 0 ? (
+                      <p className="text-muted-foreground text-sm">No competitors added yet.</p>
+                    ) : (
+                      <div className="flex flex-wrap gap-2">
+                        {competitors.map((competitor, index) => (
+                          <div key={index} className="flex items-center gap-1 bg-muted px-3 py-1.5 rounded-full text-sm">
+                            <span>{competitor}</span>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveCompetitor(index)}
+                              className="text-muted-foreground hover:text-destructive"
+                            >
+                              <X className="size-3.5" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </Card>
+              
+              <div className="flex justify-end gap-4">
+                <Button
+                  type="submit"
+                  disabled={isProcessing || userStatus === 'Processing' || videos.length === 0 || voiceFiles.length === 0 || selectedNiches.length === 0 || competitors.length === 0 || !selectedVideo || !selectedVoice}
+                  className="min-w-32"
+                >
+                  {isProcessing ? (
+                    <>
+                      <div className="mr-2 size-4 animate-spin rounded-full border-2 border-current border-t-transparent"></div>
+                      Processing...
+                    </>
+                  ) : (
+                    <>Generate Video</>
+                  )}
+                </Button>
+              </div>
+              
+              {isProcessing && (
+                <div className="space-y-2">
+                  <Progress value={processingProgress} className="h-2" />
+                  <p className="text-center text-sm text-muted-foreground">
+                    Please wait while we process your request...
+                  </p>
+                </div>
+              )}
+            </form>
+          </div>
+        </div>
+      </div>
+    </MainLayout>
+  );
+};
+
+export default Dashboard;
