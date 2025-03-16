@@ -1,9 +1,9 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import MainLayout from '@/components/layout/MainLayout';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Upload, Trash2, Video, Mic, Briefcase, User, Check, ExternalLink } from 'lucide-react';
+import { Plus, Upload, Trash2, Video, Mic, Briefcase, User, Check, ExternalLink, StopCircle } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
@@ -51,6 +51,14 @@ const Dashboard = () => {
   const [uploadingVoices, setUploadingVoices] = useState<{
     [key: string]: number;
   }>({});
+  
+  // Audio recording states
+  const [isRecording, setIsRecording] = useState(false);
+  const [audioURL, setAudioURL] = useState<string | null>(null);
+  const [recordingDuration, setRecordingDuration] = useState(0);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const recordingTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (!user) {
@@ -95,7 +103,8 @@ const Dashboard = () => {
             name: file.name,
             size: file.size,
             type: file.type,
-            url: file.url
+            url: file.url,
+            duration: file.duration
           })));
         }
         
@@ -129,7 +138,8 @@ const Dashboard = () => {
               name: voiceData.name,
               size: voiceData.size || 0,
               type: voiceData.type || 'audio/mpeg',
-              url: voiceData.url
+              url: voiceData.url,
+              duration: voiceData.duration
             });
           }
         }
@@ -344,14 +354,14 @@ const Dashboard = () => {
     if (files && files.length > 0) {
       const fileArray = Array.from(files);
       const invalidFiles = fileArray.filter(file => {
-        const isValidType = file.type === 'audio/mpeg' || file.type === 'audio/wav';
+        const isValidType = file.type === 'audio/mpeg' || file.type === 'audio/wav' || file.type === 'audio/webm';
         const isValidSize = file.size <= 8 * 1024 * 1024;
         return !isValidType || !isValidSize;
       });
       if (invalidFiles.length > 0) {
         toast({
           title: "Invalid files detected",
-          description: "Please upload MP3 or WAV files under 8MB.",
+          description: "Please upload MP3, WAV, or WebM files under 8MB.",
           variant: "destructive"
         });
         return;
@@ -370,6 +380,19 @@ const Dashboard = () => {
       };
       for (const file of fileArray) {
         try {
+          // Check audio duration
+          const duration = await getMediaDuration(file);
+          
+          // Validate duration (between 8 and 40 seconds)
+          if (duration < 8 || duration > 40) {
+            toast({
+              title: "Invalid voice duration",
+              description: `Voice recording must be between 8 and 40 seconds (current: ${Math.round(duration)} seconds).`,
+              variant: "destructive"
+            });
+            continue; // Skip this file but process others
+          }
+          
           const uploadId = uuidv4();
           uploadingProgress[uploadId] = 0;
           setUploadingVoices(uploadingProgress);
@@ -411,7 +434,8 @@ const Dashboard = () => {
             name: file.name,
             size: file.size,
             type: file.type,
-            url: urlData.publicUrl
+            url: urlData.publicUrl,
+            duration: duration
           };
           newVoiceFiles.push(newVoiceFile);
           setVoiceFiles(newVoiceFiles);
@@ -427,7 +451,7 @@ const Dashboard = () => {
           }, 1000);
           toast({
             title: "Voice file uploaded",
-            description: `Successfully uploaded ${file.name}.`
+            description: `Successfully uploaded ${file.name} (${Math.round(duration)} seconds).`
           });
           await updateProfile({
             voice_files: newVoiceFiles,
@@ -441,6 +465,149 @@ const Dashboard = () => {
             variant: "destructive"
           });
         }
+      }
+    }
+  };
+
+  // Voice recording functions
+  const startRecording = async () => {
+    setAudioURL(null);
+    
+    try {
+      // Request high-quality audio with specific constraints
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          sampleRate: 48000, // Higher sample rate for better quality
+          sampleSize: 24,    // Higher bit depth
+          channelCount: 1,   // Mono for voice is fine and smaller file size
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        }
+      });
+
+      audioChunksRef.current = [];
+      
+      // Use WebM with Opus codec for better quality at smaller file sizes
+      const mediaRecorder = new MediaRecorder(stream, {
+        mimeType: 'audio/webm;codecs=opus',
+        audioBitsPerSecond: 128000 // Higher bitrate for better quality
+      });
+      
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = async () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        const url = URL.createObjectURL(audioBlob);
+        setAudioURL(url);
+        
+        // Get duration from audio element
+        const audio = new Audio(url);
+        audio.onloadedmetadata = async () => {
+          const duration = audio.duration;
+          
+          // Check if recording is within duration limits
+          if (duration < 8 || duration > 40) {
+            toast({
+              title: "Invalid recording duration",
+              description: `Recording must be between 8 and 40 seconds (current: ${Math.round(duration)} seconds).`,
+              variant: "destructive"
+            });
+            return;
+          }
+          
+          if (user) {
+            try {
+              // Generate a filename with timestamp
+              const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+              const fileName = `${user.id}/${timestamp}-recording.webm`;
+              const filePath = `voices/${fileName}`;
+              
+              // Upload the blob directly
+              const { data, error } = await supabase.storage
+                .from('creator_files')
+                .upload(filePath, audioBlob);
+                
+              if (error) throw error;
+              
+              const { data: urlData } = supabase.storage
+                .from('creator_files')
+                .getPublicUrl(filePath);
+                
+              const newVoiceFile = {
+                id: uuidv4(),
+                name: `Recording ${new Date().toLocaleTimeString()}`,
+                size: audioBlob.size,
+                type: audioBlob.type,
+                url: urlData.publicUrl,
+                duration: duration
+              };
+              
+              const updatedVoiceFiles = [...voiceFiles, newVoiceFile];
+              setVoiceFiles(updatedVoiceFiles);
+              setSelectedVoice(newVoiceFile);
+              
+              await updateProfile({
+                voice_files: updatedVoiceFiles,
+                selected_voice: newVoiceFile
+              });
+              
+              toast({
+                title: "Recording saved",
+                description: `Voice recording saved (${Math.round(duration)} seconds).`
+              });
+            } catch (error) {
+              console.error('Error saving recording:', error);
+              toast({
+                title: "Save Failed",
+                description: "Failed to save your recording.",
+                variant: "destructive"
+              });
+            }
+          }
+        };
+      };
+
+      mediaRecorderRef.current = mediaRecorder;
+      mediaRecorder.start(1000); // Collect data in 1-second chunks
+      setIsRecording(true);
+      setRecordingDuration(0);
+      
+      // Start timer to track recording duration
+      recordingTimerRef.current = window.setInterval(() => {
+        setRecordingDuration(prev => {
+          // Auto-stop at 40 seconds (maximum allowed)
+          if (prev >= 40) {
+            stopRecording();
+            return 40;
+          }
+          return prev + 1;
+        });
+      }, 1000);
+      
+    } catch (error) {
+      console.error('Error starting recording:', error);
+      toast({
+        title: "Recording Error",
+        description: "Could not access microphone. Please check permissions.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
+      setIsRecording(false);
+      
+      if (recordingTimerRef.current) {
+        clearInterval(recordingTimerRef.current);
+        recordingTimerRef.current = null;
       }
     }
   };
@@ -754,10 +921,16 @@ const Dashboard = () => {
               </div>
             )}
           </div>
-          <Button onClick={() => navigate('/results')} variant="outline" className="gap-2">
-            <ExternalLink className="h-4 w-4" />
-            View Results
-          </Button>
+          <div className="flex gap-2">
+            <Button onClick={() => window.open('/results', '_blank')} variant="outline" className="gap-2">
+              <ExternalLink className="h-4 w-4" />
+              Open Results in New Tab
+            </Button>
+            <Button onClick={() => navigate('/results')} variant="default" className="gap-2">
+              <ExternalLink className="h-4 w-4" />
+              View Results
+            </Button>
+          </div>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-12">
@@ -852,25 +1025,88 @@ const Dashboard = () => {
               <Mic className="mr-2 h-5 w-5 text-primary" />
               <h2 className="text-2xl font-medium">Voice Upload</h2>
             </div>
-            <p className="text-muted-foreground mb-6">Upload up to 5 voice files (MP3/WAV, max 8MB each) and select one as your target voice</p>
+            <p className="text-muted-foreground mb-6">Upload up to 5 voice files (MP3/WAV/WebM, max 8MB each, 8-40 seconds) and select one as your target voice</p>
             
-            <div 
-              className={`file-drop-area p-8 ${isDraggingVoice ? 'active' : ''}`} 
-              onDragOver={e => {
-                e.preventDefault();
-                setIsDraggingVoice(true);
-              }} 
-              onDragLeave={() => setIsDraggingVoice(false)} 
-              onDrop={handleVoiceUpload}
-            >
-              <div className="flex flex-col items-center justify-center text-center">
-                <Upload className="h-12 w-12 text-muted-foreground mb-4" />
-                <h3 className="text-lg font-medium mb-2">Drag and drop your voice files here</h3>
-                <p className="text-muted-foreground mb-4">Or click to browse files</p>
-                <label className="button-hover-effect px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors cursor-pointer">
-                  <input type="file" accept="audio/mpeg,audio/wav" multiple className="hidden" onChange={handleVoiceUpload} />
-                  Select Voice Files
-                </label>
+            <div className="flex flex-col md:flex-row gap-4 mb-6">
+              <div 
+                className={`file-drop-area p-8 flex-1 ${isDraggingVoice ? 'active' : ''}`} 
+                onDragOver={e => {
+                  e.preventDefault();
+                  setIsDraggingVoice(true);
+                }} 
+                onDragLeave={() => setIsDraggingVoice(false)} 
+                onDrop={handleVoiceUpload}
+              >
+                <div className="flex flex-col items-center justify-center text-center">
+                  <Upload className="h-12 w-12 text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-medium mb-2">Drag and drop your voice files here</h3>
+                  <p className="text-muted-foreground mb-4">Or click to browse files</p>
+                  <label className="button-hover-effect px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors cursor-pointer">
+                    <input type="file" accept="audio/mpeg,audio/wav,audio/webm" multiple className="hidden" onChange={handleVoiceUpload} />
+                    Select Voice Files
+                  </label>
+                </div>
+              </div>
+              
+              <div className="rounded-lg border border-border p-6 flex-1">
+                <div className="flex flex-col items-center justify-center text-center">
+                  <Mic className="h-12 w-12 text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-medium mb-2">Record your voice</h3>
+                  <p className="text-muted-foreground mb-4">Must be between 8-40 seconds</p>
+                  
+                  {isRecording ? (
+                    <div className="w-full space-y-4">
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-primary font-medium">Recording...</span>
+                        <span className={`${recordingDuration >= 8 && recordingDuration <= 40 ? 'text-green-500' : 'text-red-500'}`}>
+                          {recordingDuration}s
+                        </span>
+                      </div>
+                      <Progress 
+                        value={(recordingDuration / 40) * 100} 
+                        className={`h-2 ${recordingDuration < 8 ? 'bg-red-200' : ''}`}
+                      />
+                      <div className="flex justify-center">
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          onClick={stopRecording}
+                          className="gap-2"
+                        >
+                          <StopCircle className="h-4 w-4" />
+                          Stop Recording
+                        </Button>
+                      </div>
+                      <div className="text-xs text-muted-foreground text-center">
+                        {recordingDuration < 8 ? (
+                          <span className="text-amber-500">Record at least 8 seconds</span>
+                        ) : recordingDuration > 40 ? (
+                          <span className="text-red-500">Maximum duration reached</span>
+                        ) : (
+                          <span className="text-green-500">{`Recording is valid (${recordingDuration}s)`}</span>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-4 w-full">
+                      <Button
+                        type="button"
+                        onClick={startRecording}
+                        className="gap-2 w-full"
+                      >
+                        <Mic className="h-4 w-4" />
+                        Start Recording
+                      </Button>
+                      
+                      {audioURL && (
+                        <div className="mt-4 border border-border rounded-md p-2">
+                          <p className="text-sm font-medium mb-2">Preview recording:</p>
+                          <audio src={audioURL} controls className="w-full" />
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -903,6 +1139,7 @@ const Dashboard = () => {
                           <p className="font-medium truncate">{voice.name}</p>
                           <p className="text-xs text-muted-foreground">
                             {(voice.size / (1024 * 1024)).toFixed(2)} MB
+                            {voice.duration && ` • ${Math.round(voice.duration)}s`}
                           </p>
                         </div>
                         <div className="flex">
