@@ -305,31 +305,31 @@ const Dashboard = () => {
               };
               delete updated[uploadId];
               return updated;
+              });
+            }, 1000);
+            
+            // Update success message to include duration
+            toast({
+              title: "Video uploaded",
+              description: `Successfully uploaded ${file.name} (${Math.round(duration)} seconds).`
             });
-          }, 1000);
-          
-          // Update success message to include duration
-          toast({
-            title: "Video uploaded",
-            description: `Successfully uploaded ${file.name} (${Math.round(duration)} seconds).`
-          });
-          
-          await updateProfile({
-            videos: newVideos,
-            selected_video: newVideo
-          });
-          
-        } catch (error) {
-          console.error('Error uploading video:', error);
-          toast({
-            title: "Upload Failed",
-            description: `Failed to upload ${file.name}.`,
-            variant: "destructive"
-          });
+            
+            await updateProfile({
+              videos: newVideos,
+              selected_video: newVideo
+            });
+            
+          } catch (error) {
+            console.error('Error uploading video:', error);
+            toast({
+              title: "Upload Failed",
+              description: `Failed to upload ${file.name}.`,
+              variant: "destructive"
+            });
+          }
         }
       }
-    }
-  };
+    };
 
   const handleVoiceUpload = async (e: React.ChangeEvent<HTMLInputElement> | React.DragEvent<HTMLDivElement>) => {
     if (!user) {
