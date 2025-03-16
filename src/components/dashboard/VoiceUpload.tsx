@@ -509,7 +509,7 @@ const VoiceUpload = ({
                   <div className="bg-muted/50 rounded-full p-8 mb-4">
                     <Mic className="h-12 w-12 text-primary" />
                   </div>
-                  <Button type="button" onClick={startRecording} size="lg" className="text-white px-6 flex items-center gap-2 mb-3 bg-blue-800 hover:bg-blue-700">
+                  <Button type="button" onClick={startRecording} size="lg" className="text-white px-6 flex items-center gap-2 mb-3 bg-blue-700 hover:bg-blue-600">
                     <Mic className="h-4 w-4" />
                     Start Recording
                   </Button>
