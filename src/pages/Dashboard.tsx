@@ -475,23 +475,49 @@ const Dashboard = () => {
     }
   };
 
-  // Voice recording functions
+  // Voice recording functions with improved quality
   const startRecording = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // Request high-quality audio stream with improved settings
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: {
+          sampleRate: 48000, // Higher sample rate for better quality
+          channelCount: 1,
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        } 
+      });
+      
       audioChunksRef.current = [];
       
-      const mediaRecorder = new MediaRecorder(stream);
-      mediaRecorderRef.current = mediaRecorder;
+      // Setup MediaRecorder with better options for high-quality audio
+      const options = { 
+        mimeType: 'audio/webm;codecs=opus', // Opus codec for better compression quality
+        audioBitsPerSecond: 128000 // Higher bitrate for better quality
+      };
       
-      mediaRecorder.ondataavailable = (e) => {
+      // Check if the browser supports the specified MIME type
+      if (MediaRecorder.isTypeSupported(options.mimeType)) {
+        mediaRecorderRef.current = new MediaRecorder(stream, options);
+      } else {
+        // Fallback to default settings if not supported
+        console.log('Codec not supported, using default settings');
+        mediaRecorderRef.current = new MediaRecorder(stream);
+      }
+      
+      mediaRecorderRef.current.ondataavailable = (e) => {
         if (e.data.size > 0) {
           audioChunksRef.current.push(e.data);
         }
       };
       
-      mediaRecorder.onstop = async () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/wav' });
+      mediaRecorderRef.current.onstop = async () => {
+        // Combine audio chunks into a single blob with appropriate audio type
+        const audioBlob = new Blob(audioChunksRef.current, { 
+          type: 'audio/webm;codecs=opus' 
+        });
+        
         setRecordingBlob(audioBlob);
         
         // Stop all tracks to release microphone
@@ -504,8 +530,8 @@ const Dashboard = () => {
         }
       };
       
-      // Start recording
-      mediaRecorder.start();
+      // Start recording with a longer timeslice for better quality chunks
+      mediaRecorderRef.current.start(1000);
       setIsRecording(true);
       setRecordingTime(0);
       
@@ -563,9 +589,9 @@ const Dashboard = () => {
       const uploadId = uuidv4();
       setUploadingVoices(prev => ({ ...prev, [uploadId]: 0 }));
       
-      // Create file from blob
-      const fileName = `recorded_voice_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.wav`;
-      const filePath = `voices/${user.id}/${uuidv4()}.wav`;
+      // Create file from blob with higher quality audio file extension
+      const fileName = `recorded_voice_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.webm`;
+      const filePath = `voices/${user.id}/${uuidv4()}.webm`;
       
       // Upload progress simulation
       const progressInterval = setInterval(() => {
@@ -603,7 +629,7 @@ const Dashboard = () => {
         id: uuidv4(),
         name: fileName,
         size: recordingBlob.size,
-        type: 'audio/wav',
+        type: 'audio/webm;codecs=opus',
         url: urlData.publicUrl,
         duration: recordingTime
       };
@@ -634,7 +660,7 @@ const Dashboard = () => {
       
       toast({
         title: "Recording saved",
-        description: `Successfully saved voice recording (${recordingTime} seconds).`
+        description: `Successfully saved high quality voice recording (${recordingTime} seconds).`
       });
       
     } catch (error) {
@@ -1065,7 +1091,7 @@ const Dashboard = () => {
             
             {/* Voice recording UI */}
             <div className="bg-secondary/30 p-6 rounded-lg mb-6">
-              <h3 className="text-lg font-medium mb-4">Record Your Voice</h3>
+              <h3 className="text-lg font-medium mb-4">Record Your Voice (High Quality)</h3>
               
               <div className="flex flex-col items-center">
                 {!recordingBlob ? (
@@ -1081,7 +1107,7 @@ const Dashboard = () => {
                           Start Recording
                         </Button>
                         <p className="text-xs text-muted-foreground">
-                          Recording must be between 8-40 seconds
+                          Recording must be between 8-40 seconds. High quality audio enabled.
                         </p>
                       </div>
                     ) : (
