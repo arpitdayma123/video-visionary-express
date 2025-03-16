@@ -309,7 +309,7 @@ const Dashboard = () => {
               delete updated[uploadId];
               return updated;
             });
-          }, 1000);\
+          }, 1000);
           
           // Update success message to include duration
           toast({
@@ -520,7 +520,7 @@ const Dashboard = () => {
         const audioBlob = new Blob(audioChunksRef.current, { 
           type: 'audio/webm;codecs=opus'
         });
-        setRecordingBlob(audioBlob);\
+        setRecordingBlob(audioBlob);
         
         // Stop all tracks to release microphone
         stream.getTracks().forEach(track => track.stop());
