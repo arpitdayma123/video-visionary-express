@@ -3,6 +3,8 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
+import { InfoIcon, AlertTriangle } from 'lucide-react';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 
 interface GenerateVideoProps {
   isFormComplete: boolean;
@@ -10,6 +12,12 @@ interface GenerateVideoProps {
   userStatus: string;
   userId: string | undefined;
   onSubmit: (e: React.FormEvent) => Promise<void>;
+  videos: any[];
+  voiceFiles: any[];
+  selectedVideo: any | null;
+  selectedVoice: any | null;
+  selectedNiches: string[];
+  competitors: string[];
 }
 
 const GenerateVideo = ({ 
@@ -17,11 +25,46 @@ const GenerateVideo = ({
   userCredits, 
   userStatus,
   userId,
-  onSubmit 
+  onSubmit,
+  videos,
+  voiceFiles,
+  selectedVideo,
+  selectedVoice,
+  selectedNiches,
+  competitors
 }: GenerateVideoProps) => {
   const { toast } = useToast();
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingProgress, setProcessingProgress] = useState(0);
+
+  const getMissingSteps = () => {
+    const steps = [];
+    
+    if (videos.length === 0) {
+      steps.push("Upload at least one video");
+    } else if (!selectedVideo) {
+      steps.push("Select a target video");
+    }
+    
+    if (voiceFiles.length === 0) {
+      steps.push("Upload at least one voice file");
+    } else if (!selectedVoice) {
+      steps.push("Select a voice file");
+    }
+    
+    if (selectedNiches.length === 0) {
+      steps.push("Select at least one niche");
+    }
+    
+    if (competitors.length === 0) {
+      steps.push("Add at least one competitor");
+    }
+    
+    return steps;
+  };
+
+  const missingSteps = getMissingSteps();
+  const shouldShowProgress = !isFormComplete && missingSteps.length > 0;
 
   const handleGenerateClick = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -80,7 +123,7 @@ const GenerateVideo = ({
 
   return (
     <section className="animate-fade-in border-t border-border pt-8">
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
         <div>
           <h2 className="text-xl font-medium mb-1">Generate Custom Video</h2>
           <p className="text-sm text-muted-foreground">This will use 1 credit</p>
@@ -107,14 +150,29 @@ const GenerateVideo = ({
             <Progress value={processingProgress} className="h-2" />
           </div>
         ) : (
-          <Button 
-            type="button" 
-            disabled={!isFormComplete || userCredits < 1 || userStatus === 'Processing'} 
-            className="w-full sm:w-auto"
-            onClick={handleGenerateClick}
-          >
-            Generate Video
-          </Button>
+          <div className="w-full sm:w-auto flex flex-col items-end gap-2">
+            {shouldShowProgress && (
+              <Alert variant="warning" className="max-w-sm mb-2">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertTitle>Incomplete Progress</AlertTitle>
+                <AlertDescription>
+                  <ul className="list-disc pl-5 mt-1 text-xs">
+                    {missingSteps.map((step, index) => (
+                      <li key={index}>{step}</li>
+                    ))}
+                  </ul>
+                </AlertDescription>
+              </Alert>
+            )}
+            <Button 
+              type="button" 
+              disabled={!isFormComplete || userCredits < 1 || userStatus === 'Processing'} 
+              className="w-full sm:w-auto"
+              onClick={handleGenerateClick}
+            >
+              Generate Video
+            </Button>
+          </div>
         )}
       </div>
     </section>
