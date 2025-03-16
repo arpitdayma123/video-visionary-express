@@ -3,14 +3,13 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import MainLayout from '@/components/layout/MainLayout';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Upload, Trash2, Video, Mic, Briefcase, User, Check, ExternalLink, Square, Pause, Play, Eye } from 'lucide-react';
+import { Plus, Upload, Trash2, Video, Mic, Briefcase, User, Check, ExternalLink, Square, Pause } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { v4 as uuidv4 } from 'uuid';
 import { Progress } from '@/components/ui/progress';
-import { AspectRatio } from '@/components/ui/aspect-ratio';
 
 type UploadedFile = {
   id: string;
@@ -60,16 +59,6 @@ const Dashboard = () => {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<number | null>(null);
-  
-  // Add new refs for previewing media
-  const videoPreviewRef = useRef<HTMLVideoElement>(null);
-  const audioPreviewRef = useRef<HTMLAudioElement>(null);
-  
-  // Add new state for preview
-  const [previewingVideo, setPreviewingVideo] = useState<UploadedFile | null>(null);
-  const [previewingVoice, setPreviewingVoice] = useState<UploadedFile | null>(null);
-  const [recordingPreviewUrl, setRecordingPreviewUrl] = useState<string | null>(null);
-  const [videoAspectRatio, setVideoAspectRatio] = useState(16/9); // Default aspect ratio
 
   useEffect(() => {
     if (!user) {
@@ -201,36 +190,6 @@ const Dashboard = () => {
     }
   };
 
-  // Add function to handle video preview
-  const handlePreviewVideo = (video: UploadedFile) => {
-    setPreviewingVideo(video);
-    // Reset aspect ratio when changing videos
-    setVideoAspectRatio(16/9);
-    
-    // Get actual aspect ratio once the video loads
-    if (videoPreviewRef.current) {
-      videoPreviewRef.current.onloadedmetadata = () => {
-        if (videoPreviewRef.current) {
-          const width = videoPreviewRef.current.videoWidth;
-          const height = videoPreviewRef.current.videoHeight;
-          if (width && height) {
-            setVideoAspectRatio(width / height);
-          }
-        }
-      };
-    }
-  };
-
-  // Add function to handle voice preview
-  const handlePreviewVoice = (voice: UploadedFile) => {
-    setPreviewingVoice(voice);
-  };
-
-  // Add function to go to results page
-  const handleViewResults = () => {
-    navigate('/results');
-  };
-
   const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement> | React.DragEvent<HTMLDivElement>) => {
     if (!user) {
       toast({
@@ -340,8 +299,6 @@ const Dashboard = () => {
           const newVideos = [...videos, newVideo];
           setVideos(newVideos);
           setSelectedVideo(newVideo);
-          // Automatically preview the newly uploaded video
-          handlePreviewVideo(newVideo);
           setTimeout(() => {
             setUploadingVideos(current => {
               const updated = {
@@ -486,8 +443,6 @@ const Dashboard = () => {
           newVoiceFiles.push(newVoiceFile);
           setVoiceFiles(newVoiceFiles);
           setSelectedVoice(newVoiceFile);
-          // Automatically preview the newly uploaded voice file
-          handlePreviewVoice(newVoiceFile);
           setTimeout(() => {
             setUploadingVoices(current => {
               const updated = {
@@ -523,79 +478,50 @@ const Dashboard = () => {
   // Voice recording functions
   const startRecording = async () => {
     try {
-      // Request higher quality audio
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        audio: {
-          sampleRate: 48000,
-          channelCount: 2, // Stereo for better quality
-          echoCancellation: true, // Enable echo cancellation for clearer voice
-          noiseSuppression: true, // Enable noise suppression for cleaner audio
-          autoGainControl: true // Enable automatic gain control for consistent volume
-        } 
-      });
-      
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       audioChunksRef.current = [];
       
-      // Reset recording preview URL
-      setRecordingPreviewUrl(null);
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
       
-      // Add a small delay to ensure the microphone is fully initialized
-      setTimeout(() => {
-        // Use higher bitrate and quality settings
-        const mediaRecorder = new MediaRecorder(stream, {
-          mimeType: 'audio/webm;codecs=opus',
-          audioBitsPerSecond: 256000 // Increased bitrate for higher quality
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) {
+          audioChunksRef.current.push(e.data);
+        }
+      };
+      
+      mediaRecorder.onstop = async () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/wav' });
+        setRecordingBlob(audioBlob);
+        
+        // Stop all tracks to release microphone
+        stream.getTracks().forEach(track => track.stop());
+        
+        // Reset timer
+        if (timerRef.current) {
+          clearInterval(timerRef.current);
+          timerRef.current = null;
+        }
+      };
+      
+      // Start recording
+      mediaRecorder.start();
+      setIsRecording(true);
+      setRecordingTime(0);
+      
+      // Start timer
+      timerRef.current = window.setInterval(() => {
+        setRecordingTime(prev => {
+          const newTime = prev + 1;
+          
+          // Auto-stop recording if it reaches 40 seconds
+          if (newTime >= 40) {
+            stopRecording();
+          }
+          
+          return newTime;
         });
-        
-        mediaRecorderRef.current = mediaRecorder;
-        
-        // Collect audio data more frequently for better fidelity
-        mediaRecorder.ondataavailable = (e) => {
-          if (e.data.size > 0) {
-            audioChunksRef.current.push(e.data);
-          }
-        };
-        
-        mediaRecorder.onstop = async () => {
-          // Create blob with the highest quality option
-          const audioBlob = new Blob(audioChunksRef.current, { 
-            type: 'audio/webm;codecs=opus'
-          });
-          setRecordingBlob(audioBlob);
-          
-          // Create preview URL for the recording
-          const url = URL.createObjectURL(audioBlob);
-          setRecordingPreviewUrl(url);
-          
-          // Stop all tracks to release microphone
-          stream.getTracks().forEach(track => track.stop());
-          
-          // Reset timer
-          if (timerRef.current) {
-            clearInterval(timerRef.current);
-            timerRef.current = null;
-          }
-        };
-        
-        // Start recording with smaller timeslice for more frequent ondataavailable events
-        mediaRecorder.start(100);
-        setIsRecording(true);
-        setRecordingTime(0);
-        
-        // Start timer
-        timerRef.current = window.setInterval(() => {
-          setRecordingTime(prev => {
-            const newTime = prev + 1;
-            
-            // Auto-stop recording if it reaches 40 seconds
-            if (newTime >= 40) {
-              stopRecording();
-            }
-            
-            return newTime;
-          });
-        }, 1000);
-      }, 500); // Add 500ms delay before starting recording to prevent initial trimming
+      }, 1000);
       
     } catch (error) {
       console.error('Error starting recording:', error);
@@ -609,19 +535,14 @@ const Dashboard = () => {
   
   const stopRecording = () => {
     if (mediaRecorderRef.current && isRecording) {
-      // Add a buffer at the end to prevent trimming the end of the recording
-      setTimeout(() => {
-        if (mediaRecorderRef.current) {
-          mediaRecorderRef.current.stop();
-          setIsRecording(false);
-          
-          // Clear timer
-          if (timerRef.current) {
-            clearInterval(timerRef.current);
-            timerRef.current = null;
-          }
-        }
-      }, 1000); // 1 second delay to prevent trimming at the end
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+      
+      // Clear timer
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
     }
   };
   
@@ -642,9 +563,9 @@ const Dashboard = () => {
       const uploadId = uuidv4();
       setUploadingVoices(prev => ({ ...prev, [uploadId]: 0 }));
       
-      // Create file from blob using the higher quality format
-      const fileName = `recorded_voice_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.webm`;
-      const filePath = `voices/${user.id}/${uuidv4()}.webm`;
+      // Create file from blob
+      const fileName = `recorded_voice_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.wav`;
+      const filePath = `voices/${user.id}/${uuidv4()}.wav`;
       
       // Upload progress simulation
       const progressInterval = setInterval(() => {
@@ -677,12 +598,12 @@ const Dashboard = () => {
         .from('creator_files')
         .getPublicUrl(filePath);
       
-      // Create voice file object with adjusted duration to account for buffers
+      // Create voice file object
       const newVoiceFile = {
         id: uuidv4(),
         name: fileName,
         size: recordingBlob.size,
-        type: 'audio/webm',
+        type: 'audio/wav',
         url: urlData.publicUrl,
         duration: recordingTime
       };
@@ -691,7 +612,6 @@ const Dashboard = () => {
       const updatedVoiceFiles = [...voiceFiles, newVoiceFile];
       setVoiceFiles(updatedVoiceFiles);
       setSelectedVoice(newVoiceFile);
-      handlePreviewVoice(newVoiceFile);
       
       // Clean up
       setTimeout(() => {
@@ -702,7 +622,7 @@ const Dashboard = () => {
         });
       }, 1000);
       
-      // Reset recording state but keep preview URL until next recording
+      // Reset recording state
       setRecordingBlob(null);
       setRecordingTime(0);
       
@@ -730,7 +650,6 @@ const Dashboard = () => {
   const discardRecording = () => {
     setRecordingBlob(null);
     setRecordingTime(0);
-    setRecordingPreviewUrl(null);
   };
 
   const handleNicheChange = async (niche: string) => {
@@ -828,11 +747,6 @@ const Dashboard = () => {
         title: "Video removed",
         description: "Successfully removed the video."
       });
-      
-      // Reset preview if the removed video was being previewed
-      if (previewingVideo && previewingVideo.id === id) {
-        setPreviewingVideo(null);
-      }
     } catch (error) {
       console.error('Error removing video:', error);
       toast({
@@ -869,11 +783,6 @@ const Dashboard = () => {
         title: "Voice file removed",
         description: "Successfully removed the voice file."
       });
-      
-      // Reset preview if the removed voice was being previewed
-      if (previewingVoice && previewingVoice.id === id) {
-        setPreviewingVoice(null);
-      }
     } catch (error) {
       console.error('Error removing voice file:', error);
       toast({
@@ -984,34 +893,26 @@ const Dashboard = () => {
         userId: user.id
       });
       
-      const response = await fetch(`https://primary-production.up.railway.app/generate?${params.toString()}`, {
-        method: 'POST'
+      const response = await fetch(`https://primary-production-ce25.up.railway.app/webhook/trendy?${params.toString()}`, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json'
+        }
       });
       
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        throw new Error('Failed to process video request');
       }
       
-      const result = await response.json();
-      
       toast({
-        title: "Video generation started",
-        description: "We've started generating your video. You'll be notified when it's ready.",
+        title: "Request sent successfully",
+        description: "Your personalized video is being processed. Please check the Results page after 5 minutes to see your video."
       });
       
-      // Update processing state
-      setIsProcessing(false);
-      setProcessingProgress(0);
-      
-      // Navigate to results page
-      navigate('/results');
-      
     } catch (error) {
-      console.error('Error generating video:', error);
-      setIsProcessing(false);
-      setProcessingProgress(0);
+      console.error('Error processing video:', error);
       
-      // Reset user status and refund credit
+      // Revert status back to Completed and restore credit if there was an error
       await updateProfile({
         status: 'Completed',
         credit: userCredits
@@ -1020,629 +921,428 @@ const Dashboard = () => {
       setUserCredits(userCredits);
       
       toast({
-        title: "Generation Failed",
-        description: "We encountered an error while generating your video. Your credit has been refunded.",
+        title: "Processing failed",
+        description: "There was an error processing your request.",
         variant: "destructive"
       });
+    } finally {
+      clearInterval(interval);
+      setProcessingProgress(100);
+      setTimeout(() => {
+        setIsProcessing(false);
+      }, 500);
     }
   };
 
+  const isFormComplete = videos.length > 0 && voiceFiles.length > 0 && selectedNiches.length > 0 && competitors.length > 0 && selectedVideo !== null && selectedVoice !== null;
+  
+  if (isLoading) {
+    return (
+      <MainLayout title="Creator Dashboard" subtitle="Loading your content...">
+        <div className="min-h-[60vh] flex items-center justify-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+        </div>
+      </MainLayout>
+    );
+  }
+  
   return (
-    <MainLayout title="Create Content" subtitle="Upload media, select niches, and generate videos">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="flex justify-end mb-6">
-          <Button 
-            onClick={handleViewResults} 
-            className="flex items-center gap-2"
-            variant="outline"
-          >
-            <Eye size={16} />
+    <MainLayout title="Creator Dashboard" subtitle="Upload your content and create personalized videos">
+      <div className="section-container py-12">
+        <div className="flex justify-between items-center mb-6">
+          <div className="flex items-center gap-4">
+            <div className="bg-secondary/40 px-4 py-2 rounded-lg">
+              <span className="text-sm mr-2">Credits:</span>
+              <span className="font-medium">{userCredits}</span>
+            </div>
+            {userStatus === 'Processing' && (
+              <div className="bg-yellow-100 text-yellow-800 dark:bg-yellow-800/30 dark:text-yellow-200 px-4 py-2 rounded-lg">
+                <span className="text-sm">Processing video...</span>
+              </div>
+            )}
+          </div>
+          <Button onClick={() => navigate('/results')} variant="outline" className="gap-2">
+            <ExternalLink className="h-4 w-4" />
             View Results
           </Button>
         </div>
-        
-        <div className="grid md:grid-cols-2 gap-8">
-          {/* Left column - Upload and settings */}
-          <div className="space-y-6">
-            {/* Video upload section */}
-            <Card className="p-6">
-              <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-                <Video className="h-5 w-5" />
-                Target Video
-              </h2>
-              
-              <div 
-                className={`border-2 border-dashed rounded-lg p-8 text-center mb-4 transition-colors ${isDraggingVideo ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'}`}
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  setIsDraggingVideo(true);
-                }}
-                onDragLeave={() => setIsDraggingVideo(false)}
-                onDrop={handleVideoUpload}
-              >
-                <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-                <p className="text-muted-foreground mb-2">
-                  Drag & drop your video here, or{' '}
-                  <label className="text-primary cursor-pointer hover:underline">
-                    browse
-                    <input
-                      type="file"
-                      className="hidden"
-                      accept="video/mp4"
-                      onChange={handleVideoUpload}
-                    />
-                  </label>
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  MP4 format, max 30MB, 50-100 seconds
-                </p>
-              </div>
-              
-              {/* Display uploaded videos */}
-              <div className="space-y-2">
-                <h3 className="text-sm font-medium mb-2 flex items-center justify-between">
-                  <span>Your Videos ({videos.length}/5)</span>
-                </h3>
-                
-                {Object.keys(uploadingVideos).length > 0 && (
-                  <div className="mb-4">
-                    {Object.entries(uploadingVideos).map(([id, progress]) => (
-                      <div key={id} className="mb-2">
-                        <div className="flex justify-between text-sm mb-1">
-                          <span>Uploading...</span>
-                          <span>{progress}%</span>
-                        </div>
-                        <Progress value={progress} className="h-2" />
-                      </div>
-                    ))}
-                  </div>
-                )}
-                
-                {videos.length === 0 ? (
-                  <p className="text-sm text-muted-foreground italic">
-                    No videos uploaded yet
-                  </p>
-                ) : (
-                  <div className="space-y-3">
-                    {videos.map((video) => (
-                      <div 
-                        key={video.id}
-                        className={`flex items-center justify-between p-2 rounded-md transition-colors ${
-                          selectedVideo?.id === video.id 
-                            ? 'bg-primary/10 border border-primary/30' 
-                            : 'hover:bg-accent'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2 flex-1 min-w-0">
-                          <Video className="h-5 w-5 flex-shrink-0 text-muted-foreground" />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium truncate">{video.name}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {Math.round(video.size / 1024 / 1024 * 10) / 10} MB
-                              {video.duration && ` • ${Math.round(video.duration)}s`}
-                            </p>
-                          </div>
-                        </div>
-                        
-                        <div className="flex items-center gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handlePreviewVideo(video)}
-                            title="Preview"
-                          >
-                            <Play className="h-4 w-4" />
-                          </Button>
-                          
-                          <Button
-                            variant={selectedVideo?.id === video.id ? "default" : "ghost"}
-                            size="sm"
-                            onClick={() => handleSelectVideo(video)}
-                            className={selectedVideo?.id === video.id ? "px-2" : "px-2"}
-                          >
-                            {selectedVideo?.id === video.id ? (
-                              <>
-                                <Check className="h-3 w-3 mr-1" /> Target
-                              </>
-                            ) : (
-                              "Set as Target"
-                            )}
-                          </Button>
-                          
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleRemoveVideo(video.id)}
-                            title="Remove"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </Card>
+
+        <form onSubmit={handleSubmit} className="space-y-12">
+          {/* Video Upload Section */}
+          <section className="animate-fade-in">
+            <div className="flex items-center mb-4">
+              <Video className="mr-2 h-5 w-5 text-primary" />
+              <h2 className="text-2xl font-medium">Video Upload</h2>
+            </div>
+            <p className="text-muted-foreground mb-6">Upload up to 5 MP4 videos (max 30MB each) and select one as your target video</p>
             
-            {/* Voice upload section */}
-            <Card className="p-6">
-              <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-                <Mic className="h-5 w-5" />
-                Target Voice
-              </h2>
-              
-              <div className="mb-4 grid grid-cols-2 gap-2">
-                {/* Upload section */}
-                <div 
-                  className={`border-2 border-dashed rounded-lg p-4 text-center transition-colors ${isDraggingVoice ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'}`}
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    setIsDraggingVoice(true);
-                  }}
-                  onDragLeave={() => setIsDraggingVoice(false)}
-                  onDrop={handleVoiceUpload}
-                >
-                  <Upload className="h-6 w-6 mx-auto mb-2 text-muted-foreground" />
-                  <p className="text-sm text-muted-foreground mb-1">
-                    <label className="text-primary cursor-pointer hover:underline">
-                      Upload Voice
-                      <input
-                        type="file"
-                        className="hidden"
-                        accept="audio/mpeg,audio/wav"
-                        onChange={handleVoiceUpload}
-                      />
-                    </label>
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    MP3/WAV, 8-40s
-                  </p>
-                </div>
-                
-                {/* Record section */}
-                <div className="border-2 border-dashed rounded-lg p-4 text-center hover:border-primary/50 transition-colors">
-                  {isRecording ? (
-                    <div className="flex flex-col items-center justify-center h-full">
-                      <div className="animate-pulse bg-red-500 h-3 w-3 rounded-full mb-2"></div>
-                      <p className="text-sm font-medium mb-1">Recording... {recordingTime}s</p>
-                      <button
-                        onClick={stopRecording}
-                        className="text-primary text-sm hover:underline flex items-center gap-1"
-                      >
-                        <Square className="h-3 w-3" /> Stop
-                      </button>
-                    </div>
-                  ) : recordingBlob ? (
-                    <div className="flex flex-col items-center justify-center h-full">
-                      <div className="flex items-center justify-center gap-2 mb-2">
-                        <button
-                          onClick={() => {
-                            if (recordingPreviewUrl) {
-                              const audio = new Audio(recordingPreviewUrl);
-                              audio.play();
-                            }
-                          }}
-                          className="text-primary hover:text-primary/80"
-                        >
-                          <Play className="h-5 w-5" />
-                        </button>
-                        <span className="text-sm">{recordingTime}s</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={saveRecording}
-                          className="text-primary text-xs hover:underline"
-                        >
-                          Save
-                        </button>
-                        <button
-                          onClick={discardRecording}
-                          className="text-muted-foreground text-xs hover:underline"
-                        >
-                          Discard
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <>
-                      <Mic className="h-6 w-6 mx-auto mb-2 text-muted-foreground" />
-                      <button
-                        onClick={startRecording}
-                        className="text-primary text-sm hover:underline"
-                      >
-                        Record Voice
-                      </button>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        8-40 seconds
-                      </p>
-                    </>
-                  )}
-                </div>
+            <div 
+              className={`file-drop-area p-8 ${isDraggingVideo ? 'active' : ''}`} 
+              onDragOver={e => {
+                e.preventDefault();
+                setIsDraggingVideo(true);
+              }} 
+              onDragLeave={() => setIsDraggingVideo(false)} 
+              onDrop={handleVideoUpload}
+            >
+              <div className="flex flex-col items-center justify-center text-center">
+                <Upload className="h-12 w-12 text-muted-foreground mb-4" />
+                <h3 className="text-lg font-medium mb-2">Drag and drop your videos here</h3>
+                <p className="text-muted-foreground mb-4">Or click to browse files</p>
+                <label className="button-hover-effect px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors cursor-pointer">
+                  <input type="file" accept="video/mp4" multiple className="hidden" onChange={handleVideoUpload} />
+                  Select Videos
+                </label>
               </div>
-              
-              {/* Display uploaded voice files */}
-              <div className="space-y-2">
-                <h3 className="text-sm font-medium mb-2 flex items-center justify-between">
-                  <span>Your Voice Files ({voiceFiles.length}/5)</span>
-                </h3>
-                
-                {Object.keys(uploadingVoices).length > 0 && (
-                  <div className="mb-4">
-                    {Object.entries(uploadingVoices).map(([id, progress]) => (
-                      <div key={id} className="mb-2">
-                        <div className="flex justify-between text-sm mb-1">
-                          <span>Uploading...</span>
-                          <span>{progress}%</span>
-                        </div>
-                        <Progress value={progress} className="h-2" />
-                      </div>
-                    ))}
+            </div>
+
+            {Object.keys(uploadingVideos).length > 0 && (
+              <div className="mt-4 space-y-3">
+                <h4 className="text-sm font-medium">Uploading videos...</h4>
+                {Object.keys(uploadingVideos).map(id => (
+                  <div key={id} className="space-y-1">
+                    <div className="flex justify-between text-xs text-muted-foreground">
+                      <span>Uploading</span>
+                      <span>{uploadingVideos[id]}%</span>
+                    </div>
+                    <Progress value={uploadingVideos[id]} className="h-2" />
                   </div>
-                )}
-                
-                {voiceFiles.length === 0 ? (
-                  <p className="text-sm text-muted-foreground italic">
-                    No voice files uploaded yet
-                  </p>
-                ) : (
-                  <div className="space-y-3">
-                    {voiceFiles.map((voice) => (
-                      <div 
-                        key={voice.id}
-                        className={`flex items-center justify-between p-2 rounded-md transition-colors ${
-                          selectedVoice?.id === voice.id 
-                            ? 'bg-primary/10 border border-primary/30' 
-                            : 'hover:bg-accent'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2 flex-1 min-w-0">
-                          <Mic className="h-5 w-5 flex-shrink-0 text-muted-foreground" />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium truncate">{voice.name}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {Math.round(voice.size / 1024 / 1024 * 10) / 10} MB
-                              {voice.duration && ` • ${Math.round(voice.duration)}s`}
-                            </p>
-                          </div>
-                        </div>
-                        
-                        <div className="flex items-center gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handlePreviewVoice(voice)}
-                            title="Preview"
-                          >
-                            <Play className="h-4 w-4" />
-                          </Button>
-                          
-                          <Button
-                            variant={selectedVoice?.id === voice.id ? "default" : "ghost"}
-                            size="sm"
-                            onClick={() => handleSelectVoice(voice)}
-                            className={selectedVoice?.id === voice.id ? "px-2" : "px-2"}
-                          >
-                            {selectedVoice?.id === voice.id ? (
-                              <>
-                                <Check className="h-3 w-3 mr-1" /> Target
-                              </>
-                            ) : (
-                              "Set as Target"
-                            )}
-                          </Button>
-                          
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleRemoveVoiceFile(voice.id)}
-                            title="Remove"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </Card>
-            
-            {/* Niches section */}
-            <Card className="p-6">
-              <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-                <Briefcase className="h-5 w-5" />
-                Niches
-              </h2>
-              <p className="text-sm text-muted-foreground mb-4">
-                Select the niches that best describe your content (1-5)
-              </p>
-              
-              <div className="flex flex-wrap gap-2 mb-4">
-                {niches.map((niche) => (
-                  <button
-                    key={niche}
-                    className={`px-3 py-1.5 rounded-md text-sm transition-colors ${
-                      selectedNiches.includes(niche)
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
-                    }`}
-                    onClick={() => handleNicheChange(niche)}
-                    disabled={!selectedNiches.includes(niche) && selectedNiches.length >= 5}
-                  >
-                    {niche}
-                  </button>
                 ))}
               </div>
-            </Card>
-            
-            {/* Competitors section */}
-            <Card className="p-6">
-              <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-                <User className="h-5 w-5" />
-                Competitor Usernames
-              </h2>
-              <p className="text-sm text-muted-foreground mb-4">
-                Add usernames of content creators in your niche (1-15)
-              </p>
-              
-              <form className="flex items-center gap-2 mb-4">
-                <input
-                  type="text"
-                  value={newCompetitor}
-                  onChange={(e) => setNewCompetitor(e.target.value)}
-                  placeholder="Enter username"
-                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-                />
-                <Button 
-                  onClick={handleAddCompetitor}
-                  size="sm"
-                  disabled={competitors.length >= 15}
-                >
-                  <Plus className="h-4 w-4" />
-                </Button>
-              </form>
-              
-              <div className="space-y-2">
-                {competitors.length === 0 ? (
-                  <p className="text-sm text-muted-foreground italic">
-                    No competitors added yet
-                  </p>
-                ) : (
-                  <div className="flex flex-wrap gap-2">
-                    {competitors.map((competitor, index) => (
-                      <div 
-                        key={index}
-                        className="bg-secondary text-secondary-foreground rounded-md px-2 py-1 text-sm flex items-center gap-1"
-                      >
-                        <span>{competitor}</span>
-                        <button
-                          onClick={() => handleRemoveCompetitor(index)}
-                          className="text-muted-foreground hover:text-foreground transition-colors"
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </button>
+            )}
+
+            {videos.length > 0 && (
+              <div className="mt-6">
+                <h3 className="text-lg font-medium mb-4">Uploaded Videos ({videos.length}/5)</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                  {videos.map(video => (
+                    <Card key={video.id} className={`p-4 animate-zoom-in ${selectedVideo?.id === video.id ? 'ring-2 ring-primary' : ''}`}>
+                      <div className="aspect-video mb-3 bg-secondary rounded-md overflow-hidden relative">
+                        <video src={video.url} className="w-full h-full object-contain" controls />
                       </div>
-                    ))}
+                      <div className="flex justify-between items-center">
+                        <div className="truncate mr-2">
+                          <p className="font-medium truncate">{video.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {(video.size / (1024 * 1024)).toFixed(2)} MB
+                            {video.duration && ` • ${Math.round(video.duration)}s`}
+                          </p>
+                        </div>
+                        <div className="flex">
+                          <button 
+                            type="button" 
+                            onClick={() => handleSelectVideo(video)} 
+                            className={`p-1.5 rounded-full mr-1 transition-colors ${selectedVideo?.id === video.id ? 'bg-primary text-primary-foreground' : 'hover:bg-secondary-foreground/10'}`} 
+                            title="Select as target video"
+                          >
+                            <Check className={`h-4 w-4 ${selectedVideo?.id === video.id ? 'text-white' : 'text-muted-foreground'}`} />
+                          </button>
+                          <button 
+                            type="button" 
+                            onClick={() => handleRemoveVideo(video.id)} 
+                            className="p-1.5 rounded-full hover:bg-secondary-foreground/10 transition-colors"
+                          >
+                            <Trash2 className="h-4 w-4 text-muted-foreground" />
+                          </button>
+                        </div>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            )}
+          </section>
+
+          {/* Voice Upload Section */}
+          <section className="animate-fade-in">
+            <div className="flex items-center mb-4">
+              <Mic className="mr-2 h-5 w-5 text-primary" />
+              <h2 className="text-2xl font-medium">Voice Upload</h2>
+            </div>
+            <p className="text-muted-foreground mb-6">
+              Upload up to 5 voice files (MP3/WAV, max 8MB each) or record your voice (8-40 seconds) and select one as your target voice
+            </p>
+            
+            {/* Voice recording UI */}
+            <div className="bg-secondary/30 p-6 rounded-lg mb-6">
+              <h3 className="text-lg font-medium mb-4">Record Your Voice</h3>
+              
+              <div className="flex flex-col items-center">
+                {!recordingBlob ? (
+                  <div className="mb-4 text-center">
+                    {!isRecording ? (
+                      <div>
+                        <Button 
+                          type="button" 
+                          onClick={startRecording}
+                          className="bg-red-500 hover:bg-red-600 text-white px-6 flex items-center gap-2 mb-2"
+                        >
+                          <Mic className="h-4 w-4" />
+                          Start Recording
+                        </Button>
+                        <p className="text-xs text-muted-foreground">
+                          Recording must be between 8-40 seconds
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center">
+                        <div className="flex items-center gap-3 mb-4">
+                          <div className="w-3 h-3 rounded-full bg-red-500 animate-pulse"></div>
+                          <span className="text-lg font-mono">{recordingTime}s</span>
+                          {recordingTime < 8 && (
+                            <span className="text-xs text-amber-500">(Need {8 - recordingTime}s more)</span>
+                          )}
+                        </div>
+                        
+                        <Button 
+                          type="button" 
+                          onClick={stopRecording}
+                          variant="secondary"
+                          className="flex items-center gap-2"
+                        >
+                          <Square className="h-4 w-4" />
+                          Stop Recording
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center w-full">
+                    <div className="bg-background p-3 rounded-md w-full mb-4">
+                      <audio src={URL.createObjectURL(recordingBlob)} className="w-full" controls />
+                    </div>
+                    <p className="text-sm mb-3">
+                      {recordingTime} seconds {recordingTime < 8 ? "(too short)" : ""}
+                    </p>
+                    <div className="flex gap-3">
+                      <Button 
+                        type="button"
+                        onClick={saveRecording}
+                        className="bg-primary hover:bg-primary/90 text-white"
+                        disabled={recordingTime < 8}
+                      >
+                        Save Recording
+                      </Button>
+                      <Button 
+                        type="button"
+                        onClick={discardRecording}
+                        variant="outline"
+                      >
+                        Discard
+                      </Button>
+                    </div>
                   </div>
                 )}
               </div>
-            </Card>
+            </div>
             
-            {/* Submit section */}
-            <Card className="p-6">
-              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-4">
-                <div>
-                  <h2 className="text-xl font-semibold">
-                    Generate AI Video
-                  </h2>
-                  <p className="text-sm text-muted-foreground">
-                    Cost: 1 credit ({userCredits} remaining)
-                  </p>
+            {/* File drop area */}
+            <div 
+              className={`file-drop-area p-8 ${isDraggingVoice ? 'active' : ''}`} 
+              onDragOver={e => {
+                e.preventDefault();
+                setIsDraggingVoice(true);
+              }} 
+              onDragLeave={() => setIsDraggingVoice(false)} 
+              onDrop={handleVoiceUpload}
+            >
+              <div className="flex flex-col items-center justify-center text-center">
+                <Upload className="h-12 w-12 text-muted-foreground mb-4" />
+                <h3 className="text-lg font-medium mb-2">Drag and drop your voice files here</h3>
+                <p className="text-muted-foreground mb-4">Or click to browse files</p>
+                <label className="button-hover-effect px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors cursor-pointer">
+                  <input type="file" accept="audio/mpeg,audio/wav" multiple className="hidden" onChange={handleVoiceUpload} />
+                  Select Voice Files
+                </label>
+              </div>
+            </div>
+
+            {Object.keys(uploadingVoices).length > 0 && (
+              <div className="mt-4 space-y-3">
+                <h4 className="text-sm font-medium">Uploading voice files...</h4>
+                {Object.keys(uploadingVoices).map(id => (
+                  <div key={id} className="space-y-1">
+                    <div className="flex justify-between text-xs text-muted-foreground">
+                      <span>Uploading</span>
+                      <span>{uploadingVoices[id]}%</span>
+                    </div>
+                    <Progress value={uploadingVoices[id]} className="h-2" />
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {voiceFiles.length > 0 && (
+              <div className="mt-6">
+                <h3 className="text-lg font-medium mb-4">Uploaded Voice Files ({voiceFiles.length}/5)</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                  {voiceFiles.map(voice => (
+                    <Card key={voice.id} className={`p-4 animate-zoom-in ${selectedVoice?.id === voice.id ? 'ring-2 ring-primary' : ''}`}>
+                      <div className="mb-3 bg-secondary rounded-md overflow-hidden relative p-3">
+                        <audio src={voice.url} className="w-full" controls />
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <div className="truncate mr-2">
+                          <p className="font-medium truncate">{voice.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {(voice.size / (1024 * 1024)).toFixed(2)} MB
+                            {voice.duration && ` • ${Math.round(voice.duration)}s`}
+                          </p>
+                        </div>
+                        <div className="flex">
+                          <button 
+                            type="button" 
+                            onClick={() => handleSelectVoice(voice)} 
+                            className={`p-1.5 rounded-full mr-1 transition-colors ${selectedVoice?.id === voice.id ? 'bg-primary text-primary-foreground' : 'hover:bg-secondary-foreground/10'}`} 
+                            title="Select as target voice"
+                          >
+                            <Check className={`h-4 w-4 ${selectedVoice?.id === voice.id ? 'text-white' : 'text-muted-foreground'}`} />
+                          </button>
+                          <button 
+                            type="button"
+                            onClick={() => handleRemoveVoiceFile(voice.id)}
+                            className="p-1.5 rounded-full hover:bg-secondary-foreground/10 transition-colors"
+                          >
+                            <Trash2 className="h-4 w-4 text-muted-foreground" />
+                          </button>
+                        </div>
+                      </div>
+                    </Card>
+                  ))}
                 </div>
-                
-                <Button 
-                  onClick={handleSubmit} 
-                  disabled={
-                    isProcessing || 
-                    userCredits < 1 || 
-                    videos.length === 0 || 
-                    voiceFiles.length === 0 || 
-                    selectedNiches.length === 0 || 
-                    competitors.length === 0 ||
-                    !selectedVideo ||
-                    !selectedVoice ||
-                    userStatus === 'Processing'
-                  }
-                  className="w-full sm:w-auto"
+              </div>
+            )}
+          </section>
+
+          {/* Niche Selection Section */}
+          <section className="animate-fade-in">
+            <div className="flex items-center mb-4">
+              <Briefcase className="mr-2 h-5 w-5 text-primary" />
+              <h2 className="text-2xl font-medium">Select Your Niches</h2>
+            </div>
+            <p className="text-muted-foreground mb-6">Choose niches that best describe your content (select multiple)</p>
+            
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+              {niches.map(niche => (
+                <button
+                  key={niche}
+                  type="button"
+                  onClick={() => handleNicheChange(niche)}
+                  className={`py-2 px-3 rounded-md text-sm text-start transition-colors ${
+                    selectedNiches.includes(niche)
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-secondary/50 hover:bg-secondary'
+                  }`}
                 >
-                  {isProcessing ? (
-                    <>Processing...</>
-                  ) : userStatus === 'Processing' ? (
-                    <>Processing In Progress</>
-                  ) : (
-                    <>Generate Video</>
-                  )}
-                </Button>
+                  {niche}
+                </button>
+              ))}
+            </div>
+
+            {selectedNiches.length > 0 && (
+              <div className="mt-4">
+                <p className="text-sm text-muted-foreground mb-2">Selected niches:</p>
+                <div className="flex flex-wrap gap-2">
+                  {selectedNiches.map(niche => (
+                    <div key={niche} className="bg-primary/10 text-primary px-3 py-1 rounded-full text-sm flex items-center">
+                      {niche}
+                      <button
+                        type="button"
+                        onClick={() => handleNicheChange(niche)}
+                        className="ml-2 h-4 w-4 rounded-full inline-flex items-center justify-center hover:bg-primary/20"
+                      >
+                        <span className="sr-only">Remove</span>
+                        <svg width="6" height="6" viewBox="0 0 6 6" fill="none" xmlns="http://www.w3.org/2000/svg" className="stroke-current">
+                          <path d="M1 1L5 5M1 5L5 1" strokeWidth="1.5" strokeLinecap="round" />
+                        </svg>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </section>
+
+          {/* Competitor Section */}
+          <section className="animate-fade-in">
+            <div className="flex items-center mb-4">
+              <User className="mr-2 h-5 w-5 text-primary" />
+              <h2 className="text-2xl font-medium">Add Competitor Usernames</h2>
+            </div>
+            <p className="text-muted-foreground mb-6">Add usernames of competitors or accounts with similar content (max 15)</p>
+            
+            <div className="flex items-center space-x-2 mb-4">
+              <input
+                type="text"
+                value={newCompetitor}
+                onChange={(e) => setNewCompetitor(e.target.value)}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                placeholder="Enter username (without @)"
+                maxLength={30}
+                disabled={competitors.length >= 15}
+              />
+              <Button
+                type="button"
+                onClick={handleAddCompetitor}
+                disabled={competitors.length >= 15 || newCompetitor.trim() === ''}
+                size="sm"
+              >
+                <Plus className="h-4 w-4 mr-1" />
+                Add
+              </Button>
+            </div>
+            
+            {competitors.length > 0 && (
+              <div className="space-y-2">
+                <h3 className="text-sm font-medium">{competitors.length}/15 competitors added</h3>
+                <div className="flex flex-wrap gap-2">
+                  {competitors.map((competitor, index) => (
+                    <div key={index} className="bg-secondary/50 px-3 py-1 rounded-full text-sm flex items-center">
+                      @{competitor}
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveCompetitor(index)}
+                        className="ml-2 h-4 w-4 rounded-full inline-flex items-center justify-center hover:bg-secondary-foreground/10"
+                      >
+                        <span className="sr-only">Remove</span>
+                        <svg width="6" height="6" viewBox="0 0 6 6" fill="none" xmlns="http://www.w3.org/2000/svg" className="stroke-current">
+                          <path d="M1 1L5 5M1 5L5 1" strokeWidth="1.5" strokeLinecap="round" />
+                        </svg>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </section>
+
+          {/* Submit Section */}
+          <section className="animate-fade-in border-t border-border pt-8">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+              <div>
+                <h2 className="text-xl font-medium mb-1">Generate Custom Video</h2>
+                <p className="text-sm text-muted-foreground">This will use 1 credit</p>
               </div>
               
-              {isProcessing && (
-                <div className="mb-2">
-                  <div className="flex justify-between text-sm mb-1">
-                    <span>Processing...</span>
+              {isProcessing ? (
+                <div className="w-full sm:w-64">
+                  <div className="flex justify-between text-xs text-muted-foreground mb-1">
+                    <span>Processing request...</span>
                     <span>{processingProgress}%</span>
                   </div>
                   <Progress value={processingProgress} className="h-2" />
                 </div>
-              )}
-              
-              {userStatus === 'Processing' && !isProcessing && (
-                <div className="bg-yellow-50 border border-yellow-100 rounded-md p-3 text-sm text-yellow-800">
-                  A video is currently being processed. Check the{' '}
-                  <button 
-                    onClick={handleViewResults}
-                    className="text-primary underline"
-                  >
-                    Results page
-                  </button>{' '}
-                  for updates.
-                </div>
-              )}
-            </Card>
-          </div>
-          
-          {/* Right column - Media preview */}
-          <div className="space-y-6">
-            {/* Video preview */}
-            <Card className="p-6">
-              <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-                <Video className="h-5 w-5" />
-                Video Preview
-              </h2>
-              
-              {previewingVideo ? (
-                <div className="mb-4">
-                  <AspectRatio ratio={videoAspectRatio}>
-                    <video 
-                      src={previewingVideo.url} 
-                      controls 
-                      className="rounded-md w-full h-full object-contain bg-black"
-                      ref={videoPreviewRef}
-                    />
-                  </AspectRatio>
-                  <div className="mt-2 text-sm">
-                    <p className="font-medium">{previewingVideo.name}</p>
-                    <p className="text-muted-foreground">
-                      {Math.round(previewingVideo.size / 1024 / 1024 * 10) / 10} MB
-                      {previewingVideo.duration && ` • ${Math.round(previewingVideo.duration)}s`}
-                    </p>
-                  </div>
-                </div>
               ) : (
-                <div className="border rounded-md bg-muted/40 aspect-video flex items-center justify-center mb-4">
-                  <p className="text-muted-foreground text-sm">
-                    Select a video to preview
-                  </p>
-                </div>
+                <Button type="submit" disabled={!isFormComplete || userCredits < 1 || userStatus === 'Processing'} className="w-full sm:w-auto">
+                  Generate Video
+                </Button>
               )}
-            </Card>
-            
-            {/* Voice preview */}
-            <Card className="p-6">
-              <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-                <Mic className="h-5 w-5" />
-                Voice Preview
-              </h2>
-              
-              {(previewingVoice || recordingPreviewUrl) ? (
-                <div className="mb-4">
-                  <audio 
-                    src={recordingPreviewUrl || previewingVoice?.url} 
-                    controls 
-                    className="w-full rounded-md" 
-                    ref={audioPreviewRef}
-                  />
-                  
-                  {previewingVoice && !recordingPreviewUrl && (
-                    <div className="mt-2 text-sm">
-                      <p className="font-medium">{previewingVoice.name}</p>
-                      <p className="text-muted-foreground">
-                        {Math.round(previewingVoice.size / 1024 / 1024 * 10) / 10} MB
-                        {previewingVoice.duration && ` • ${Math.round(previewingVoice.duration)}s`}
-                      </p>
-                    </div>
-                  )}
-                  
-                  {recordingPreviewUrl && (
-                    <div className="mt-2 text-sm">
-                      <p className="font-medium">Voice Recording</p>
-                      <p className="text-muted-foreground">
-                        {recordingTime}s
-                      </p>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="border rounded-md bg-muted/40 h-24 flex items-center justify-center mb-4">
-                  <p className="text-muted-foreground text-sm">
-                    Select a voice file to preview
-                  </p>
-                </div>
-              )}
-            </Card>
-            
-            {/* Summary card */}
-            <Card className="p-6">
-              <h2 className="text-xl font-semibold mb-4">
-                Generation Summary
-              </h2>
-              
-              <div className="space-y-4">
-                <div>
-                  <h3 className="text-sm font-medium text-muted-foreground mb-1">Target Video</h3>
-                  {selectedVideo ? (
-                    <p className="text-sm">{selectedVideo.name}</p>
-                  ) : (
-                    <p className="text-sm text-muted-foreground italic">Not selected</p>
-                  )}
-                </div>
-                
-                <div>
-                  <h3 className="text-sm font-medium text-muted-foreground mb-1">Target Voice</h3>
-                  {selectedVoice ? (
-                    <p className="text-sm">{selectedVoice.name}</p>
-                  ) : (
-                    <p className="text-sm text-muted-foreground italic">Not selected</p>
-                  )}
-                </div>
-                
-                <div>
-                  <h3 className="text-sm font-medium text-muted-foreground mb-1">
-                    Selected Niches ({selectedNiches.length}/5)
-                  </h3>
-                  {selectedNiches.length > 0 ? (
-                    <div className="flex flex-wrap gap-1">
-                      {selectedNiches.map(niche => (
-                        <span 
-                          key={niche}
-                          className="bg-secondary text-secondary-foreground rounded-md px-2 py-0.5 text-xs"
-                        >
-                          {niche}
-                        </span>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-sm text-muted-foreground italic">None selected</p>
-                  )}
-                </div>
-                
-                <div>
-                  <h3 className="text-sm font-medium text-muted-foreground mb-1">
-                    Competitor Usernames ({competitors.length}/15)
-                  </h3>
-                  {competitors.length > 0 ? (
-                    <div className="flex flex-wrap gap-1">
-                      {competitors.map((competitor, index) => (
-                        <span 
-                          key={index}
-                          className="bg-secondary text-secondary-foreground rounded-md px-2 py-0.5 text-xs"
-                        >
-                          {competitor}
-                        </span>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-sm text-muted-foreground italic">None added</p>
-                  )}
-                </div>
-              </div>
-            </Card>
-          </div>
-        </div>
+            </div>
+          </section>
+        </form>
       </div>
     </MainLayout>
   );
 };
 
 export default Dashboard;
-
