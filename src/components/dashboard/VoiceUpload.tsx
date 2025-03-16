@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Upload, Trash2, Check, Mic, Square, Pause, FileAudio } from 'lucide-react';
+import { Upload, Trash2, Check, Mic, Square, Pause, FileAudio, AlertTriangle } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -7,6 +7,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { v4 as uuidv4 } from 'uuid';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 type UploadedFile = {
   id: string;
@@ -48,6 +49,9 @@ const VoiceUpload = ({
   const timerRef = useRef<number | null>(null);
   const audioStreamRef = useRef<MediaStream | null>(null);
 
+  // Check if the maximum limit of voice files has been reached
+  const hasReachedVoiceLimit = voiceFiles.length >= 5;
+
   // Function to get media duration
   const getMediaDuration = (file: File): Promise<number> => {
     return new Promise(resolve => {
@@ -66,6 +70,15 @@ const VoiceUpload = ({
       toast({
         title: "Authentication Error",
         description: "You must be logged in to upload files.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (hasReachedVoiceLimit) {
+      toast({
+        title: "Maximum Limit Reached",
+        description: "You can only upload 5 voice files. To upload more, delete previous voices.",
         variant: "destructive"
       });
       return;
@@ -210,6 +223,16 @@ const VoiceUpload = ({
 
   // Voice recording functions
   const startRecording = async () => {
+    // Check if maximum limit has been reached
+    if (hasReachedVoiceLimit) {
+      toast({
+        title: "Maximum Limit Reached",
+        description: "You can only have 5 voice files. To record more, delete previous voices.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     try {
       // Request high-quality audio stream with improved settings
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -501,6 +524,16 @@ const VoiceUpload = ({
         Choose to record or upload your voice (8-40 seconds) and select one as your target voice
       </p>
       
+      {/* Display limit warning if maximum has been reached */}
+      {hasReachedVoiceLimit && (
+        <Alert variant="warning" className="mb-4 border-amber-500 bg-amber-500/10">
+          <AlertTriangle className="h-4 w-4 text-amber-500" />
+          <AlertDescription className="text-amber-600">
+            You've reached the maximum limit of 5 voice files. To add more, please delete existing files.
+          </AlertDescription>
+        </Alert>
+      )}
+      
       {/* Simplified UI with Tabs for "Record or Upload" */}
       <Tabs defaultValue="upload" className="mb-6">
         <TabsList className="grid w-full grid-cols-2 mb-6">
@@ -517,7 +550,7 @@ const VoiceUpload = ({
         {/* Upload Tab Content */}
         <TabsContent value="upload">
           <Card className="p-6">
-            <div className={`file-drop-area p-8 border-2 border-dashed rounded-lg ${isDraggingVoice ? 'border-primary bg-primary/5' : 'border-muted'}`} 
+            <div className={`file-drop-area p-8 border-2 border-dashed rounded-lg ${isDraggingVoice ? 'border-primary bg-primary/5' : 'border-muted'} ${hasReachedVoiceLimit ? 'opacity-50 pointer-events-none' : ''}`} 
                  onDragOver={e => {
                    e.preventDefault();
                    setIsDraggingVoice(true);
@@ -528,10 +561,22 @@ const VoiceUpload = ({
                 <Upload className="h-12 w-12 text-muted-foreground mb-4" />
                 <h3 className="text-lg font-medium mb-2">Drag MP3 or WAV files here</h3>
                 <p className="text-muted-foreground mb-4">Max 8MB, 8-40 seconds long</p>
-                <label className="button-hover-effect px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors cursor-pointer">
-                  <input type="file" accept="audio/mpeg,audio/wav" multiple className="hidden" onChange={handleVoiceUpload} />
+                <label className={`button-hover-effect px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors ${hasReachedVoiceLimit ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}>
+                  <input 
+                    type="file" 
+                    accept="audio/mpeg,audio/wav" 
+                    multiple 
+                    className="hidden" 
+                    onChange={handleVoiceUpload} 
+                    disabled={hasReachedVoiceLimit}
+                  />
                   Select Files
                 </label>
+                {hasReachedVoiceLimit && (
+                  <p className="mt-3 text-amber-600 text-sm">
+                    Delete existing voices to upload more
+                  </p>
+                )}
               </div>
             </div>
           </Card>
@@ -552,11 +597,18 @@ const VoiceUpload = ({
                       onClick={startRecording} 
                       size="lg" 
                       className="text-white px-6 flex items-center gap-2 mb-3 bg-primary"
+                      disabled={hasReachedVoiceLimit}
                     >
                       <Mic className="h-4 w-4" />
                       Start Recording
                     </Button>
-                    <p className="text-sm text-muted-foreground">Recording must be between 8-40 seconds</p>
+                    {hasReachedVoiceLimit ? (
+                      <p className="text-sm text-amber-600 font-medium">
+                        You've reached the limit of 5 voices. Delete existing voices to record more.
+                      </p>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">Recording must be between 8-40 seconds</p>
+                    )}
                   </div>
                 ) : (
                   <div className="flex flex-col items-center">
