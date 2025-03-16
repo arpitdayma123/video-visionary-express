@@ -982,4 +982,4 @@ const Dashboard = () => {
               <span className="font-medium">{userCredits}</span>
             </div>
             {userStatus === 'Processing' && (
-              <div className="bg-yellow-100 text-yellow-800 dark:bg-yellow-80
+              <div className="bg-yellow-100 text-yellow-800 dark:bg-yellow-800/2
