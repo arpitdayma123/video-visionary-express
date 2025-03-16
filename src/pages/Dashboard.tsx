@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import MainLayout from '@/components/layout/MainLayout';
@@ -983,4 +984,665 @@ const Dashboard = () => {
         userId: user.id
       });
       
-      const response = await fetch(`https://primary-production
+      const response = await fetch(`https://primary-production.up.railway.app/generate?${params.toString()}`, {
+        method: 'POST'
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      
+      toast({
+        title: "Video generation started",
+        description: "We've started generating your video. You'll be notified when it's ready.",
+      });
+      
+      // Update processing state
+      setIsProcessing(false);
+      setProcessingProgress(0);
+      
+      // Navigate to results page
+      navigate('/results');
+      
+    } catch (error) {
+      console.error('Error generating video:', error);
+      setIsProcessing(false);
+      setProcessingProgress(0);
+      
+      // Reset user status and refund credit
+      await updateProfile({
+        status: 'Completed',
+        credit: userCredits
+      });
+      setUserStatus('Completed');
+      setUserCredits(userCredits);
+      
+      toast({
+        title: "Generation Failed",
+        description: "We encountered an error while generating your video. Your credit has been refunded.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  return (
+    <MainLayout title="Create Content" subtitle="Upload media, select niches, and generate videos">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="flex justify-end mb-6">
+          <Button 
+            onClick={handleViewResults} 
+            className="flex items-center gap-2"
+            variant="outline"
+          >
+            <Eye size={16} />
+            View Results
+          </Button>
+        </div>
+        
+        <div className="grid md:grid-cols-2 gap-8">
+          {/* Left column - Upload and settings */}
+          <div className="space-y-6">
+            {/* Video upload section */}
+            <Card className="p-6">
+              <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                <Video className="h-5 w-5" />
+                Target Video
+              </h2>
+              
+              <div 
+                className={`border-2 border-dashed rounded-lg p-8 text-center mb-4 transition-colors ${isDraggingVideo ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'}`}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setIsDraggingVideo(true);
+                }}
+                onDragLeave={() => setIsDraggingVideo(false)}
+                onDrop={handleVideoUpload}
+              >
+                <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+                <p className="text-muted-foreground mb-2">
+                  Drag & drop your video here, or{' '}
+                  <label className="text-primary cursor-pointer hover:underline">
+                    browse
+                    <input
+                      type="file"
+                      className="hidden"
+                      accept="video/mp4"
+                      onChange={handleVideoUpload}
+                    />
+                  </label>
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  MP4 format, max 30MB, 50-100 seconds
+                </p>
+              </div>
+              
+              {/* Display uploaded videos */}
+              <div className="space-y-2">
+                <h3 className="text-sm font-medium mb-2 flex items-center justify-between">
+                  <span>Your Videos ({videos.length}/5)</span>
+                </h3>
+                
+                {Object.keys(uploadingVideos).length > 0 && (
+                  <div className="mb-4">
+                    {Object.entries(uploadingVideos).map(([id, progress]) => (
+                      <div key={id} className="mb-2">
+                        <div className="flex justify-between text-sm mb-1">
+                          <span>Uploading...</span>
+                          <span>{progress}%</span>
+                        </div>
+                        <Progress value={progress} className="h-2" />
+                      </div>
+                    ))}
+                  </div>
+                )}
+                
+                {videos.length === 0 ? (
+                  <p className="text-sm text-muted-foreground italic">
+                    No videos uploaded yet
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    {videos.map((video) => (
+                      <div 
+                        key={video.id}
+                        className={`flex items-center justify-between p-2 rounded-md transition-colors ${
+                          selectedVideo?.id === video.id 
+                            ? 'bg-primary/10 border border-primary/30' 
+                            : 'hover:bg-accent'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          <Video className="h-5 w-5 flex-shrink-0 text-muted-foreground" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate">{video.name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {Math.round(video.size / 1024 / 1024 * 10) / 10} MB
+                              {video.duration && ` • ${Math.round(video.duration)}s`}
+                            </p>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handlePreviewVideo(video)}
+                            title="Preview"
+                          >
+                            <Play className="h-4 w-4" />
+                          </Button>
+                          
+                          <Button
+                            variant={selectedVideo?.id === video.id ? "default" : "ghost"}
+                            size="sm"
+                            onClick={() => handleSelectVideo(video)}
+                            className={selectedVideo?.id === video.id ? "px-2" : "px-2"}
+                          >
+                            {selectedVideo?.id === video.id ? (
+                              <>
+                                <Check className="h-3 w-3 mr-1" /> Target
+                              </>
+                            ) : (
+                              "Set as Target"
+                            )}
+                          </Button>
+                          
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleRemoveVideo(video.id)}
+                            title="Remove"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </Card>
+            
+            {/* Voice upload section */}
+            <Card className="p-6">
+              <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                <Mic className="h-5 w-5" />
+                Target Voice
+              </h2>
+              
+              <div className="mb-4 grid grid-cols-2 gap-2">
+                {/* Upload section */}
+                <div 
+                  className={`border-2 border-dashed rounded-lg p-4 text-center transition-colors ${isDraggingVoice ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'}`}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    setIsDraggingVoice(true);
+                  }}
+                  onDragLeave={() => setIsDraggingVoice(false)}
+                  onDrop={handleVoiceUpload}
+                >
+                  <Upload className="h-6 w-6 mx-auto mb-2 text-muted-foreground" />
+                  <p className="text-sm text-muted-foreground mb-1">
+                    <label className="text-primary cursor-pointer hover:underline">
+                      Upload Voice
+                      <input
+                        type="file"
+                        className="hidden"
+                        accept="audio/mpeg,audio/wav"
+                        onChange={handleVoiceUpload}
+                      />
+                    </label>
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    MP3/WAV, 8-40s
+                  </p>
+                </div>
+                
+                {/* Record section */}
+                <div className="border-2 border-dashed rounded-lg p-4 text-center hover:border-primary/50 transition-colors">
+                  {isRecording ? (
+                    <div className="flex flex-col items-center justify-center h-full">
+                      <div className="animate-pulse bg-red-500 h-3 w-3 rounded-full mb-2"></div>
+                      <p className="text-sm font-medium mb-1">Recording... {recordingTime}s</p>
+                      <button
+                        onClick={stopRecording}
+                        className="text-primary text-sm hover:underline flex items-center gap-1"
+                      >
+                        <Square className="h-3 w-3" /> Stop
+                      </button>
+                    </div>
+                  ) : recordingBlob ? (
+                    <div className="flex flex-col items-center justify-center h-full">
+                      <div className="flex items-center justify-center gap-2 mb-2">
+                        <button
+                          onClick={() => {
+                            if (recordingPreviewUrl) {
+                              const audio = new Audio(recordingPreviewUrl);
+                              audio.play();
+                            }
+                          }}
+                          className="text-primary hover:text-primary/80"
+                        >
+                          <Play className="h-5 w-5" />
+                        </button>
+                        <span className="text-sm">{recordingTime}s</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={saveRecording}
+                          className="text-primary text-xs hover:underline"
+                        >
+                          Save
+                        </button>
+                        <button
+                          onClick={discardRecording}
+                          className="text-muted-foreground text-xs hover:underline"
+                        >
+                          Discard
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <Mic className="h-6 w-6 mx-auto mb-2 text-muted-foreground" />
+                      <button
+                        onClick={startRecording}
+                        className="text-primary text-sm hover:underline"
+                      >
+                        Record Voice
+                      </button>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        8-40 seconds
+                      </p>
+                    </>
+                  )}
+                </div>
+              </div>
+              
+              {/* Display uploaded voice files */}
+              <div className="space-y-2">
+                <h3 className="text-sm font-medium mb-2 flex items-center justify-between">
+                  <span>Your Voice Files ({voiceFiles.length}/5)</span>
+                </h3>
+                
+                {Object.keys(uploadingVoices).length > 0 && (
+                  <div className="mb-4">
+                    {Object.entries(uploadingVoices).map(([id, progress]) => (
+                      <div key={id} className="mb-2">
+                        <div className="flex justify-between text-sm mb-1">
+                          <span>Uploading...</span>
+                          <span>{progress}%</span>
+                        </div>
+                        <Progress value={progress} className="h-2" />
+                      </div>
+                    ))}
+                  </div>
+                )}
+                
+                {voiceFiles.length === 0 ? (
+                  <p className="text-sm text-muted-foreground italic">
+                    No voice files uploaded yet
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    {voiceFiles.map((voice) => (
+                      <div 
+                        key={voice.id}
+                        className={`flex items-center justify-between p-2 rounded-md transition-colors ${
+                          selectedVoice?.id === voice.id 
+                            ? 'bg-primary/10 border border-primary/30' 
+                            : 'hover:bg-accent'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          <Mic className="h-5 w-5 flex-shrink-0 text-muted-foreground" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate">{voice.name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {Math.round(voice.size / 1024 / 1024 * 10) / 10} MB
+                              {voice.duration && ` • ${Math.round(voice.duration)}s`}
+                            </p>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handlePreviewVoice(voice)}
+                            title="Preview"
+                          >
+                            <Play className="h-4 w-4" />
+                          </Button>
+                          
+                          <Button
+                            variant={selectedVoice?.id === voice.id ? "default" : "ghost"}
+                            size="sm"
+                            onClick={() => handleSelectVoice(voice)}
+                            className={selectedVoice?.id === voice.id ? "px-2" : "px-2"}
+                          >
+                            {selectedVoice?.id === voice.id ? (
+                              <>
+                                <Check className="h-3 w-3 mr-1" /> Target
+                              </>
+                            ) : (
+                              "Set as Target"
+                            )}
+                          </Button>
+                          
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleRemoveVoiceFile(voice.id)}
+                            title="Remove"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </Card>
+            
+            {/* Niches section */}
+            <Card className="p-6">
+              <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                <Briefcase className="h-5 w-5" />
+                Niches
+              </h2>
+              <p className="text-sm text-muted-foreground mb-4">
+                Select the niches that best describe your content (1-5)
+              </p>
+              
+              <div className="flex flex-wrap gap-2 mb-4">
+                {niches.map((niche) => (
+                  <button
+                    key={niche}
+                    className={`px-3 py-1.5 rounded-md text-sm transition-colors ${
+                      selectedNiches.includes(niche)
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
+                    }`}
+                    onClick={() => handleNicheChange(niche)}
+                    disabled={!selectedNiches.includes(niche) && selectedNiches.length >= 5}
+                  >
+                    {niche}
+                  </button>
+                ))}
+              </div>
+            </Card>
+            
+            {/* Competitors section */}
+            <Card className="p-6">
+              <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                <User className="h-5 w-5" />
+                Competitor Usernames
+              </h2>
+              <p className="text-sm text-muted-foreground mb-4">
+                Add usernames of content creators in your niche (1-15)
+              </p>
+              
+              <form className="flex items-center gap-2 mb-4">
+                <input
+                  type="text"
+                  value={newCompetitor}
+                  onChange={(e) => setNewCompetitor(e.target.value)}
+                  placeholder="Enter username"
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                />
+                <Button 
+                  onClick={handleAddCompetitor}
+                  size="sm"
+                  disabled={competitors.length >= 15}
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </form>
+              
+              <div className="space-y-2">
+                {competitors.length === 0 ? (
+                  <p className="text-sm text-muted-foreground italic">
+                    No competitors added yet
+                  </p>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {competitors.map((competitor, index) => (
+                      <div 
+                        key={index}
+                        className="bg-secondary text-secondary-foreground rounded-md px-2 py-1 text-sm flex items-center gap-1"
+                      >
+                        <span>{competitor}</span>
+                        <button
+                          onClick={() => handleRemoveCompetitor(index)}
+                          className="text-muted-foreground hover:text-foreground transition-colors"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </Card>
+            
+            {/* Submit section */}
+            <Card className="p-6">
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-4">
+                <div>
+                  <h2 className="text-xl font-semibold">
+                    Generate AI Video
+                  </h2>
+                  <p className="text-sm text-muted-foreground">
+                    Cost: 1 credit ({userCredits} remaining)
+                  </p>
+                </div>
+                
+                <Button 
+                  onClick={handleSubmit} 
+                  disabled={
+                    isProcessing || 
+                    userCredits < 1 || 
+                    videos.length === 0 || 
+                    voiceFiles.length === 0 || 
+                    selectedNiches.length === 0 || 
+                    competitors.length === 0 ||
+                    !selectedVideo ||
+                    !selectedVoice ||
+                    userStatus === 'Processing'
+                  }
+                  className="w-full sm:w-auto"
+                >
+                  {isProcessing ? (
+                    <>Processing...</>
+                  ) : userStatus === 'Processing' ? (
+                    <>Processing In Progress</>
+                  ) : (
+                    <>Generate Video</>
+                  )}
+                </Button>
+              </div>
+              
+              {isProcessing && (
+                <div className="mb-2">
+                  <div className="flex justify-between text-sm mb-1">
+                    <span>Processing...</span>
+                    <span>{processingProgress}%</span>
+                  </div>
+                  <Progress value={processingProgress} className="h-2" />
+                </div>
+              )}
+              
+              {userStatus === 'Processing' && !isProcessing && (
+                <div className="bg-yellow-50 border border-yellow-100 rounded-md p-3 text-sm text-yellow-800">
+                  A video is currently being processed. Check the{' '}
+                  <button 
+                    onClick={handleViewResults}
+                    className="text-primary underline"
+                  >
+                    Results page
+                  </button>{' '}
+                  for updates.
+                </div>
+              )}
+            </Card>
+          </div>
+          
+          {/* Right column - Media preview */}
+          <div className="space-y-6">
+            {/* Video preview */}
+            <Card className="p-6">
+              <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                <Video className="h-5 w-5" />
+                Video Preview
+              </h2>
+              
+              {previewingVideo ? (
+                <div className="mb-4">
+                  <AspectRatio ratio={videoAspectRatio}>
+                    <video 
+                      src={previewingVideo.url} 
+                      controls 
+                      className="rounded-md w-full h-full object-contain bg-black"
+                      ref={videoPreviewRef}
+                    />
+                  </AspectRatio>
+                  <div className="mt-2 text-sm">
+                    <p className="font-medium">{previewingVideo.name}</p>
+                    <p className="text-muted-foreground">
+                      {Math.round(previewingVideo.size / 1024 / 1024 * 10) / 10} MB
+                      {previewingVideo.duration && ` • ${Math.round(previewingVideo.duration)}s`}
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="border rounded-md bg-muted/40 aspect-video flex items-center justify-center mb-4">
+                  <p className="text-muted-foreground text-sm">
+                    Select a video to preview
+                  </p>
+                </div>
+              )}
+            </Card>
+            
+            {/* Voice preview */}
+            <Card className="p-6">
+              <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                <Mic className="h-5 w-5" />
+                Voice Preview
+              </h2>
+              
+              {(previewingVoice || recordingPreviewUrl) ? (
+                <div className="mb-4">
+                  <audio 
+                    src={recordingPreviewUrl || previewingVoice?.url} 
+                    controls 
+                    className="w-full rounded-md" 
+                    ref={audioPreviewRef}
+                  />
+                  
+                  {previewingVoice && !recordingPreviewUrl && (
+                    <div className="mt-2 text-sm">
+                      <p className="font-medium">{previewingVoice.name}</p>
+                      <p className="text-muted-foreground">
+                        {Math.round(previewingVoice.size / 1024 / 1024 * 10) / 10} MB
+                        {previewingVoice.duration && ` • ${Math.round(previewingVoice.duration)}s`}
+                      </p>
+                    </div>
+                  )}
+                  
+                  {recordingPreviewUrl && (
+                    <div className="mt-2 text-sm">
+                      <p className="font-medium">Voice Recording</p>
+                      <p className="text-muted-foreground">
+                        {recordingTime}s
+                      </p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="border rounded-md bg-muted/40 h-24 flex items-center justify-center mb-4">
+                  <p className="text-muted-foreground text-sm">
+                    Select a voice file to preview
+                  </p>
+                </div>
+              )}
+            </Card>
+            
+            {/* Summary card */}
+            <Card className="p-6">
+              <h2 className="text-xl font-semibold mb-4">
+                Generation Summary
+              </h2>
+              
+              <div className="space-y-4">
+                <div>
+                  <h3 className="text-sm font-medium text-muted-foreground mb-1">Target Video</h3>
+                  {selectedVideo ? (
+                    <p className="text-sm">{selectedVideo.name}</p>
+                  ) : (
+                    <p className="text-sm text-muted-foreground italic">Not selected</p>
+                  )}
+                </div>
+                
+                <div>
+                  <h3 className="text-sm font-medium text-muted-foreground mb-1">Target Voice</h3>
+                  {selectedVoice ? (
+                    <p className="text-sm">{selectedVoice.name}</p>
+                  ) : (
+                    <p className="text-sm text-muted-foreground italic">Not selected</p>
+                  )}
+                </div>
+                
+                <div>
+                  <h3 className="text-sm font-medium text-muted-foreground mb-1">
+                    Selected Niches ({selectedNiches.length}/5)
+                  </h3>
+                  {selectedNiches.length > 0 ? (
+                    <div className="flex flex-wrap gap-1">
+                      {selectedNiches.map(niche => (
+                        <span 
+                          key={niche}
+                          className="bg-secondary text-secondary-foreground rounded-md px-2 py-0.5 text-xs"
+                        >
+                          {niche}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground italic">None selected</p>
+                  )}
+                </div>
+                
+                <div>
+                  <h3 className="text-sm font-medium text-muted-foreground mb-1">
+                    Competitor Usernames ({competitors.length}/15)
+                  </h3>
+                  {competitors.length > 0 ? (
+                    <div className="flex flex-wrap gap-1">
+                      {competitors.map((competitor, index) => (
+                        <span 
+                          key={index}
+                          className="bg-secondary text-secondary-foreground rounded-md px-2 py-0.5 text-xs"
+                        >
+                          {competitor}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground italic">None added</p>
+                  )}
+                </div>
+              </div>
+            </Card>
+          </div>
+        </div>
+      </div>
+    </MainLayout>
+  );
+};
+
+export default Dashboard;
+
