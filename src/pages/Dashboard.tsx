@@ -9,6 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { v4 as uuidv4 } from 'uuid';
 import { Progress } from '@/components/ui/progress';
+import { AspectRatio } from '@/components/ui/aspect-ratio';
 
 type UploadedFile = {
   id: string;
@@ -956,4 +957,3 @@ const Dashboard = () => {
               onDragLeave={() => setIsDraggingVideo(false)} 
               onDrop={handleVideoUpload}
             >
-              <div className="flex flex-col items-center justify-center text-center
