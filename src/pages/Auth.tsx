@@ -22,6 +22,26 @@ const Auth = () => {
     
     checkSession();
 
+    // Handle URL auth tokens for OAuth logins
+    const handleOAuthRedirect = async () => {
+      // Check for '#' in URL which may contain auth tokens for providers like Google
+      if (window.location.hash) {
+        setLoading(true);
+        const { data, error } = await supabase.auth.getUser();
+        setLoading(false);
+        
+        if (data?.user && !error) {
+          navigate('/dashboard');
+          toast({
+            title: "Authentication successful",
+            description: "You've been signed in.",
+          });
+        }
+      }
+    };
+    
+    handleOAuthRedirect();
+
     // Set up auth state listener
     const { data: authListener } = supabase.auth.onAuthStateChange(
       (event, session) => {
@@ -36,12 +56,18 @@ const Auth = () => {
         authListener.subscription.unsubscribe();
       }
     };
-  }, [navigate]);
+  }, [navigate, toast]);
 
   return (
     <MainLayout title="Account Access" subtitle="Sign in or create an account" showNav={false}>
       <div className="max-w-md mx-auto px-4 py-8">
-        <AuthForm />
+        {loading ? (
+          <div className="flex justify-center items-center h-64">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+          </div>
+        ) : (
+          <AuthForm />
+        )}
       </div>
     </MainLayout>
   );
