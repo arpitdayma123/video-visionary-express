@@ -567,9 +567,18 @@ const VoiceUpload = ({
                     <div className="bg-secondary/50 rounded-full p-8 mb-4">
                       <Mic className="h-12 w-12 text-primary" />
                     </div>
+                    <div className="text-center mb-4">
+                      <p className="text-sm mb-2 font-medium">Recording Tips:</p>
+                      <ul className="text-xs text-muted-foreground text-left list-disc pl-5 space-y-1">
+                        <li>Use a quiet environment with minimal background noise</li>
+                        <li>Speak clearly at a consistent volume</li>
+                        <li>Position yourself 6-12 inches from your microphone</li>
+                        <li>Avoid plosive sounds (p, b, t) by speaking at an angle</li>
+                      </ul>
+                    </div>
                     <Button type="button" onClick={startRecording} size="lg" className="text-white px-6 flex items-center gap-2 mb-3 bg-primary" disabled={hasReachedVoiceLimit}>
                       <Mic className="h-4 w-4" />
-                      Start Recording
+                      Start High-Quality Recording
                     </Button>
                     {hasReachedVoiceLimit ? <p className="text-sm text-amber-600 font-medium">
                         You've reached the limit of 5 voices. Delete existing voices to record more.
