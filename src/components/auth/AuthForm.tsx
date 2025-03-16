@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -57,7 +56,7 @@ const AuthForm = () => {
           email,
           password,
           options: {
-            emailRedirectTo: `${window.location.origin}/dashboard`,
+            emailRedirectTo: `https://app.zockto.com/dashboard`,
           }
         });
 
@@ -114,7 +113,7 @@ const AuthForm = () => {
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
-          redirectTo: `${window.location.origin}/dashboard`,
+          redirectTo: `https://app.zockto.com/dashboard`,
         },
       });
 
@@ -126,7 +125,7 @@ const AuthForm = () => {
       
       toast({
         title: "Authentication error",
-        description: error.message || "An error occurred during authentication.",
+        description: error.message || "An occurred during authentication.",
         variant: "destructive",
       });
       setSocialLoading(null);
