@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import MainLayout from '@/components/layout/MainLayout';
@@ -17,6 +16,7 @@ type UploadedFile = {
   size: number;
   type: string;
   url: string;
+  duration?: number;
 };
 
 type ResultVideo = {
@@ -83,7 +83,8 @@ const Dashboard = () => {
             name: video.name,
             size: video.size,
             type: video.type,
-            url: video.url
+            url: video.url,
+            duration: video.duration
           })));
         }
         
@@ -113,7 +114,8 @@ const Dashboard = () => {
               name: videoData.name,
               size: videoData.size || 0,
               type: videoData.type || 'video/mp4',
-              url: videoData.url
+              url: videoData.url,
+              duration: videoData.duration
             });
           }
         }
@@ -145,6 +147,24 @@ const Dashboard = () => {
     
     loadUserProfile();
   }, [user, toast]);
+
+  // Function to get media duration
+  const getMediaDuration = (file: File): Promise<number> => {
+    return new Promise((resolve) => {
+      const element = file.type.startsWith('video/') 
+        ? document.createElement('video') 
+        : document.createElement('audio');
+        
+      element.preload = 'metadata';
+      
+      element.onloadedmetadata = () => {
+        window.URL.revokeObjectURL(element.src);
+        resolve(element.duration);
+      };
+      
+      element.src = URL.createObjectURL(file);
+    });
+  };
 
   const updateProfile = async (updates: any) => {
     if (!user) return;
@@ -201,15 +221,28 @@ const Dashboard = () => {
         });
         return;
       }
-      const newVideos = [...videos];
-      const uploadingProgress = {
-        ...uploadingVideos
-      };
+      
+      // Process each valid file
       for (const file of fileArray) {
         try {
+          // Check video duration
+          const duration = await getMediaDuration(file);
+          
+          // Validate duration (between 50 and 100 seconds)
+          if (duration < 50 || duration > 100) {
+            toast({
+              title: "Invalid video duration",
+              description: `Video must be between 50 and 100 seconds (current: ${Math.round(duration)} seconds).`,
+              variant: "destructive"
+            });
+            continue; // Skip this file but process others
+          }
+          
           const uploadId = uuidv4();
+          const uploadingProgress = { ...uploadingVideos };
           uploadingProgress[uploadId] = 0;
           setUploadingVideos(uploadingProgress);
+          
           const fileExt = file.name.split('.').pop();
           const fileName = `${user.id}/${uuidv4()}.${fileExt}`;
           const filePath = `videos/${fileName}`;
@@ -243,14 +276,18 @@ const Dashboard = () => {
           const {
             data: urlData
           } = supabase.storage.from('creator_files').getPublicUrl(filePath);
+          
+          // Include duration in the new video object
           const newVideo = {
             id: uuidv4(),
             name: file.name,
             size: file.size,
             type: file.type,
-            url: urlData.publicUrl
+            url: urlData.publicUrl,
+            duration: duration
           };
-          newVideos.push(newVideo);
+          
+          const newVideos = [...videos, newVideo];
           setVideos(newVideos);
           setSelectedVideo(newVideo);
           setTimeout(() => {
@@ -260,27 +297,31 @@ const Dashboard = () => {
               };
               delete updated[uploadId];
               return updated;
-              });
-            }, 1000);
-            toast({
-              title: "Video uploaded",
-              description: `Successfully uploaded ${file.name}.`
             });
-            await updateProfile({
-              videos: newVideos,
-              selected_video: newVideo
-            });
-          } catch (error) {
-            console.error('Error uploading video:', error);
-            toast({
-              title: "Upload Failed",
-              description: `Failed to upload ${file.name}.`,
-              variant: "destructive"
-            });
-          }
+          }, 1000);
+          
+          // Update success message to include duration
+          toast({
+            title: "Video uploaded",
+            description: `Successfully uploaded ${file.name} (${Math.round(duration)} seconds).`
+          });
+          
+          await updateProfile({
+            videos: newVideos,
+            selected_video: newVideo
+          });
+          
+        } catch (error) {
+          console.error('Error uploading video:', error);
+          toast({
+            title: "Upload Failed",
+            description: `Failed to upload ${file.name}.`,
+            variant: "destructive"
+          });
         }
       }
-    };
+    }
+  };
 
     const handleVoiceUpload = async (e: React.ChangeEvent<HTMLInputElement> | React.DragEvent<HTMLDivElement>) => {
       if (!user) {
@@ -853,183 +894,4 @@ const Dashboard = () => {
                   {voiceFiles.map(voice => (
                     <Card key={voice.id} className={`p-4 animate-zoom-in ${selectedVoice?.id === voice.id ? 'ring-2 ring-primary' : ''}`}>
                       <div className="mb-3 bg-secondary rounded-md overflow-hidden relative p-3">
-                        <audio src={voice.url} className="w-full" controls />
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <div className="truncate mr-2">
-                          <p className="font-medium truncate">{voice.name}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {(voice.size / (1024 * 1024)).toFixed(2)} MB
-                          </p>
-                        </div>
-                        <div className="flex">
-                          <button 
-                            type="button" 
-                            onClick={() => handleSelectVoice(voice)} 
-                            className={`p-1.5 rounded-full mr-1 transition-colors ${selectedVoice?.id === voice.id ? 'bg-primary text-primary-foreground' : 'hover:bg-secondary-foreground/10'}`} 
-                            title="Select as target voice"
-                          >
-                            <Check className={`h-4 w-4 ${selectedVoice?.id === voice.id ? 'text-white' : 'text-muted-foreground'}`} />
-                          </button>
-                          <button 
-                            type="button" 
-                            onClick={() => handleRemoveVoiceFile(voice.id)} 
-                            className="p-1.5 rounded-full hover:bg-secondary-foreground/10 transition-colors"
-                          >
-                            <Trash2 className="h-4 w-4 text-muted-foreground" />
-                          </button>
-                        </div>
-                      </div>
-                    </Card>
-                  ))}
-                </div>
-              </div>
-            )}
-          </section>
-
-          {/* Niche Selection Section */}
-          <section className="animate-fade-in">
-            <div className="flex items-center mb-4">
-              <Briefcase className="mr-2 h-5 w-5 text-primary" />
-              <h2 className="text-2xl font-medium">Target Niches</h2>
-            </div>
-            <p className="text-muted-foreground mb-6">Select up to 5 niches that best describe your content focus</p>
-            
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-              {niches.map(niche => (
-                <button
-                  key={niche}
-                  type="button"
-                  onClick={() => handleNicheChange(niche)}
-                  className={`px-4 py-3 rounded-lg text-left transition-colors ${
-                    selectedNiches.includes(niche)
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-secondary/50 hover:bg-secondary text-foreground'
-                  }`}
-                >
-                  {niche}
-                </button>
-              ))}
-            </div>
-            
-            {selectedNiches.length > 0 && (
-              <div className="mt-4">
-                <p className="text-sm text-muted-foreground">
-                  Selected niches ({selectedNiches.length}/5): {selectedNiches.join(', ')}
-                </p>
-              </div>
-            )}
-          </section>
-
-          {/* Competitor Section */}
-          <section className="animate-fade-in">
-            <div className="flex items-center mb-4">
-              <User className="mr-2 h-5 w-5 text-primary" />
-              <h2 className="text-2xl font-medium">Competitor Analysis</h2>
-            </div>
-            <p className="text-muted-foreground mb-6">Add usernames of competitors to analyze (up to 15)</p>
-            
-            <div className="flex items-center gap-2 mb-6">
-              <input
-                type="text"
-                value={newCompetitor}
-                onChange={(e) => setNewCompetitor(e.target.value)}
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                placeholder="Enter competitor username"
-              />
-              <Button 
-                type="button"
-                onClick={handleAddCompetitor}
-                variant="outline"
-                size="icon"
-                className="shrink-0"
-                disabled={newCompetitor.trim() === '' || competitors.length >= 15}
-              >
-                <Plus className="h-4 w-4" />
-              </Button>
-            </div>
-            
-            {competitors.length > 0 && (
-              <div className="space-y-2">
-                <h3 className="text-sm font-medium">Added competitors ({competitors.length}/15):</h3>
-                <div className="flex flex-wrap gap-2">
-                  {competitors.map((competitor, index) => (
-                    <div 
-                      key={index} 
-                      className="inline-flex items-center bg-secondary/50 hover:bg-secondary/70 rounded-full px-3 py-1 text-sm"
-                    >
-                      <span className="mr-1">{competitor}</span>
-                      <button 
-                        type="button" 
-                        onClick={() => handleRemoveCompetitor(index)}
-                        className="rounded-full hover:bg-secondary-foreground/10 p-1"
-                      >
-                        <Trash2 className="h-3 w-3 text-muted-foreground" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </section>
-
-          {/* Submit Section */}
-          <section className="mt-12 pt-6 border-t border-border">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-              <div>
-                <h3 className="text-lg font-medium mb-1">Generate Your Video</h3>
-                <p className="text-sm text-muted-foreground">
-                  {isFormComplete 
-                    ? userCredits < 1 
-                      ? "You need at least 1 credit to generate a video" 
-                      : userStatus === 'Processing'
-                        ? "We are generating your previous video. Once complete, you can create a new one."
-                        : "Your content is ready for video generation"
-                    : "Please complete all sections before generating your video"}
-                </p>
-                {userStatus === 'Processing' && (
-                  <p className="text-sm text-yellow-600 dark:text-yellow-400 mt-1">
-                    We are processing your previous video request. Please wait until it's completed before generating a new one.
-                  </p>
-                )}
-                {userCredits < 1 && (
-                  <p className="text-sm text-red-600 dark:text-red-400 mt-1">
-                    You need at least 1 credit to generate a video. Please purchase credits to continue.
-                  </p>
-                )}
-              </div>
-              <Button 
-                type="submit" 
-                className="gap-2 self-start" 
-                disabled={!isFormComplete || isProcessing || userStatus === 'Processing' || userCredits < 1}
-              >
-                {isProcessing ? (
-                  <>
-                    <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
-                    Processing...
-                  </>
-                ) : (
-                  <>
-                    {userStatus === 'Processing' ? 'Processing Previous Request...' : userCredits < 1 ? 'Insufficient Credits' : 'Generate Video'}
-                  </>
-                )}
-              </Button>
-            </div>
-            
-            {isProcessing && (
-              <div className="mt-6 space-y-2">
-                <div className="flex justify-between text-xs">
-                  <span>Generation in progress</span>
-                  <span>{processingProgress}%</span>
-                </div>
-                <Progress value={processingProgress} className="h-2" />
-              </div>
-            )}
-          </section>
-        </form>
-      </div>
-    </MainLayout>
-  );
-};
-
-export default Dashboard;
+                        <audio src={voice.url} className="w-full"
