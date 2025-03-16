@@ -44,6 +44,7 @@ export type Database = {
           created_at: string | null
           credit: number
           id: string
+          message: string | null
           result: Json | null
           selected_niches: string[] | null
           selected_video: Json | null
@@ -58,6 +59,7 @@ export type Database = {
           created_at?: string | null
           credit?: number
           id: string
+          message?: string | null
           result?: Json | null
           selected_niches?: string[] | null
           selected_video?: Json | null
@@ -72,6 +74,7 @@ export type Database = {
           created_at?: string | null
           credit?: number
           id?: string
+          message?: string | null
           result?: Json | null
           selected_niches?: string[] | null
           selected_video?: Json | null
