@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import MainLayout from '@/components/layout/MainLayout';
@@ -15,6 +16,7 @@ import NicheSelection from '@/components/dashboard/NicheSelection';
 import CompetitorInput from '@/components/dashboard/CompetitorInput';
 import GenerateVideo from '@/components/dashboard/GenerateVideo';
 import CreditDisplay from '@/components/dashboard/CreditDisplay';
+import ScriptSelection from '@/components/dashboard/ScriptSelection';
 
 type UploadedFile = {
   id: string;
@@ -44,6 +46,8 @@ const Dashboard = () => {
   const [userCredits, setUserCredits] = useState(0);
   const [userStatus, setUserStatus] = useState<string>('Completed');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [scriptOption, setScriptOption] = useState<string>('ai_find');
+  const [customScript, setCustomScript] = useState<string>('');
   
   useEffect(() => {
     if (!user) {
@@ -134,6 +138,15 @@ const Dashboard = () => {
           }
         }
         
+        // Load script option and custom script if available
+        if (profile.script_option) {
+          setScriptOption(profile.script_option);
+        }
+        
+        if (profile.custom_script) {
+          setCustomScript(profile.custom_script);
+        }
+        
         setIsLoading(false);
       } catch (error) {
         console.error('Unexpected error loading profile:', error);
@@ -208,7 +221,9 @@ const Dashboard = () => {
       setUserStatus('Processing');
       
       const params = new URLSearchParams({
-        userId: user.id
+        userId: user.id,
+        scriptOption: scriptOption,
+        customScript: (scriptOption === 'custom' || scriptOption === 'ai_remake') ? customScript : ''
       });
       
       const response = await fetch(`https://primary-production-ce25.up.railway.app/webhook/trendy?${params.toString()}`, {
@@ -275,6 +290,15 @@ const Dashboard = () => {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-12">
+          {/* Script Selection Section */}
+          <ScriptSelection
+            scriptOption={scriptOption}
+            customScript={customScript}
+            setScriptOption={setScriptOption}
+            setCustomScript={setCustomScript}
+            updateProfile={updateProfile}
+          />
+          
           {/* Video Upload Section */}
           <VideoUpload 
             videos={videos} 
