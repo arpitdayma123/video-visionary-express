@@ -6,6 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { AlertTriangle } from 'lucide-react';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
+import { useToast } from '@/hooks/use-toast';
 
 interface ScriptSelectionProps {
   scriptOption: string;
@@ -24,6 +25,8 @@ const ScriptSelection = ({
 }: ScriptSelectionProps) => {
   const [wordCount, setWordCount] = useState(0);
   const [isExceedingLimit, setIsExceedingLimit] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const { toast } = useToast();
   const MAX_WORDS = 150;
 
   useEffect(() => {
@@ -43,9 +46,27 @@ const ScriptSelection = ({
     // Don't update profile on every keystroke to avoid excessive database calls
   };
 
-  const handleSaveScript = () => {
-    if (!isExceedingLimit) {
-      updateProfile({ custom_script: customScript });
+  const handleSaveScript = async () => {
+    if (isExceedingLimit) return;
+    
+    setIsSaving(true);
+    try {
+      // Only update the script in the database, without triggering any webhook
+      await updateProfile({ custom_script: customScript });
+      
+      toast({
+        title: "Script saved",
+        description: "Your script has been saved successfully.",
+      });
+    } catch (error) {
+      console.error('Error saving script:', error);
+      toast({
+        title: "Save failed",
+        description: "There was an error saving your script.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -113,9 +134,9 @@ const ScriptSelection = ({
           <Button 
             onClick={handleSaveScript} 
             className="mt-4"
-            disabled={isExceedingLimit || !customScript.trim()}
+            disabled={isExceedingLimit || !customScript.trim() || isSaving}
           >
-            Save Script
+            {isSaving ? 'Saving...' : 'Save Script'}
           </Button>
         </div>
       )}
