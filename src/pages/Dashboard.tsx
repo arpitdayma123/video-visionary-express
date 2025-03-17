@@ -290,15 +290,6 @@ const Dashboard = () => {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-12">
-          {/* Script Selection Section */}
-          <ScriptSelection
-            scriptOption={scriptOption}
-            customScript={customScript}
-            setScriptOption={setScriptOption}
-            setCustomScript={setCustomScript}
-            updateProfile={updateProfile}
-          />
-          
           {/* Video Upload Section */}
           <VideoUpload 
             videos={videos} 
@@ -324,6 +315,15 @@ const Dashboard = () => {
             selectedNiches={selectedNiches} 
             setSelectedNiches={setSelectedNiches} 
             updateProfile={updateProfile} 
+          />
+          
+          {/* Script Selection Section - Moved after NicheSelection */}
+          <ScriptSelection
+            scriptOption={scriptOption}
+            customScript={customScript}
+            setScriptOption={setScriptOption}
+            setCustomScript={setCustomScript}
+            updateProfile={updateProfile}
           />
 
           {/* Competitor Section */}
