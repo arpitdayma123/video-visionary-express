@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import MainLayout from '@/components/layout/MainLayout';
@@ -316,21 +315,21 @@ const Dashboard = () => {
             setSelectedNiches={setSelectedNiches} 
             updateProfile={updateProfile} 
           />
-          
-          {/* Script Selection Section - Moved after NicheSelection */}
-          <ScriptSelection
-            scriptOption={scriptOption}
-            customScript={customScript}
-            setScriptOption={setScriptOption}
-            setCustomScript={setCustomScript}
-            updateProfile={updateProfile}
-          />
 
           {/* Competitor Section */}
           <CompetitorInput 
             competitors={competitors} 
             setCompetitors={setCompetitors} 
             updateProfile={updateProfile} 
+          />
+          
+          {/* Script Selection Section - Moved after CompetitorInput */}
+          <ScriptSelection
+            scriptOption={scriptOption}
+            customScript={customScript}
+            setScriptOption={setScriptOption}
+            setCustomScript={setCustomScript}
+            updateProfile={updateProfile}
           />
 
           {/* Submit Section */}
