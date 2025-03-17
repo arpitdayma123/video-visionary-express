@@ -43,9 +43,11 @@ export type Database = {
           competitors: string[] | null
           created_at: string | null
           credit: number
+          custom_script: string | null
           id: string
           message: string | null
           result: Json | null
+          script_option: string | null
           selected_niches: string[] | null
           selected_video: Json | null
           selected_voice: Json | null
@@ -58,9 +60,11 @@ export type Database = {
           competitors?: string[] | null
           created_at?: string | null
           credit?: number
+          custom_script?: string | null
           id: string
           message?: string | null
           result?: Json | null
+          script_option?: string | null
           selected_niches?: string[] | null
           selected_video?: Json | null
           selected_voice?: Json | null
@@ -73,9 +77,11 @@ export type Database = {
           competitors?: string[] | null
           created_at?: string | null
           credit?: number
+          custom_script?: string | null
           id?: string
           message?: string | null
           result?: Json | null
+          script_option?: string | null
           selected_niches?: string[] | null
           selected_video?: Json | null
           selected_voice?: Json | null
