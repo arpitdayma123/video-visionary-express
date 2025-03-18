@@ -160,13 +160,20 @@ const BuyCredits = () => {
       // Check payment status
       const checkPaymentStatus = async () => {
         try {
-          // Using a type assertion with 'as any' to avoid TypeScript errors
-          // since the types haven't been updated to include the payment_orders table
-          const { data: orderData, error } = await (supabase
-            .from('payment_orders') as any)
+          // Using a proper type definition for the payment_orders table
+          interface PaymentOrder {
+            status: string;
+            credits: number;
+          }
+          
+          const { data, error } = await supabase
+            .from('payment_orders')
             .select('status, credits')
             .eq('order_id', orderId)
-            .single();
+            .single() as unknown as { 
+              data: PaymentOrder | null; 
+              error: any; 
+            };
           
           if (error) {
             toast({
@@ -177,12 +184,12 @@ const BuyCredits = () => {
             return;
           }
 
-          if (orderData && orderData.status === 'PAID') {
+          if (data && data.status === 'PAID') {
             toast({
               title: 'Payment Successful',
-              description: `${orderData.credits} credits have been added to your account.`,
+              description: `${data.credits} credits have been added to your account.`,
             });
-          } else if (orderData && orderData.status === 'FAILED') {
+          } else if (data && data.status === 'FAILED') {
             toast({
               title: 'Payment Failed',
               description: 'Your payment was unsuccessful. Please try again.',
