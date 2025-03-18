@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
 
@@ -49,6 +50,18 @@ serve(async (req) => {
       customerPhone,
       returnUrl
     } = payload;
+
+    // Check if Cashfree credentials are available
+    if (!CASHFREE_APP_ID || !CASHFREE_SECRET_KEY) {
+      console.error('Cashfree credentials not found');
+      return new Response(
+        JSON.stringify({ 
+          error: 'Payment gateway configuration missing',
+          details: 'Missing Cashfree API credentials' 
+        }), 
+        { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+      );
+    }
 
     // Validate required fields
     if (!orderId || !orderAmount || !orderCurrency || !userId || !credits || !customerEmail || !customerPhone) {
@@ -123,7 +136,11 @@ serve(async (req) => {
     if (!response.ok) {
       console.error('Cashfree error:', data);
       return new Response(
-        JSON.stringify({ error: 'Failed to create payment', details: data }), 
+        JSON.stringify({ 
+          error: 'Failed to create payment', 
+          details: data,
+          code: response.status
+        }), 
         { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
       );
     }
