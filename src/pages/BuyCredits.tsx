@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import MainLayout from '@/components/layout/MainLayout';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
@@ -11,6 +10,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { useNavigate } from 'react-router-dom';
 
 // Define interfaces for better type safety
 interface PackageOption {
@@ -84,6 +84,7 @@ const BuyCredits = () => {
   const [detailedError, setDetailedError] = useState<any>(null);
   const { toast } = useToast();
   const { user } = useAuth();
+  const navigate = useNavigate();
 
   const packages: PackageOption[] = [
     {
@@ -156,7 +157,9 @@ const BuyCredits = () => {
 
       // Generate unique order ID
       const orderId = `order_${uuidv4().replace(/-/g, '')}`;
-      const returnUrl = `${window.location.origin}/buy-credits`;
+      
+      // Use dashboard as the return URL
+      const returnUrl = `${window.location.origin}/dashboard`;
       
       // Call Cashfree payment function with phone number
       const response = await supabase.functions.invoke('cashfree-payment', {
@@ -210,8 +213,9 @@ const BuyCredits = () => {
     }
   };
 
-  // Handle payment return from Cashfree
+  // Handle payment return from Cashfree - now checks for dashboard return
   React.useEffect(() => {
+    // If user was redirected after payment, there might be order_id in the URL
     const urlParams = new URLSearchParams(window.location.search);
     const orderId = urlParams.get('order_id');
     

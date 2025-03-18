@@ -52,19 +52,22 @@ serve(async (req) => {
     } = payload;
 
     // Validate required fields
-    if (!orderId || !orderAmount || !orderCurrency || !userId || !credits || !customerEmail || !customerPhone || !returnUrl) {
+    if (!orderId || !orderAmount || !orderCurrency || !userId || !credits || !customerEmail || !customerPhone) {
       return new Response(
         JSON.stringify({ error: 'Missing required fields' }), 
         { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
       );
     }
 
+    // Always redirect to dashboard instead of the provided returnUrl
+    const dashboardUrl = returnUrl.replace('/buy-credits', '/dashboard');
+    
     console.log("Creating Cashfree payment link with data:", {
       orderId,
       orderAmount,
       customerEmail,
       customerPhone,
-      returnUrl
+      returnUrl: dashboardUrl
     });
 
     // Create payment link using Cashfree's links API
@@ -88,8 +91,8 @@ serve(async (req) => {
           customer_name: customerName || customerEmail,
         },
         link_meta: {
-          return_url: returnUrl,
-          notify_url: returnUrl,
+          return_url: dashboardUrl,
+          notify_url: dashboardUrl,
         },
         link_notify: {
           send_email: true,
