@@ -22,10 +22,10 @@ const CreditDisplay = ({ userCredits, userStatus }: CreditDisplayProps) => {
   useEffect(() => {
     setCredits(userCredits);
     
-    // Check for fresh credits every 5 seconds for 30 seconds after page load
-    // This helps update UI after payment completion
+    // Check for fresh credits more frequently (every 1 second for 60 seconds)
+    // This helps update UI faster after payment completion
     if (user) {
-      const checkCount = 6; // 6 checks * 5 seconds = 30 seconds
+      const checkCount = 60; // 60 checks * 1 second = 60 seconds
       let currentCheck = 0;
       
       const checkInterval = setInterval(async () => {
@@ -39,29 +39,26 @@ const CreditDisplay = ({ userCredits, userStatus }: CreditDisplayProps) => {
             .from('profiles')
             .select('credit')
             .eq('id', user.id)
-            .single();
+            .maybeSingle();
           
           if (!error && data && data.credit !== credits) {
             setCredits(data.credit);
             toast({
-              title: "Credits Updated",
-              description: `Your credits have been updated to ${data.credit}`,
+              title: 'Credits Updated',
+              description: `Your credit balance is now ${data.credit}`,
             });
+            console.log(`Credits updated from ${credits} to ${data.credit}`);
           }
           
           currentCheck++;
         } catch (error) {
           console.error('Error checking credits:', error);
         }
-      }, 5000);
+      }, 1000); // Check every 1 second
       
       return () => clearInterval(checkInterval);
     }
-  }, [user, userCredits]);
-  
-  const handleBuyCredits = () => {
-    navigate('/buy-credits');
-  };
+  }, [user, userCredits, toast, credits]);
   
   return (
     <div className="flex items-center gap-4">
@@ -74,7 +71,7 @@ const CreditDisplay = ({ userCredits, userStatus }: CreditDisplayProps) => {
         variant="outline" 
         size="sm" 
         className="flex items-center gap-1"
-        onClick={handleBuyCredits}
+        onClick={() => navigate('/buy-credits')}
       >
         <CreditCard className="h-4 w-4" />
         Buy Credits
