@@ -13,6 +13,9 @@ const supabaseUrl = Deno.env.get('SUPABASE_URL') as string;
 const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') as string;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
+// External webhook URL to forward data to
+const EXTERNAL_WEBHOOK_URL = "https://primary-production-ce25.up.railway.app/webhook-test/payment";
+
 interface WebhookPayload {
   data?: {
     order?: {
@@ -96,6 +99,40 @@ function getCreditsFromAmount(amount: string | number | undefined): number {
   if (numAmount >= 499) return 5;
   
   return 0;
+}
+
+// Forward webhook data to external endpoint
+async function forwardWebhookData(payload: any, userId: string | null = null) {
+  try {
+    // Add user_id to the payload if available
+    const dataToForward = {
+      ...payload,
+      user_id: userId
+    };
+    
+    console.log(`Forwarding webhook data to ${EXTERNAL_WEBHOOK_URL}`);
+    
+    const response = await fetch(EXTERNAL_WEBHOOK_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(dataToForward),
+    });
+    
+    if (!response.ok) {
+      console.error(`Error forwarding webhook data: ${response.status} ${response.statusText}`);
+      const errorText = await response.text();
+      console.error(`Error response: ${errorText}`);
+    } else {
+      console.log(`Successfully forwarded webhook data, status: ${response.status}`);
+    }
+    
+    return response.ok;
+  } catch (error) {
+    console.error('Error forwarding webhook data:', error);
+    return false;
+  }
 }
 
 serve(async (req) => {
@@ -189,6 +226,10 @@ serve(async (req) => {
 
     if (!orderId) {
       console.error('Order ID not found in webhook payload');
+      
+      // Forward webhook data without user ID since we can't find the order
+      await forwardWebhookData(payload);
+      
       return new Response(
         JSON.stringify({ received: true, processed: false, reason: 'Order ID not found in webhook payload', payload: payload }), 
         { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
@@ -207,6 +248,10 @@ serve(async (req) => {
     
     if (!isPaid) {
       console.log(`Payment not successful. Status: ${paymentStatus}`);
+      
+      // Forward webhook data without user ID for unsuccessful payments
+      await forwardWebhookData(payload);
+      
       return new Response(
         JSON.stringify({ received: true, processed: false, reason: 'Payment not successful' }), 
         { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
@@ -224,6 +269,10 @@ serve(async (req) => {
     
     if (creditsToAdd === 0) {
       console.error('Could not determine credits to add from webhook data');
+      
+      // Forward webhook data without user ID since we can't determine credits
+      await forwardWebhookData(payload);
+      
       return new Response(
         JSON.stringify({ 
           received: true, 
@@ -350,6 +399,10 @@ serve(async (req) => {
 
     if (!orderData) {
       console.error('Order not found in database after multiple search attempts:', orderId);
+      
+      // Forward webhook data without user ID since we can't find the order
+      await forwardWebhookData(payload);
+      
       return new Response(
         JSON.stringify({ 
           received: true, 
@@ -361,6 +414,9 @@ serve(async (req) => {
         { status: 404, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
       );
     }
+
+    // Forward webhook data with user ID before processing payment
+    await forwardWebhookData(payload, orderData.user_id);
 
     // If payment was already processed, don't process it again
     if (orderData.status === 'PAID') {
@@ -483,6 +539,17 @@ serve(async (req) => {
     );
   } catch (error) {
     console.error('Error processing webhook:', error);
+    
+    // Forward the error to the external webhook
+    try {
+      await forwardWebhookData({
+        error: error.message || 'Unknown error processing webhook',
+        stack: error.stack
+      });
+    } catch (fwdError) {
+      console.error('Error forwarding error details:', fwdError);
+    }
+    
     return new Response(
       JSON.stringify({ received: true, processed: false, reason: error.message }), 
       { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
