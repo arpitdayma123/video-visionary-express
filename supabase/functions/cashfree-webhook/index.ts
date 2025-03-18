@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
 
@@ -14,7 +13,7 @@ const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') as string;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 interface WebhookPayload {
-  data?: {
+  data: {
     order?: {
       order_id?: string;
       order_amount?: number;
@@ -54,23 +53,12 @@ interface WebhookPayload {
   link_status?: string;
   link_amount?: string;
   link_purpose?: string;
-  link_amount_paid?: string;
-  cf_link_id?: number;
-  link_url?: string;
-  customer_details?: {
-    customer_email?: string;
-    customer_phone?: string;
-    customer_name?: string;
-  };
   order?: {
     order_id?: string;
     transaction_status?: string;
-    order_amount?: string;
-    transaction_id?: number;
   };
 }
 
-// Get credits based on link purpose
 function getCreditsFromPurpose(purpose: string | undefined): number {
   if (!purpose) return 0;
   
@@ -80,19 +68,19 @@ function getCreditsFromPurpose(purpose: string | undefined): number {
     return parseInt(match[1], 10);
   }
   
+  // Fallback based on amount if purpose doesn't contain credits info
   return 0;
 }
 
-// Get credits based on package amount
 function getCreditsFromAmount(amount: string | number | undefined): number {
   if (!amount) return 0;
   
   // Convert to number if it's a string
   const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
   
-  // Apply credit packages logic - match to packages in BuyCredits.tsx
-  if (numAmount >= 2999) return 50;
-  if (numAmount >= 1499) return 20;
+  // Apply credit packages logic
+  if (numAmount >= 1999) return 30;
+  if (numAmount >= 999) return 15;
   if (numAmount >= 499) return 5;
   
   return 0;
@@ -115,40 +103,46 @@ serve(async (req) => {
     
     console.log('Received webhook:', type, JSON.stringify(data));
 
-    // Extract key information based on webhook format
+    // Extract order ID from various possible locations
     let orderId: string | undefined;
     let paymentStatus: string | undefined;
     let linkPurpose: string | undefined;
     let linkAmount: string | undefined;
-    let customerEmail: string | undefined;
     
-    // For PAYMENT_LINK_EVENT format with direct fields
+    // For PAYMENT_LINK_EVENT format
     if (type === 'PAYMENT_LINK_EVENT') {
       // Try direct fields first (most common in PAYMENT_LINK_EVENT)
-      orderId = payload.link_id || payload.order?.order_id;
-      paymentStatus = payload.link_status || payload.order?.transaction_status;
-      linkPurpose = payload.link_purpose;
-      linkAmount = payload.link_amount || payload.link_amount_paid || payload.order?.order_amount;
-      customerEmail = payload.customer_details?.customer_email;
-      
-      // If nested data structure is present
-      if (data.link) {
-        orderId = orderId || data.link.link_id;
-        paymentStatus = paymentStatus || data.link.link_status;
-        linkPurpose = linkPurpose || data.link.link_purpose;
-        linkAmount = linkAmount || data.link.link_amount;
+      if (payload.link_id) {
+        orderId = payload.link_id;
+        paymentStatus = payload.link_status;
+        linkPurpose = payload.link_purpose;
+        linkAmount = payload.link_amount;
+      } 
+      // Then try nested data.link structure
+      else if (data.link) {
+        orderId = data.link.link_id;
+        paymentStatus = data.link.link_status;
+        linkPurpose = data.link.link_purpose;
+        linkAmount = data.link.link_amount;
       }
-      
       // Also check nested payment_link structure
-      if (data.payment_link) {
-        orderId = orderId || data.payment_link.link_id;
-        paymentStatus = paymentStatus || data.payment_link.link_status;
-        linkPurpose = linkPurpose || data.payment_link.link_purpose;
-        linkAmount = linkAmount || data.payment_link.link_amount;
+      else if (data.payment_link) {
+        orderId = data.payment_link.link_id;
+        paymentStatus = data.payment_link.link_status;
+        linkPurpose = data.payment_link.link_purpose;
+        linkAmount = data.payment_link.link_amount;
       }
       
-      // Get customer email if available in nested structure
-      customerEmail = customerEmail || data.customer_details?.customer_email;
+      // Check if we have order data from nested order object
+      if (payload.order) {
+        // Use order_id if available, fallback to our existing orderId
+        orderId = payload.order.order_id || orderId;
+        
+        // If transaction_status is available, use it for payment status
+        if (payload.order.transaction_status) {
+          paymentStatus = payload.order.transaction_status;
+        }
+      }
     } 
     // For standard payment webhook format
     else if (data.order) {
@@ -164,14 +158,11 @@ serve(async (req) => {
       if (data.payment && data.payment.payment_status) {
         paymentStatus = data.payment.payment_status;
       }
-      
-      // Get customer email if available
-      customerEmail = data.customer_details?.customer_email;
     }
 
     // Last attempt to find order ID if still not found
     if (!orderId) {
-      console.log('Order ID not found in standard fields, searching in full payload...');
+      console.log('Order ID not found in standard fields, trying alternatives...');
       
       // Deep search through the entire payload for any order_id or link_id
       const payloadStr = JSON.stringify(payload);
@@ -190,7 +181,7 @@ serve(async (req) => {
     if (!orderId) {
       console.error('Order ID not found in webhook payload');
       return new Response(
-        JSON.stringify({ received: true, processed: false, reason: 'Order ID not found in webhook payload', payload: payload }), 
+        JSON.stringify({ received: true, processed: false, reason: 'Order ID not found in webhook payload' }), 
         { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
       );
     }
@@ -199,7 +190,6 @@ serve(async (req) => {
     console.log(`Payment status: ${paymentStatus}`);
     console.log(`Link purpose: ${linkPurpose}`);
     console.log(`Link amount: ${linkAmount}`);
-    console.log(`Customer email: ${customerEmail}`);
 
     // Determine payment success status
     const successStatuses = ['SUCCESS', 'PAID'];
@@ -213,7 +203,7 @@ serve(async (req) => {
       );
     }
     
-    // Determine credits to add
+    // Determine credits from link purpose or amount
     let creditsToAdd = getCreditsFromPurpose(linkPurpose);
     
     // If we couldn't determine credits from purpose, try from amount
@@ -225,12 +215,7 @@ serve(async (req) => {
     if (creditsToAdd === 0) {
       console.error('Could not determine credits to add from webhook data');
       return new Response(
-        JSON.stringify({ 
-          received: true, 
-          processed: false, 
-          reason: 'Could not determine credits to add',
-          payload: payload 
-        }), 
+        JSON.stringify({ received: true, processed: false, reason: 'Could not determine credits to add' }), 
         { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
       );
     }
@@ -278,20 +263,20 @@ serve(async (req) => {
       }
     }
 
-    // If order still not found, try to find by pattern matching
+    // If order still not found, search by pattern matching
     if (!orderData) {
       console.log('Order not found with exact or alternate IDs, trying pattern matching...');
       
       // Try to find by partial match
-      const { data: allOrders, error: patternFindError } = await supabase
+      const { data: patternOrderData, error: patternFindError } = await supabase
         .from('payment_orders')
         .select('order_id, user_id, credits, status');
         
       if (patternFindError) {
         console.error('Database error with pattern search:', patternFindError);
-      } else if (allOrders && allOrders.length > 0) {
+      } else if (patternOrderData && patternOrderData.length > 0) {
         // Find any order where our ID is contained in the stored ID or vice versa
-        const matchedOrder = allOrders.find(order => 
+        const matchedOrder = patternOrderData.find(order => 
           order.order_id.includes(orderId!) || orderId!.includes(order.order_id)
         );
         
@@ -307,9 +292,10 @@ serve(async (req) => {
       }
     }
 
-    // If we still don't have order data, but we have a customer email, try to find user
-    if (!orderData && customerEmail) {
-      console.log(`Order not found in database, trying to find user by email: ${customerEmail}`);
+    // If we still don't have order data, but we have a Cashfree payment link event with purpose
+    // we can try to extract user ID from the customer details
+    if (!orderData && data.customer_details && data.customer_details.customer_email) {
+      console.log(`Order not found in database, trying to find user by email: ${data.customer_details.customer_email}`);
       
       // Try to find user by email
       const { data: userData, error: userError } = await supabase
@@ -318,7 +304,7 @@ serve(async (req) => {
       if (userError) {
         console.error('Error finding user by email:', userError);
       } else if (userData) {
-        const user = userData.users.find(u => u.email === customerEmail);
+        const user = userData.users.find(u => u.email === data.customer_details?.customer_email);
         
         if (user) {
           console.log(`Found user by email: ${user.id}`);
@@ -351,13 +337,7 @@ serve(async (req) => {
     if (!orderData) {
       console.error('Order not found in database after multiple search attempts:', orderId);
       return new Response(
-        JSON.stringify({ 
-          received: true, 
-          processed: false, 
-          reason: 'Order not found in database',
-          order_id: orderId,
-          payload: payload
-        }), 
+        JSON.stringify({ received: true, processed: false, reason: 'Order not found in database' }), 
         { status: 404, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
       );
     }
@@ -399,7 +379,7 @@ serve(async (req) => {
       
     console.log(`User ${orderData.user_id} has ${beforeUpdate?.credit || 0} credits before update`);
     
-    // First try to use the update_user_credits function
+    // Update credits using the update_user_credits function
     const { error: creditError } = await supabase.rpc('update_user_credits', {
       p_user_id: orderData.user_id,
       p_credits_to_add: finalCreditsToAdd
@@ -444,29 +424,7 @@ serve(async (req) => {
       .maybeSingle();
       
     console.log(`User ${orderData.user_id} now has ${afterUpdate?.credit || 0} credits after update (added ${finalCreditsToAdd})`);
-    
-    // Verify that credits were properly added
-    const expectedCredits = (beforeUpdate?.credit || 0) + finalCreditsToAdd;
-    if (afterUpdate?.credit !== expectedCredits) {
-      console.error(`Credit update verification failed. Expected: ${expectedCredits}, Actual: ${afterUpdate?.credit}`);
-      
-      // Attempt one more direct update as last resort
-      const { error: finalUpdateError } = await supabase
-        .from('profiles')
-        .update({ 
-          credit: expectedCredits,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', orderData.user_id);
-        
-      if (finalUpdateError) {
-        console.error('Final credit update attempt failed:', finalUpdateError);
-      } else {
-        console.log(`Final credit update successful. Set credits to ${expectedCredits}`);
-      }
-    } else {
-      console.log(`Successfully added ${finalCreditsToAdd} credits to user ${orderData.user_id}`);
-    }
+    console.log(`Successfully added ${finalCreditsToAdd} credits to user ${orderData.user_id}`);
 
     return new Response(
       JSON.stringify({ 
