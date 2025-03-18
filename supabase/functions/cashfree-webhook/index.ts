@@ -20,16 +20,22 @@ interface WebhookPayload {
       order_amount: number;
       order_currency: string;
       order_tags: {
+        cf_link_id?: string;
         link_id: string;
       };
     };
     payment: {
+      cf_payment_id?: number;
       payment_status: string;
       payment_amount: number;
     };
     customer_details: {
       customer_email: string;
       customer_phone: string;
+    };
+    link?: {
+      link_id: string;
+      link_status: string;
     };
   };
   event_time: string;
@@ -49,18 +55,34 @@ serve(async (req) => {
     
     console.log('Received webhook:', type, JSON.stringify(data));
 
-    if (type !== 'PAYMENT_SUCCESS_WEBHOOK') {
-      console.log('Not a payment success webhook:', type);
+    // Extract order ID and status based on webhook type
+    let orderId: string | undefined;
+    let paymentStatus: string | undefined;
+
+    // Handle both PAYMENT_SUCCESS_WEBHOOK and LINK_STATUS_UPDATE types
+    if (type === 'PAYMENT_SUCCESS_WEBHOOK' && data.order && data.payment) {
+      orderId = data.order.order_tags.link_id;
+      paymentStatus = data.payment.payment_status;
+      console.log(`Processing payment success webhook for order ${orderId}: ${paymentStatus}`);
+    } else if (type === 'PAYMENT_LINK_EVENT' && data.link) {
+      orderId = data.link.link_id;
+      paymentStatus = data.link.link_status === 'PAID' ? 'SUCCESS' : data.link.link_status;
+      console.log(`Processing payment link event for order ${orderId}: ${paymentStatus}`);
+    } else {
+      console.log('Unsupported webhook event type:', type);
       return new Response(
-        JSON.stringify({ received: true, processed: false, reason: 'Not a payment success webhook' }), 
+        JSON.stringify({ received: true, processed: false, reason: `Unsupported webhook event type: ${type}` }), 
         { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
       );
     }
 
-    const orderId = data.order.order_tags.link_id;
-    const paymentStatus = data.payment.payment_status;
-
-    console.log(`Processing payment status update for order ${orderId}: ${paymentStatus}`);
+    if (!orderId) {
+      console.error('Order ID not found in webhook payload');
+      return new Response(
+        JSON.stringify({ received: true, processed: false, reason: 'Order ID not found in webhook payload' }), 
+        { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+      );
+    }
 
     // Find the order in the database
     const { data: orderData, error: findError } = await supabase
@@ -95,10 +117,15 @@ serve(async (req) => {
     }
 
     // Update order status
+    const isPaid = paymentStatus === 'SUCCESS' || paymentStatus === 'PAID';
+    const newStatus = isPaid ? 'PAID' : 'FAILED';
+    
+    console.log(`Updating order ${orderId} status to ${newStatus}`);
+    
     const { error: updateError } = await supabase
       .from('payment_orders')
       .update({ 
-        status: paymentStatus === 'SUCCESS' ? 'PAID' : 'FAILED',
+        status: newStatus,
         updated_at: new Date().toISOString() 
       })
       .eq('order_id', orderId);
@@ -112,8 +139,8 @@ serve(async (req) => {
     }
 
     // If payment is successful, add credits to user's account
-    if (paymentStatus === 'SUCCESS') {
-      console.log(`Processing successful payment for order ${orderId}`);
+    if (isPaid) {
+      console.log(`Processing successful payment for order ${orderId}, adding ${orderData.credits} credits to user ${orderData.user_id}`);
       
       // Update credits using the update_user_credits function
       const { error: creditError } = await supabase.rpc('update_user_credits', {
@@ -136,8 +163,10 @@ serve(async (req) => {
       JSON.stringify({ 
         received: true, 
         processed: true,
-        status: paymentStatus,
-        order_id: orderId 
+        status: newStatus,
+        order_id: orderId,
+        user_id: orderData.user_id,
+        credits_added: isPaid ? orderData.credits : 0
       }), 
       { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
     );
