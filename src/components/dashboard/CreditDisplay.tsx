@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { CreditCard } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
 
 interface CreditDisplayProps {
   userCredits: number;
@@ -15,15 +16,16 @@ const CreditDisplay = ({ userCredits, userStatus }: CreditDisplayProps) => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [credits, setCredits] = useState(userCredits);
+  const { toast } = useToast();
   
   // Poll for credit updates when returning from payment
   useEffect(() => {
     setCredits(userCredits);
     
-    // Check for fresh credits every 5 seconds for 30 seconds after page load
+    // Check for fresh credits every 3 seconds for 30 seconds after page load
     // This helps update UI after payment completion
     if (user) {
-      const checkCount = 6; // 6 checks * 5 seconds = 30 seconds
+      const checkCount = 10; // 10 checks * 3 seconds = 30 seconds
       let currentCheck = 0;
       
       const checkInterval = setInterval(async () => {
@@ -39,19 +41,25 @@ const CreditDisplay = ({ userCredits, userStatus }: CreditDisplayProps) => {
             .eq('id', user.id)
             .single();
           
-          if (!error && data && data.credit !== credits) {
-            setCredits(data.credit);
+          if (!error && data) {
+            if (data.credit !== credits) {
+              setCredits(data.credit);
+              toast({
+                title: 'Credits Updated',
+                description: `Your credit balance is now ${data.credit}`,
+              });
+            }
           }
           
           currentCheck++;
         } catch (error) {
           console.error('Error checking credits:', error);
         }
-      }, 5000);
+      }, 3000);
       
       return () => clearInterval(checkInterval);
     }
-  }, [user, userCredits]);
+  }, [user, userCredits, toast, credits]);
   
   return (
     <div className="flex items-center gap-4">

@@ -63,7 +63,8 @@ serve(async (req) => {
 
     // Handle both PAYMENT_SUCCESS_WEBHOOK and PAYMENT_LINK_EVENT types
     if (type === 'PAYMENT_SUCCESS_WEBHOOK' && data.order && data.payment) {
-      orderId = data.order.order_tags.link_id;
+      // Try to get the order ID from different possible locations
+      orderId = data.order.order_tags.link_id || data.order.order_id;
       paymentStatus = data.payment.payment_status;
       console.log(`Processing payment success webhook for order ${orderId}: ${paymentStatus}`);
     } else if (type === 'PAYMENT_LINK_EVENT' && data.link) {
@@ -74,8 +75,13 @@ serve(async (req) => {
       console.log('Unsupported webhook event type:', type, 'with data:', JSON.stringify(data));
       
       // If we have order data, try to extract it even if the type is unexpected
-      if (data.order && data.order.order_tags && data.order.order_tags.link_id) {
-        orderId = data.order.order_tags.link_id;
+      if (data.order) {
+        // Try all possible ways to get order ID
+        if (data.order.order_tags && data.order.order_tags.link_id) {
+          orderId = data.order.order_tags.link_id;
+        } else if (data.order.order_id) {
+          orderId = data.order.order_id;
+        }
         
         if (data.payment && data.payment.payment_status) {
           paymentStatus = data.payment.payment_status;
@@ -104,6 +110,8 @@ serve(async (req) => {
       );
     }
 
+    console.log(`Looking for payment order with order_id: ${orderId}`);
+
     // Find the order in the database
     const { data: orderData, error: findError } = await supabase
       .from('payment_orders')
@@ -120,11 +128,33 @@ serve(async (req) => {
     }
 
     if (!orderData) {
-      console.error('Order not found:', orderId);
-      return new Response(
-        JSON.stringify({ received: true, processed: false, reason: 'Order not found' }), 
-        { status: 404, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
-      );
+      console.error('Order not found in database:', orderId);
+      
+      // Try searching without the "order_" prefix if it exists
+      let alternateOrderId = orderId;
+      if (orderId.startsWith('order_')) {
+        alternateOrderId = orderId.substring(6);
+      }
+      
+      console.log(`Trying alternate search with order_id: ${alternateOrderId}`);
+      
+      const { data: altOrderData, error: altFindError } = await supabase
+        .from('payment_orders')
+        .select('user_id, credits, status')
+        .eq('order_id', alternateOrderId)
+        .maybeSingle();
+        
+      if (altFindError || !altOrderData) {
+        console.error('Order not found with alternate ID either:', alternateOrderId);
+        return new Response(
+          JSON.stringify({ received: true, processed: false, reason: 'Order not found in database' }), 
+          { status: 404, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+        );
+      }
+      
+      console.log(`Found order using alternate ID: ${alternateOrderId}`);
+      orderId = alternateOrderId;
+      orderData = altOrderData;
     }
 
     // If payment was already processed, don't process it again
@@ -162,6 +192,15 @@ serve(async (req) => {
     if (isPaid) {
       console.log(`Processing successful payment for order ${orderId}, adding ${orderData.credits} credits to user ${orderData.user_id}`);
       
+      // Get current user credits before update
+      const { data: beforeUpdate } = await supabase
+        .from('profiles')
+        .select('credit')
+        .eq('id', orderData.user_id)
+        .single();
+        
+      console.log(`User ${orderData.user_id} has ${beforeUpdate?.credit || 0} credits before update`);
+      
       // Update credits using the update_user_credits function
       const { error: creditError } = await supabase.rpc('update_user_credits', {
         p_user_id: orderData.user_id,
@@ -176,6 +215,14 @@ serve(async (req) => {
         );
       }
 
+      // Get current user credits after update to verify
+      const { data: afterUpdate } = await supabase
+        .from('profiles')
+        .select('credit')
+        .eq('id', orderData.user_id)
+        .single();
+        
+      console.log(`User ${orderData.user_id} now has ${afterUpdate?.credit || 0} credits after update (added ${orderData.credits})`);
       console.log(`Successfully added ${orderData.credits} credits to user ${orderData.user_id}`);
     }
 
