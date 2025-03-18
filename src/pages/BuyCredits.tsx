@@ -97,7 +97,7 @@ const BuyCredits = () => {
       // Get user profile to get email
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
-        .select('email')
+        .select('email, credit')
         .eq('id', user.id)
         .single();
       
@@ -135,7 +135,7 @@ const BuyCredits = () => {
         throw new Error('No payment link received');
       }
       
-    } catch (error) {
+    } catch (error: any) {
       console.error('Purchase error:', error);
       toast({
         title: 'Payment Failed',
@@ -160,8 +160,10 @@ const BuyCredits = () => {
       // Check payment status
       const checkPaymentStatus = async () => {
         try {
-          const { data: orderData, error } = await supabase
-            .from('payment_orders')
+          // Using a type assertion with 'as any' to avoid TypeScript errors
+          // since the types haven't been updated to include the payment_orders table
+          const { data: orderData, error } = await (supabase
+            .from('payment_orders') as any)
             .select('status, credits')
             .eq('order_id', orderId)
             .single();
@@ -175,12 +177,12 @@ const BuyCredits = () => {
             return;
           }
 
-          if (orderData.status === 'PAID') {
+          if (orderData && orderData.status === 'PAID') {
             toast({
               title: 'Payment Successful',
               description: `${orderData.credits} credits have been added to your account.`,
             });
-          } else if (orderData.status === 'FAILED') {
+          } else if (orderData && orderData.status === 'FAILED') {
             toast({
               title: 'Payment Failed',
               description: 'Your payment was unsuccessful. Please try again.',

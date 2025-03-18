@@ -38,12 +38,52 @@ export type Database = {
           },
         ]
       }
+      payment_orders: {
+        Row: {
+          amount: number
+          created_at: string
+          credits: number
+          currency: string
+          id: string
+          order_id: string
+          payment_session_id: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          credits: number
+          currency: string
+          id?: string
+          order_id: string
+          payment_session_id?: string | null
+          status: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          credits?: number
+          currency?: string
+          id?: string
+          order_id?: string
+          payment_session_id?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           competitors: string[] | null
           created_at: string | null
           credit: number
           custom_script: string | null
+          email: string | null
           id: string
           message: string | null
           result: Json | null
@@ -61,6 +101,7 @@ export type Database = {
           created_at?: string | null
           credit?: number
           custom_script?: string | null
+          email?: string | null
           id: string
           message?: string | null
           result?: Json | null
@@ -78,6 +119,7 @@ export type Database = {
           created_at?: string | null
           credit?: number
           custom_script?: string | null
+          email?: string | null
           id?: string
           message?: string | null
           result?: Json | null
@@ -289,7 +331,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      create_payment_table: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never
