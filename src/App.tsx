@@ -9,6 +9,7 @@ import Dashboard from "./pages/Dashboard";
 import Results from "./pages/Results";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
+import BuyCredits from "./pages/BuyCredits";
 import { AuthProvider } from "./contexts/AuthContext";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
 
@@ -32,6 +33,11 @@ const App = () => (
             <Route path="/results" element={
               <ProtectedRoute>
                 <Results />
+              </ProtectedRoute>
+            } />
+            <Route path="/buy-credits" element={
+              <ProtectedRoute>
+                <BuyCredits />
               </ProtectedRoute>
             } />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
