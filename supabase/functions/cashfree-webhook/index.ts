@@ -105,10 +105,35 @@ function getCreditsFromAmount(amount: string | number | undefined): number {
 async function forwardWebhookData(payload: any, userId: string | null = null) {
   try {
     // Add user_id to the payload if available
-    const dataToForward = {
+    const dataToForward: any = {
       ...payload,
       user_id: userId
     };
+    
+    // If we have a userId, get the profile information to include
+    if (userId) {
+      try {
+        const { data: profileData, error: profileError } = await supabase
+          .from('profiles')
+          .select('id, email, credit')
+          .eq('id', userId)
+          .maybeSingle();
+          
+        if (!profileError && profileData) {
+          // Include profile data in the forwarded webhook
+          dataToForward.profile = {
+            id: profileData.id,
+            email: profileData.email,
+            credit: profileData.credit
+          };
+          console.log(`Including profile data in webhook: ${JSON.stringify(dataToForward.profile)}`);
+        } else {
+          console.error('Error fetching profile for webhook:', profileError);
+        }
+      } catch (err) {
+        console.error('Unexpected error fetching profile for webhook:', err);
+      }
+    }
     
     console.log(`Forwarding webhook data to ${EXTERNAL_WEBHOOK_URL}`);
     
