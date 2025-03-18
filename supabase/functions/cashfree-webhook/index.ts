@@ -100,28 +100,8 @@ serve(async (req) => {
     // If payment is successful, add credits to user's account
     if (link_status === 'PAID') {
       console.log(`Processing successful payment for order ${link_id}`);
-      
-      // Get current credits
-      const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
-        .select('credit')
-        .eq('id', orderData.user_id)
-        .single();
-      
-      if (profileError) {
-        console.error('Failed to fetch user profile:', profileError);
-        return new Response(
-          JSON.stringify({ received: true, processed: false, reason: 'User profile error', error: profileError }), 
-          { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
-        );
-      }
 
-      const currentCredits = profileData.credit || 0;
-      const newCredits = currentCredits + orderData.credits;
-
-      console.log(`Updating credits for user ${orderData.user_id}: ${currentCredits} + ${orderData.credits} = ${newCredits}`);
-
-      // Update credits in a transaction to ensure consistency
+      // Update credits using the new function that handles the update atomically
       const { error: creditError } = await supabase.rpc('update_user_credits', {
         p_user_id: orderData.user_id,
         p_credits_to_add: orderData.credits
@@ -135,7 +115,7 @@ serve(async (req) => {
         );
       }
 
-      console.log(`Successfully added ${orderData.credits} credits to user ${orderData.user_id}. New balance: ${newCredits}`);
+      console.log(`Successfully added ${orderData.credits} credits to user ${orderData.user_id}`);
     }
 
     return new Response(
@@ -155,4 +135,3 @@ serve(async (req) => {
     );
   }
 });
-
