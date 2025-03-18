@@ -27,6 +27,7 @@ export type DashboardData = {
   scriptOption: string;
   customScript: string;
   isLoading: boolean;
+  loadError: string | null;
 };
 
 export const useDashboardData = (user: User | null) => {
@@ -43,17 +44,21 @@ export const useDashboardData = (user: User | null) => {
     errorMessage: null,
     scriptOption: 'ai_find',
     customScript: '',
-    isLoading: true
+    isLoading: true,
+    loadError: null
   });
 
   useEffect(() => {
     if (!user) {
+      console.log('No user available, ending loading state');
       setData(prev => ({ ...prev, isLoading: false }));
       return;
     }
     
     const loadUserProfile = async () => {
       try {
+        console.log('Loading profile for user:', user.id);
+        
         const { data: profile, error } = await supabase.from('profiles').select('*').eq('id', user.id).single();
         
         if (error) {
@@ -63,13 +68,17 @@ export const useDashboardData = (user: User | null) => {
             description: 'Failed to load your profile data.',
             variant: 'destructive'
           });
-          setData(prev => ({ ...prev, isLoading: false }));
+          setData(prev => ({ 
+            ...prev, 
+            isLoading: false,
+            loadError: error.message
+          }));
           return;
         }
         
         console.log("Profile loaded:", profile);
         
-        const updatedData = { ...data, isLoading: false };
+        const updatedData = { ...data, isLoading: false, loadError: null };
         
         // Set user credits
         updatedData.userCredits = profile.credit || 0;
@@ -148,14 +157,19 @@ export const useDashboardData = (user: User | null) => {
         }
         
         setData(updatedData);
-      } catch (error) {
+        console.log("Dashboard data updated:", updatedData);
+      } catch (error: any) {
         console.error('Unexpected error loading profile:', error);
         toast({
           title: 'Error',
           description: 'An unexpected error occurred.',
           variant: 'destructive'
         });
-        setData(prev => ({ ...prev, isLoading: false }));
+        setData(prev => ({ 
+          ...prev, 
+          isLoading: false,
+          loadError: error?.message || 'Unknown error occurred'
+        }));
       }
     };
     
@@ -165,9 +179,14 @@ export const useDashboardData = (user: User | null) => {
   const updateProfile = async (updates: any) => {
     if (!user) return;
     try {
+      console.log('Updating profile for user:', user.id, 'with updates:', updates);
       const { error } = await supabase.from('profiles').update(updates).eq('id', user.id);
-      if (error) throw error;
-    } catch (error) {
+      if (error) {
+        console.error('Error updating profile:', error);
+        throw error;
+      }
+      console.log('Profile updated successfully');
+    } catch (error: any) {
       console.error('Error updating profile:', error);
       toast({
         title: 'Update Failed',
