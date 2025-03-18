@@ -51,6 +51,8 @@ serve(async (req) => {
   try {
     // Parse webhook payload
     const payload: WebhookPayload = await req.json();
+    console.log('Raw webhook received:', JSON.stringify(payload));
+    
     const { data, type } = payload;
     
     console.log('Received webhook:', type, JSON.stringify(data));
@@ -59,7 +61,7 @@ serve(async (req) => {
     let orderId: string | undefined;
     let paymentStatus: string | undefined;
 
-    // Handle both PAYMENT_SUCCESS_WEBHOOK and LINK_STATUS_UPDATE types
+    // Handle both PAYMENT_SUCCESS_WEBHOOK and PAYMENT_LINK_EVENT types
     if (type === 'PAYMENT_SUCCESS_WEBHOOK' && data.order && data.payment) {
       orderId = data.order.order_tags.link_id;
       paymentStatus = data.payment.payment_status;
@@ -69,11 +71,29 @@ serve(async (req) => {
       paymentStatus = data.link.link_status === 'PAID' ? 'SUCCESS' : data.link.link_status;
       console.log(`Processing payment link event for order ${orderId}: ${paymentStatus}`);
     } else {
-      console.log('Unsupported webhook event type:', type);
-      return new Response(
-        JSON.stringify({ received: true, processed: false, reason: `Unsupported webhook event type: ${type}` }), 
-        { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
-      );
+      console.log('Unsupported webhook event type:', type, 'with data:', JSON.stringify(data));
+      
+      // If we have order data, try to extract it even if the type is unexpected
+      if (data.order && data.order.order_tags && data.order.order_tags.link_id) {
+        orderId = data.order.order_tags.link_id;
+        
+        if (data.payment && data.payment.payment_status) {
+          paymentStatus = data.payment.payment_status;
+          console.log(`Extracted payment info from unexpected webhook type: ${orderId}: ${paymentStatus}`);
+        } else {
+          console.log('Could not extract payment status from unexpected webhook type');
+          return new Response(
+            JSON.stringify({ received: true, processed: false, reason: `Could not extract payment status from webhook type: ${type}` }), 
+            { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+          );
+        }
+      } else {
+        console.log('Could not extract order ID from unexpected webhook type');
+        return new Response(
+          JSON.stringify({ received: true, processed: false, reason: `Could not extract order ID from webhook type: ${type}` }), 
+          { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+        );
+      }
     }
 
     if (!orderId) {
