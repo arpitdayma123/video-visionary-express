@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { CreditCard } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
 
 interface CreditDisplayProps {
   userCredits: number;
@@ -15,6 +16,7 @@ const CreditDisplay = ({ userCredits, userStatus }: CreditDisplayProps) => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [credits, setCredits] = useState(userCredits);
+  const { toast } = useToast();
   
   // Poll for credit updates when returning from payment
   useEffect(() => {
@@ -41,6 +43,10 @@ const CreditDisplay = ({ userCredits, userStatus }: CreditDisplayProps) => {
           
           if (!error && data && data.credit !== credits) {
             setCredits(data.credit);
+            toast({
+              title: "Credits Updated",
+              description: `Your credits have been updated to ${data.credit}`,
+            });
           }
           
           currentCheck++;
@@ -53,6 +59,10 @@ const CreditDisplay = ({ userCredits, userStatus }: CreditDisplayProps) => {
     }
   }, [user, userCredits]);
   
+  const handleBuyCredits = () => {
+    navigate('/buy-credits');
+  };
+  
   return (
     <div className="flex items-center gap-4">
       <div className="bg-secondary/40 px-4 py-2 rounded-lg">
@@ -64,7 +74,7 @@ const CreditDisplay = ({ userCredits, userStatus }: CreditDisplayProps) => {
         variant="outline" 
         size="sm" 
         className="flex items-center gap-1"
-        onClick={() => navigate('/buy-credits')}
+        onClick={handleBuyCredits}
       >
         <CreditCard className="h-4 w-4" />
         Buy Credits
