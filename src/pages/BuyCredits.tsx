@@ -7,6 +7,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { CreditCard, Star, Zap } from 'lucide-react';
+import { v4 as uuidv4 } from 'uuid';
 
 const CreditPackage = ({ 
   title, 
@@ -56,7 +57,8 @@ const BuyCredits = () => {
       id: 'basic',
       title: 'Basic',
       credits: 5,
-      price: '$9.99',
+      price: '₹499',
+      priceValue: 499,
       description: 'Perfect for beginners',
       icon: <CreditCard className="text-primary" />,
     },
@@ -64,7 +66,8 @@ const BuyCredits = () => {
       id: 'standard',
       title: 'Standard',
       credits: 20,
-      price: '$29.99',
+      price: '₹1,499',
+      priceValue: 1499,
       description: 'Most popular choice',
       icon: <Star className="text-primary" />,
     },
@@ -72,7 +75,8 @@ const BuyCredits = () => {
       id: 'premium',
       title: 'Premium',
       credits: 50,
-      price: '$59.99',
+      price: '₹2,999',
+      priceValue: 2999,
       description: 'Best value for pros',
       icon: <Zap className="text-primary" />,
     },
@@ -90,45 +94,112 @@ const BuyCredits = () => {
       const selectedPkg = packages.find(pkg => pkg.id === selectedPackage);
       if (!selectedPkg) return;
       
-      // Simulate payment processing
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      // Add credits to user's account
-      const { data, error } = await supabase
+      // Get user profile to get email
+      const { data: profileData, error: profileError } = await supabase
         .from('profiles')
-        .select('credit')
+        .select('email')
         .eq('id', user.id)
         .single();
       
-      if (error) throw error;
+      if (profileError) {
+        console.error('Error fetching profile:', profileError);
+        throw new Error('Could not retrieve user profile');
+      }
+
+      // Generate unique order ID
+      const orderId = `order_${uuidv4().replace(/-/g, '')}`;
+      const returnUrl = `${window.location.origin}/buy-credits`;
       
-      const currentCredits = data?.credit || 0;
-      const newCredits = currentCredits + selectedPkg.credits;
-      
-      const { error: updateError } = await supabase
-        .from('profiles')
-        .update({ credit: newCredits })
-        .eq('id', user.id);
-      
-      if (updateError) throw updateError;
-      
-      toast({
-        title: 'Purchase Successful',
-        description: `Added ${selectedPkg.credits} credits to your account.`,
+      // Call Cashfree payment function
+      const response = await supabase.functions.invoke('cashfree-payment', {
+        body: {
+          orderId,
+          orderAmount: selectedPkg.priceValue,
+          orderCurrency: 'INR',
+          userId: user.id,
+          credits: selectedPkg.credits,
+          customerEmail: profileData.email || user.email,
+          customerName: user.user_metadata?.full_name || '',
+          returnUrl
+        }
       });
+
+      if (response.error) {
+        throw new Error(response.error.message || 'Payment initialization failed');
+      }
+
+      if (response.data.payment_link) {
+        // Redirect to payment page
+        window.location.href = response.data.payment_link;
+      } else {
+        throw new Error('No payment link received');
+      }
       
-      setSelectedPackage(null);
     } catch (error) {
       console.error('Purchase error:', error);
       toast({
-        title: 'Purchase Failed',
-        description: 'There was an error processing your purchase.',
+        title: 'Payment Failed',
+        description: error.message || 'There was an error processing your payment.',
         variant: 'destructive',
       });
     } finally {
       setIsProcessing(false);
     }
   };
+
+  // Handle payment return from Cashfree
+  React.useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const orderId = urlParams.get('order_id');
+    const orderToken = urlParams.get('order_token');
+    
+    if (orderId && orderToken) {
+      // Clear URL parameters
+      window.history.replaceState({}, document.title, window.location.pathname);
+      
+      // Check payment status
+      const checkPaymentStatus = async () => {
+        try {
+          const { data: orderData, error } = await supabase
+            .from('payment_orders')
+            .select('status, credits')
+            .eq('order_id', orderId)
+            .single();
+          
+          if (error) {
+            toast({
+              title: 'Error',
+              description: 'Could not verify payment status. Please contact support.',
+              variant: 'destructive',
+            });
+            return;
+          }
+
+          if (orderData.status === 'PAID') {
+            toast({
+              title: 'Payment Successful',
+              description: `${orderData.credits} credits have been added to your account.`,
+            });
+          } else if (orderData.status === 'FAILED') {
+            toast({
+              title: 'Payment Failed',
+              description: 'Your payment was unsuccessful. Please try again.',
+              variant: 'destructive',
+            });
+          } else {
+            toast({
+              title: 'Payment Processing',
+              description: 'Your payment is being processed. Credits will be added soon.',
+            });
+          }
+        } catch (err) {
+          console.error('Error checking payment status:', err);
+        }
+      };
+
+      checkPaymentStatus();
+    }
+  }, [toast]);
 
   return (
     <MainLayout title="Buy Credits" subtitle="Purchase credits to create more videos">
@@ -168,7 +239,7 @@ const BuyCredits = () => {
                 Cancel
               </Button>
               <Button onClick={handlePurchase} disabled={isProcessing}>
-                {isProcessing ? 'Processing...' : 'Complete Purchase'}
+                {isProcessing ? 'Processing...' : 'Proceed to Payment'}
               </Button>
             </div>
           </div>
