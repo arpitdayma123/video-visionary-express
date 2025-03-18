@@ -22,10 +22,10 @@ const CreditDisplay = ({ userCredits, userStatus }: CreditDisplayProps) => {
   useEffect(() => {
     setCredits(userCredits);
     
-    // Check for fresh credits more frequently (every 2 seconds for 60 seconds)
+    // Check for fresh credits more frequently (every 1 second for 60 seconds)
     // This helps update UI faster after payment completion
     if (user) {
-      const checkCount = 30; // 30 checks * 2 seconds = 60 seconds
+      const checkCount = 60; // 60 checks * 1 second = 60 seconds
       let currentCheck = 0;
       
       const checkInterval = setInterval(async () => {
@@ -54,7 +54,7 @@ const CreditDisplay = ({ userCredits, userStatus }: CreditDisplayProps) => {
         } catch (error) {
           console.error('Error checking credits:', error);
         }
-      }, 2000); // Check every 2 seconds
+      }, 1000); // Check every 1 second
       
       return () => clearInterval(checkInterval);
     }
