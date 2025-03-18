@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 import { CreditCard } from 'lucide-react';
@@ -17,20 +17,30 @@ const CreditDisplay = ({ userCredits, userStatus }: CreditDisplayProps) => {
   const { user } = useAuth();
   const [credits, setCredits] = useState(userCredits);
   const { toast } = useToast();
+  const intervalRef = useRef<number | null>(null);
   
   // Poll for credit updates when returning from payment
   useEffect(() => {
     setCredits(userCredits);
     
-    // Check for fresh credits more frequently (every 1 second for 60 seconds)
+    // Clear any existing interval when component remounts
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+    
+    // Check for fresh credits more frequently (every 3 seconds for 30 seconds)
     // This helps update UI faster after payment completion
     if (user) {
-      const checkCount = 60; // 60 checks * 1 second = 60 seconds
+      const checkCount = 10; // 10 checks * 3 seconds = 30 seconds
       let currentCheck = 0;
       
-      const checkInterval = setInterval(async () => {
+      const checkCredits = async () => {
         if (currentCheck >= checkCount) {
-          clearInterval(checkInterval);
+          if (intervalRef.current) {
+            clearInterval(intervalRef.current);
+            intervalRef.current = null;
+          }
           return;
         }
         
@@ -54,9 +64,20 @@ const CreditDisplay = ({ userCredits, userStatus }: CreditDisplayProps) => {
         } catch (error) {
           console.error('Error checking credits:', error);
         }
-      }, 1000); // Check every 1 second
+      };
       
-      return () => clearInterval(checkInterval);
+      // Initial check
+      checkCredits();
+      
+      // Start interval
+      intervalRef.current = window.setInterval(checkCredits, 3000); // Check every 3 seconds
+      
+      return () => {
+        if (intervalRef.current) {
+          clearInterval(intervalRef.current);
+          intervalRef.current = null;
+        }
+      };
     }
   }, [user, userCredits, toast, credits]);
   

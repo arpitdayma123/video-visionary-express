@@ -46,20 +46,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     // Get initial session
     const initializeAuth = async () => {
-      setLoading(true);
-      const { data } = await supabase.auth.getSession();
-      setSession(data.session);
-      setUser(data.session?.user || null);
-      
-      // Update email in profile if user exists
-      if (data.session?.user) {
-        const { id, email } = data.session.user;
-        if (email) {
-          await updateUserEmail(id, email);
+      try {
+        setLoading(true);
+        const { data, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error('Error getting session:', error);
+          setLoading(false);
+          return;
         }
+        
+        setSession(data.session);
+        setUser(data.session?.user || null);
+        
+        // Update email in profile if user exists
+        if (data.session?.user) {
+          const { id, email } = data.session.user;
+          if (email) {
+            await updateUserEmail(id, email);
+          }
+        }
+      } catch (err) {
+        console.error('Unexpected error during auth initialization:', err);
+      } finally {
+        setLoading(false);
       }
-      
-      setLoading(false);
     };
 
     initializeAuth();
@@ -91,7 +102,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        console.error('Error signing out:', error);
+      }
+    } catch (err) {
+      console.error('Unexpected error during sign out:', err);
+    }
   };
 
   return (

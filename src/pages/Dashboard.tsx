@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import MainLayout from '@/components/layout/MainLayout';
 import { useAuth } from '@/contexts/AuthContext';
 import { useDashboardData } from '@/hooks/useDashboardData';
@@ -33,6 +33,18 @@ const Dashboard = () => {
     setCustomScript,
     setUserStatus
   } = useDashboardData(user);
+
+  // Add a timeout to prevent infinite loading
+  useEffect(() => {
+    const loadingTimeout = setTimeout(() => {
+      if (isLoading) {
+        console.log("Loading timeout reached, forcing refresh");
+        window.location.reload();
+      }
+    }, 10000); // 10 seconds timeout
+    
+    return () => clearTimeout(loadingTimeout);
+  }, [isLoading]);
 
   if (isLoading) {
     return (
