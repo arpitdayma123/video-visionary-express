@@ -63,9 +63,14 @@ serve(async (req) => {
       orderId,
       orderAmount,
       customerEmail,
-      customerPhone
+      customerPhone,
+      returnUrl
     });
 
+    // Construct order meta with properly formatted URLs
+    // Remove any query parameters for notify_url as they're causing validation issues
+    const baseReturnUrl = returnUrl.split('?')[0];
+    
     // Create order in Cashfree
     const response = await fetch(`${CASHFREE_API_URL}/orders`, {
       method: 'POST',
@@ -86,8 +91,9 @@ serve(async (req) => {
           customer_name: customerName || customerEmail,
         },
         order_meta: {
-          return_url: `${returnUrl}?order_id={order_id}`,
-          notify_url: `${returnUrl}?order_id={order_id}`
+          return_url: `${baseReturnUrl}?order_id={order_id}`,
+          // Use the base URL without query parameters for the notify_url
+          notify_url: baseReturnUrl
         },
         order_note: `Credit purchase: ${credits} credits`,
       }),
