@@ -38,6 +38,7 @@ serve(async (req) => {
     console.log('Received webhook:', type, JSON.stringify(data));
 
     if (type !== 'LINK_STATUS_UPDATE' || !data.link) {
+      console.log('Not a payment status update webhook:', type);
       return new Response(
         JSON.stringify({ received: true, processed: false, reason: 'Not a payment status update' }), 
         { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
@@ -45,15 +46,24 @@ serve(async (req) => {
     }
 
     const { link_id, link_status } = data.link;
+    console.log(`Processing payment status update for order ${link_id}: ${link_status}`);
 
-    // Update order status in database
+    // Find the order in the database
     const { data: orderData, error: findError } = await supabase
       .from('payment_orders')
-      .select('*')
+      .select('user_id, credits, status')
       .eq('order_id', link_id)
-      .single();
+      .maybeSingle();
 
-    if (findError || !orderData) {
+    if (findError) {
+      console.error('Database error finding order:', findError);
+      return new Response(
+        JSON.stringify({ received: true, processed: false, reason: 'Database error', error: findError }), 
+        { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+      );
+    }
+
+    if (!orderData) {
       console.error('Order not found:', link_id);
       return new Response(
         JSON.stringify({ received: true, processed: false, reason: 'Order not found' }), 
@@ -61,16 +71,28 @@ serve(async (req) => {
       );
     }
 
+    // If payment was already processed, don't process it again
+    if (orderData.status === 'PAID') {
+      console.log('Payment was already processed:', link_id);
+      return new Response(
+        JSON.stringify({ received: true, processed: false, reason: 'Payment already processed' }), 
+        { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+      );
+    }
+
     // Update order status
     const { error: updateError } = await supabase
       .from('payment_orders')
-      .update({ status: link_status, updated_at: new Date().toISOString() })
+      .update({ 
+        status: link_status, 
+        updated_at: new Date().toISOString() 
+      })
       .eq('order_id', link_id);
 
     if (updateError) {
       console.error('Failed to update order:', updateError);
       return new Response(
-        JSON.stringify({ received: true, processed: false, reason: 'Database error' }), 
+        JSON.stringify({ received: true, processed: false, reason: 'Database error', error: updateError }), 
         { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
       );
     }
@@ -79,6 +101,7 @@ serve(async (req) => {
     if (link_status === 'PAID') {
       console.log(`Processing successful payment for order ${link_id}`);
       
+      // Get current credits
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .select('credit')
@@ -88,7 +111,7 @@ serve(async (req) => {
       if (profileError) {
         console.error('Failed to fetch user profile:', profileError);
         return new Response(
-          JSON.stringify({ received: true, processed: false, reason: 'User profile error' }), 
+          JSON.stringify({ received: true, processed: false, reason: 'User profile error', error: profileError }), 
           { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
         );
       }
@@ -98,15 +121,16 @@ serve(async (req) => {
 
       console.log(`Updating credits for user ${orderData.user_id}: ${currentCredits} + ${orderData.credits} = ${newCredits}`);
 
-      const { error: creditError } = await supabase
-        .from('profiles')
-        .update({ credit: newCredits })
-        .eq('id', orderData.user_id);
+      // Update credits in a transaction to ensure consistency
+      const { error: creditError } = await supabase.rpc('update_user_credits', {
+        p_user_id: orderData.user_id,
+        p_credits_to_add: orderData.credits
+      });
       
       if (creditError) {
         console.error('Failed to update user credits:', creditError);
         return new Response(
-          JSON.stringify({ received: true, processed: false, reason: 'Credit update error' }), 
+          JSON.stringify({ received: true, processed: false, reason: 'Credit update error', error: creditError }), 
           { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
         );
       }
@@ -131,3 +155,4 @@ serve(async (req) => {
     );
   }
 });
+
