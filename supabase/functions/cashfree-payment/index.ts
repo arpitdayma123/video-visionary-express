@@ -26,7 +26,7 @@ interface PaymentRequest {
   credits: number;
   customerEmail: string;
   customerName: string;
-  customerPhone: string; // Added phone field
+  customerPhone: string;
   returnUrl: string;
 }
 
@@ -47,7 +47,7 @@ serve(async (req) => {
       credits,
       customerEmail, 
       customerName,
-      customerPhone, // Added phone field
+      customerPhone,
       returnUrl
     } = payload;
 
@@ -66,7 +66,7 @@ serve(async (req) => {
       customerPhone
     });
 
-    // Create order in Cashfree
+    // Create order in Cashfree - updated to use the latest API requirements
     const response = await fetch(`${CASHFREE_API_URL}/orders`, {
       method: 'POST',
       headers: {
@@ -82,11 +82,13 @@ serve(async (req) => {
         customer_details: {
           customer_id: userId,
           customer_email: customerEmail,
-          customer_phone: customerPhone, // Added phone field
+          customer_phone: customerPhone,
           customer_name: customerName || customerEmail,
         },
         order_meta: {
-          return_url: `${returnUrl}?order_id={order_id}&order_token={order_token}`,
+          // Updated format that doesn't use the deprecated {order_token} variable
+          return_url: returnUrl,
+          notify_url: returnUrl
         },
         order_note: `Credit purchase: ${credits} credits`,
       }),

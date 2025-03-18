@@ -10,6 +10,28 @@ import { CreditCard, Star, Zap } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+
+// Define interfaces for better type safety
+interface PackageOption {
+  id: string;
+  title: string;
+  credits: number;
+  price: string;
+  priceValue: number;
+  description: string;
+  icon: React.ReactNode;
+}
+
+interface ProfileData {
+  email: string | null;
+  credit: number;
+}
+
+interface PaymentOrder {
+  status: string;
+  credits: number;
+}
 
 const CreditPackage = ({ 
   title, 
@@ -52,10 +74,11 @@ const BuyCredits = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedPackage, setSelectedPackage] = useState<string | null>(null);
   const [phoneNumber, setPhoneNumber] = useState<string>('');
+  const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
   const { user } = useAuth();
 
-  const packages = [
+  const packages: PackageOption[] = [
     {
       id: 'basic',
       title: 'Basic',
@@ -87,6 +110,7 @@ const BuyCredits = () => {
 
   const handleSelectPackage = (packageId: string) => {
     setSelectedPackage(packageId);
+    setError(null);
   };
 
   const handlePurchase = async () => {
@@ -103,6 +127,8 @@ const BuyCredits = () => {
     }
     
     setIsProcessing(true);
+    setError(null);
+    
     try {
       const selectedPkg = packages.find(pkg => pkg.id === selectedPackage);
       if (!selectedPkg) return;
@@ -112,7 +138,7 @@ const BuyCredits = () => {
         .from('profiles')
         .select('email, credit')
         .eq('id', user.id)
-        .single();
+        .single() as { data: ProfileData | null; error: any };
       
       if (profileError) {
         console.error('Error fetching profile:', profileError);
@@ -131,7 +157,7 @@ const BuyCredits = () => {
           orderCurrency: 'INR',
           userId: user.id,
           credits: selectedPkg.credits,
-          customerEmail: profileData.email || user.email,
+          customerEmail: profileData?.email || user.email,
           customerName: user.user_metadata?.full_name || '',
           customerPhone: phoneNumber.trim(),
           returnUrl
@@ -139,10 +165,11 @@ const BuyCredits = () => {
       });
 
       if (response.error) {
+        console.error('Payment error:', response.error);
         throw new Error(response.error.message || 'Payment initialization failed');
       }
 
-      if (response.data.payment_link) {
+      if (response.data?.payment_link) {
         // Redirect to payment page
         window.location.href = response.data.payment_link;
       } else {
@@ -151,6 +178,7 @@ const BuyCredits = () => {
       
     } catch (error: any) {
       console.error('Purchase error:', error);
+      setError(error.message || 'There was an error processing your payment.');
       toast({
         title: 'Payment Failed',
         description: error.message || 'There was an error processing your payment.',
@@ -165,29 +193,19 @@ const BuyCredits = () => {
   React.useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const orderId = urlParams.get('order_id');
-    const orderToken = urlParams.get('order_token');
     
-    if (orderId && orderToken) {
+    if (orderId) {
       // Clear URL parameters
       window.history.replaceState({}, document.title, window.location.pathname);
       
       // Check payment status
       const checkPaymentStatus = async () => {
         try {
-          // Using a proper type definition for the payment_orders table
-          interface PaymentOrder {
-            status: string;
-            credits: number;
-          }
-          
           const { data, error } = await supabase
             .from('payment_orders')
             .select('status, credits')
             .eq('order_id', orderId)
-            .single() as unknown as { 
-              data: PaymentOrder | null; 
-              error: any; 
-            };
+            .single() as { data: PaymentOrder | null; error: any };
           
           if (error) {
             toast({
@@ -257,6 +275,12 @@ const BuyCredits = () => {
             <p className="text-muted-foreground mb-4">
               You selected the {packages.find(pkg => pkg.id === selectedPackage)?.title} package.
             </p>
+            
+            {error && (
+              <Alert variant="destructive" className="mb-6 max-w-md w-full">
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
             
             <div className="w-full max-w-md mb-6">
               <Label htmlFor="phone" className="mb-2 block">Phone Number (Required)</Label>
