@@ -15,10 +15,22 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 interface WebhookPayload {
   data: {
-    link: {
-      link_id: string;
-      link_status: string;
-    }
+    order: {
+      order_id: string;
+      order_amount: number;
+      order_currency: string;
+      order_tags: {
+        link_id: string;
+      };
+    };
+    payment: {
+      payment_status: string;
+      payment_amount: number;
+    };
+    customer_details: {
+      customer_email: string;
+      customer_phone: string;
+    };
   };
   event_time: string;
   type: string;
@@ -37,22 +49,24 @@ serve(async (req) => {
     
     console.log('Received webhook:', type, JSON.stringify(data));
 
-    if (type !== 'LINK_STATUS_UPDATE' || !data.link) {
-      console.log('Not a payment status update webhook:', type);
+    if (type !== 'PAYMENT_SUCCESS_WEBHOOK') {
+      console.log('Not a payment success webhook:', type);
       return new Response(
-        JSON.stringify({ received: true, processed: false, reason: 'Not a payment status update' }), 
+        JSON.stringify({ received: true, processed: false, reason: 'Not a payment success webhook' }), 
         { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
       );
     }
 
-    const { link_id, link_status } = data.link;
-    console.log(`Processing payment status update for order ${link_id}: ${link_status}`);
+    const orderId = data.order.order_tags.link_id;
+    const paymentStatus = data.payment.payment_status;
+
+    console.log(`Processing payment status update for order ${orderId}: ${paymentStatus}`);
 
     // Find the order in the database
     const { data: orderData, error: findError } = await supabase
       .from('payment_orders')
       .select('user_id, credits, status')
-      .eq('order_id', link_id)
+      .eq('order_id', orderId)
       .maybeSingle();
 
     if (findError) {
@@ -64,7 +78,7 @@ serve(async (req) => {
     }
 
     if (!orderData) {
-      console.error('Order not found:', link_id);
+      console.error('Order not found:', orderId);
       return new Response(
         JSON.stringify({ received: true, processed: false, reason: 'Order not found' }), 
         { status: 404, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
@@ -73,7 +87,7 @@ serve(async (req) => {
 
     // If payment was already processed, don't process it again
     if (orderData.status === 'PAID') {
-      console.log('Payment was already processed:', link_id);
+      console.log('Payment was already processed:', orderId);
       return new Response(
         JSON.stringify({ received: true, processed: false, reason: 'Payment already processed' }), 
         { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
@@ -84,10 +98,10 @@ serve(async (req) => {
     const { error: updateError } = await supabase
       .from('payment_orders')
       .update({ 
-        status: link_status, 
+        status: paymentStatus === 'SUCCESS' ? 'PAID' : 'FAILED',
         updated_at: new Date().toISOString() 
       })
-      .eq('order_id', link_id);
+      .eq('order_id', orderId);
 
     if (updateError) {
       console.error('Failed to update order:', updateError);
@@ -98,15 +112,15 @@ serve(async (req) => {
     }
 
     // If payment is successful, add credits to user's account
-    if (link_status === 'PAID') {
-      console.log(`Processing successful payment for order ${link_id}`);
-
-      // Update credits using the new function that handles the update atomically
+    if (paymentStatus === 'SUCCESS') {
+      console.log(`Processing successful payment for order ${orderId}`);
+      
+      // Update credits using the update_user_credits function
       const { error: creditError } = await supabase.rpc('update_user_credits', {
         p_user_id: orderData.user_id,
         p_credits_to_add: orderData.credits
       });
-      
+
       if (creditError) {
         console.error('Failed to update user credits:', creditError);
         return new Response(
@@ -122,8 +136,8 @@ serve(async (req) => {
       JSON.stringify({ 
         received: true, 
         processed: true,
-        status: link_status,
-        order_id: link_id 
+        status: paymentStatus,
+        order_id: orderId 
       }), 
       { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
     );
