@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card } from '@/components/ui/card';
 import { Video, Loader } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 
@@ -17,12 +18,13 @@ const Results = () => {
   const { toast } = useToast();
   const { user } = useAuth();
   const [resultVideos, setResultVideos] = useState<ResultVideo[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [processingStatus, setProcessingStatus] = useState(false);
 
   useEffect(() => {
     const fetchUserResults = async () => {
       if (!user) {
+        setIsLoading(false);
         return;
       }
 
@@ -40,6 +42,7 @@ const Results = () => {
             description: 'Failed to load your results.',
             variant: 'destructive'
           });
+          setIsLoading(false);
           return;
         }
 
@@ -89,11 +92,23 @@ const Results = () => {
           description: 'An unexpected error occurred.',
           variant: 'destructive'
         });
+      } finally {
+        setIsLoading(false);
       }
     };
 
     fetchUserResults();
   }, [user, toast]);
+
+  if (isLoading) {
+    return (
+      <MainLayout title="Your Results" subtitle="Loading your generated videos...">
+        <div className="min-h-[60vh] flex items-center justify-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+        </div>
+      </MainLayout>
+    );
+  }
 
   return (
     <MainLayout title="Your Results" subtitle="View all your generated videos">
