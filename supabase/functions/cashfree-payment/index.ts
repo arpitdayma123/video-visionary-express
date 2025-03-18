@@ -16,7 +16,7 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 // Cashfree configuration
 const CASHFREE_APP_ID = Deno.env.get('CASHFREE_APP_ID');
 const CASHFREE_SECRET_KEY = Deno.env.get('CASHFREE_SECRET_KEY');
-const CASHFREE_API_URL = "https://sandbox.cashfree.com/pg"; // Use production URL in production
+const CASHFREE_API_URL = "https://sandbox.cashfree.com/pg";
 
 interface PaymentRequest {
   orderId: string;
@@ -67,10 +67,6 @@ serve(async (req) => {
       returnUrl
     });
 
-    // Construct order meta with properly formatted URLs
-    // Remove any query parameters for notify_url as they're causing validation issues
-    const baseReturnUrl = returnUrl.split('?')[0];
-    
     // Create order in Cashfree
     const response = await fetch(`${CASHFREE_API_URL}/orders`, {
       method: 'POST',
@@ -91,9 +87,8 @@ serve(async (req) => {
           customer_name: customerName || customerEmail,
         },
         order_meta: {
-          return_url: `${baseReturnUrl}?order_id={order_id}`,
-          // Use the base URL without query parameters for the notify_url
-          notify_url: baseReturnUrl
+          return_url: returnUrl,
+          notify_url: returnUrl
         },
         order_note: `Credit purchase: ${credits} credits`,
       }),
@@ -127,12 +122,14 @@ serve(async (req) => {
 
     console.log("Cashfree successful response:", data);
 
-    if (!data.payment_link) {
-      console.error('No payment link in response:', data);
+    // Use the payments.url from the response as the payment link
+    const paymentUrl = data.payments?.url;
+    if (!paymentUrl) {
+      console.error('No payment URL in response:', data);
       return new Response(
         JSON.stringify({ 
-          error: 'No payment link received', 
-          details: 'The payment gateway did not provide a payment link. Please check your Cashfree account settings.',
+          error: 'No payment URL received', 
+          details: 'The payment gateway did not provide a payment URL',
           response: data
         }), 
         { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
@@ -163,7 +160,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         success: true, 
-        payment_link: data.payment_link,
+        payment_link: paymentUrl,
         payment_session_id: data.payment_session_id,
         cf_order_id: data.cf_order_id 
       }), 
