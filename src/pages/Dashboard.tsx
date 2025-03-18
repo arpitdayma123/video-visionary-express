@@ -1,5 +1,5 @@
 
-import React, { useEffect } from 'react';
+import React from 'react';
 import MainLayout from '@/components/layout/MainLayout';
 import { useAuth } from '@/contexts/AuthContext';
 import { useDashboardData } from '@/hooks/useDashboardData';
@@ -22,7 +22,6 @@ const Dashboard = () => {
     scriptOption,
     customScript,
     isLoading,
-    loadError,
     updateProfile,
     setVideos,
     setVoiceFiles,
@@ -35,28 +34,11 @@ const Dashboard = () => {
     setUserStatus
   } = useDashboardData(user);
 
-  useEffect(() => {
-    console.log('Dashboard state:', { 
-      isLoading, 
-      userCredits, 
-      userStatus, 
-      loadError,
-      user: user ? 'authenticated' : 'not authenticated' 
-    });
-  }, [isLoading, userCredits, userStatus, loadError, user]);
-
   if (isLoading) {
     return (
       <MainLayout title="Creator Dashboard" subtitle="Loading your content...">
-        <div className="min-h-[60vh] flex flex-col items-center justify-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mb-4"></div>
-          <p className="text-sm text-muted-foreground">Loading your dashboard data...</p>
-          {loadError && (
-            <div className="mt-4 p-4 bg-red-100 text-red-700 rounded-md max-w-md">
-              <p>Error loading data: {loadError}</p>
-              <p className="text-sm mt-2">Please try refreshing the page.</p>
-            </div>
-          )}
+        <div className="min-h-[60vh] flex items-center justify-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
         </div>
       </MainLayout>
     );
