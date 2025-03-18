@@ -8,6 +8,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { CreditCard, Star, Zap } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 const CreditPackage = ({ 
   title, 
@@ -49,6 +51,7 @@ const CreditPackage = ({
 const BuyCredits = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedPackage, setSelectedPackage] = useState<string | null>(null);
+  const [phoneNumber, setPhoneNumber] = useState<string>('');
   const { toast } = useToast();
   const { user } = useAuth();
 
@@ -89,6 +92,16 @@ const BuyCredits = () => {
   const handlePurchase = async () => {
     if (!selectedPackage || !user) return;
     
+    // Validate phone number
+    if (!phoneNumber || phoneNumber.trim().length < 10) {
+      toast({
+        title: 'Phone Number Required',
+        description: 'Please enter a valid phone number to proceed with payment.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    
     setIsProcessing(true);
     try {
       const selectedPkg = packages.find(pkg => pkg.id === selectedPackage);
@@ -110,7 +123,7 @@ const BuyCredits = () => {
       const orderId = `order_${uuidv4().replace(/-/g, '')}`;
       const returnUrl = `${window.location.origin}/buy-credits`;
       
-      // Call Cashfree payment function
+      // Call Cashfree payment function with phone number
       const response = await supabase.functions.invoke('cashfree-payment', {
         body: {
           orderId,
@@ -120,6 +133,7 @@ const BuyCredits = () => {
           credits: selectedPkg.credits,
           customerEmail: profileData.email || user.email,
           customerName: user.user_metadata?.full_name || '',
+          customerPhone: phoneNumber.trim(),
           returnUrl
         }
       });
@@ -243,6 +257,22 @@ const BuyCredits = () => {
             <p className="text-muted-foreground mb-4">
               You selected the {packages.find(pkg => pkg.id === selectedPackage)?.title} package.
             </p>
+            
+            <div className="w-full max-w-md mb-6">
+              <Label htmlFor="phone" className="mb-2 block">Phone Number (Required)</Label>
+              <Input
+                id="phone"
+                type="tel"
+                placeholder="Enter your phone number"
+                value={phoneNumber}
+                onChange={(e) => setPhoneNumber(e.target.value)}
+                className="mb-4"
+              />
+              <p className="text-xs text-muted-foreground mb-4">
+                Your phone number is required by our payment processor for verification purposes.
+              </p>
+            </div>
+            
             <div className="flex space-x-4">
               <Button variant="outline" onClick={() => setSelectedPackage(null)}>
                 Cancel

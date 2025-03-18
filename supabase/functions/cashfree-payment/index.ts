@@ -26,6 +26,7 @@ interface PaymentRequest {
   credits: number;
   customerEmail: string;
   customerName: string;
+  customerPhone: string; // Added phone field
   returnUrl: string;
 }
 
@@ -46,16 +47,24 @@ serve(async (req) => {
       credits,
       customerEmail, 
       customerName,
+      customerPhone, // Added phone field
       returnUrl
     } = payload;
 
     // Validate required fields
-    if (!orderId || !orderAmount || !orderCurrency || !userId || !credits || !customerEmail || !returnUrl) {
+    if (!orderId || !orderAmount || !orderCurrency || !userId || !credits || !customerEmail || !customerPhone || !returnUrl) {
       return new Response(
         JSON.stringify({ error: 'Missing required fields' }), 
         { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
       );
     }
+
+    console.log("Creating Cashfree order with data:", {
+      orderId,
+      orderAmount,
+      customerEmail,
+      customerPhone
+    });
 
     // Create order in Cashfree
     const response = await fetch(`${CASHFREE_API_URL}/orders`, {
@@ -73,6 +82,7 @@ serve(async (req) => {
         customer_details: {
           customer_id: userId,
           customer_email: customerEmail,
+          customer_phone: customerPhone, // Added phone field
           customer_name: customerName || customerEmail,
         },
         order_meta: {
