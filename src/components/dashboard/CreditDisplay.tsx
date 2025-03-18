@@ -5,7 +5,6 @@ import { useNavigate } from 'react-router-dom';
 import { CreditCard } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { useToast } from '@/hooks/use-toast';
 
 interface CreditDisplayProps {
   userCredits: number;
@@ -16,16 +15,15 @@ const CreditDisplay = ({ userCredits, userStatus }: CreditDisplayProps) => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [credits, setCredits] = useState(userCredits);
-  const { toast } = useToast();
   
   // Poll for credit updates when returning from payment
   useEffect(() => {
     setCredits(userCredits);
     
-    // Check for fresh credits more frequently (every 1 second for 60 seconds)
-    // This helps update UI faster after payment completion
+    // Check for fresh credits every 5 seconds for 30 seconds after page load
+    // This helps update UI after payment completion
     if (user) {
-      const checkCount = 60; // 60 checks * 1 second = 60 seconds
+      const checkCount = 6; // 6 checks * 5 seconds = 30 seconds
       let currentCheck = 0;
       
       const checkInterval = setInterval(async () => {
@@ -39,26 +37,21 @@ const CreditDisplay = ({ userCredits, userStatus }: CreditDisplayProps) => {
             .from('profiles')
             .select('credit')
             .eq('id', user.id)
-            .maybeSingle();
+            .single();
           
           if (!error && data && data.credit !== credits) {
             setCredits(data.credit);
-            toast({
-              title: 'Credits Updated',
-              description: `Your credit balance is now ${data.credit}`,
-            });
-            console.log(`Credits updated from ${credits} to ${data.credit}`);
           }
           
           currentCheck++;
         } catch (error) {
           console.error('Error checking credits:', error);
         }
-      }, 1000); // Check every 1 second
+      }, 5000);
       
       return () => clearInterval(checkInterval);
     }
-  }, [user, userCredits, toast, credits]);
+  }, [user, userCredits]);
   
   return (
     <div className="flex items-center gap-4">
