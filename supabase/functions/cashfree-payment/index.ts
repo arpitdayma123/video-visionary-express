@@ -37,6 +37,8 @@ serve(async (req) => {
   }
 
   try {
+    console.log("Received payment request");
+    
     // Parse request
     const payload: PaymentRequest = await req.json();
     const { 
@@ -51,9 +53,17 @@ serve(async (req) => {
       returnUrl
     } = payload;
 
+    console.log("Payment request details:", { 
+      orderId, 
+      orderAmount, 
+      orderCurrency, 
+      customerEmail,
+      customerPhone
+    });
+
     // Check if Cashfree credentials are available
     if (!CASHFREE_APP_ID || !CASHFREE_SECRET_KEY) {
-      console.error('Cashfree credentials not found');
+      console.error('Cashfree credentials not found. APP_ID:', !!CASHFREE_APP_ID, 'SECRET_KEY:', !!CASHFREE_SECRET_KEY);
       return new Response(
         JSON.stringify({ 
           error: 'Payment gateway configuration missing',
@@ -65,6 +75,16 @@ serve(async (req) => {
 
     // Validate required fields
     if (!orderId || !orderAmount || !orderCurrency || !userId || !credits || !customerEmail || !customerPhone) {
+      console.error('Missing required fields:', { 
+        hasOrderId: !!orderId, 
+        hasAmount: !!orderAmount, 
+        hasCurrency: !!orderCurrency,
+        hasUserId: !!userId,
+        hasCredits: !!credits,
+        hasEmail: !!customerEmail,
+        hasPhone: !!customerPhone
+      });
+      
       return new Response(
         JSON.stringify({ error: 'Missing required fields' }), 
         { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
@@ -83,6 +103,8 @@ serve(async (req) => {
     });
 
     // Create payment link using Cashfree's links API
+    console.log("Using Cashfree API credentials - APP_ID:", CASHFREE_APP_ID?.substring(0, 3) + '...');
+    
     const response = await fetch(`${CASHFREE_API_URL}/links`, {
       method: 'POST',
       headers: {
@@ -117,6 +139,7 @@ serve(async (req) => {
 
     // Log the full response for debugging
     const responseText = await response.text();
+    console.log("Cashfree API response status:", response.status);
     console.log("Cashfree API raw response:", responseText);
     
     let data;
