@@ -22,27 +22,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Function to update user's email in profile
-  const updateUserEmail = async (userId: string, email: string) => {
-    if (!userId || !email) return;
-    
-    try {
-      console.log(`Updating email for user ${userId} to ${email}`);
-      const { error } = await supabase
-        .from('profiles')
-        .update({ email })
-        .eq('id', userId);
-      
-      if (error) {
-        console.error('Error updating user email in profile:', error);
-      } else {
-        console.log('Successfully updated user email in profile');
-      }
-    } catch (err) {
-      console.error('Unexpected error updating user email:', err);
-    }
-  };
-
   useEffect(() => {
     // Get initial session
     const initializeAuth = async () => {
@@ -50,15 +29,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const { data } = await supabase.auth.getSession();
       setSession(data.session);
       setUser(data.session?.user || null);
-      
-      // Update email in profile if user exists
-      if (data.session?.user) {
-        const { id, email } = data.session.user;
-        if (email) {
-          await updateUserEmail(id, email);
-        }
-      }
-      
       setLoading(false);
     };
 
@@ -66,19 +36,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Listen for auth changes
     const { data: authListener } = supabase.auth.onAuthStateChange(
-      async (event, newSession) => {
-        console.log(`Auth state changed: ${event}`);
+      (event, newSession) => {
         setSession(newSession);
         setUser(newSession?.user || null);
-        
-        // Update email in profile when user signs in or updates email
-        if (newSession?.user && (event === 'SIGNED_IN' || event === 'USER_UPDATED')) {
-          const { id, email } = newSession.user;
-          if (email) {
-            await updateUserEmail(id, email);
-          }
-        }
-        
         setLoading(false);
       }
     );
