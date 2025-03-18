@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
 
@@ -13,7 +14,7 @@ const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') as string;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 // External webhook URL to forward data to
-const EXTERNAL_WEBHOOK_URL = "https://primary-production-ce25.up.railway.app/webhook/payment";
+const EXTERNAL_WEBHOOK_URL = "https://primary-production-ce25.up.railway.app/webhook-test/payment";
 
 interface WebhookPayload {
   data?: {
