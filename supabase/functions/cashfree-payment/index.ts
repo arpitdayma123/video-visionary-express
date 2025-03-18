@@ -59,7 +59,7 @@ serve(async (req) => {
       );
     }
 
-    console.log("Creating Cashfree order with data:", {
+    console.log("Creating Cashfree payment link with data:", {
       orderId,
       orderAmount,
       customerEmail,
@@ -67,8 +67,8 @@ serve(async (req) => {
       returnUrl
     });
 
-    // Create order in Cashfree
-    const response = await fetch(`${CASHFREE_API_URL}/orders`, {
+    // Create payment link using Cashfree's links API
+    const response = await fetch(`${CASHFREE_API_URL}/links`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -77,20 +77,26 @@ serve(async (req) => {
         'x-client-secret': CASHFREE_SECRET_KEY as string,
       },
       body: JSON.stringify({
-        order_id: orderId,
-        order_amount: orderAmount,
-        order_currency: orderCurrency,
+        link_id: orderId,
+        link_amount: orderAmount,
+        link_currency: orderCurrency,
+        link_purpose: `Credit purchase: ${credits} credits`,
         customer_details: {
           customer_id: userId,
           customer_email: customerEmail,
           customer_phone: customerPhone,
           customer_name: customerName || customerEmail,
         },
-        order_meta: {
+        link_meta: {
           return_url: returnUrl,
-          notify_url: returnUrl
+          notify_url: returnUrl,
         },
-        order_note: `Credit purchase: ${credits} credits`,
+        link_notify: {
+          send_email: true,
+          send_sms: false
+        },
+        link_auto_reminders: true,
+        link_partial_payments: false,
       }),
     });
 
@@ -122,8 +128,8 @@ serve(async (req) => {
 
     console.log("Cashfree successful response:", data);
 
-    // Use the payments.url from the response as the payment link
-    const paymentUrl = data.payments?.url;
+    // Use the link_url from the response as the payment link
+    const paymentUrl = data.link_url;
     if (!paymentUrl) {
       console.error('No payment URL in response:', data);
       return new Response(
@@ -146,7 +152,7 @@ serve(async (req) => {
         currency: orderCurrency,
         credits: credits,
         status: 'CREATED',
-        payment_session_id: data.payment_session_id,
+        payment_session_id: data.link_id,
       });
 
     if (dbError) {
@@ -161,8 +167,8 @@ serve(async (req) => {
       JSON.stringify({ 
         success: true, 
         payment_link: paymentUrl,
-        payment_session_id: data.payment_session_id,
-        cf_order_id: data.cf_order_id 
+        payment_session_id: data.link_id,
+        cf_order_id: data.link_id
       }), 
       { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
     );
