@@ -1,11 +1,9 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 import { CreditCard } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { useToast } from '@/hooks/use-toast';
 
 interface CreditDisplayProps {
   userCredits: number;
@@ -16,49 +14,11 @@ const CreditDisplay = ({ userCredits, userStatus }: CreditDisplayProps) => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [credits, setCredits] = useState(userCredits);
-  const { toast } = useToast();
   
-  // Poll for credit updates when returning from payment
-  useEffect(() => {
+  // When userCredits updates from parent, update our local state
+  React.useEffect(() => {
     setCredits(userCredits);
-    
-    // Check for fresh credits more frequently (every 1 second for 60 seconds)
-    // This helps update UI faster after payment completion
-    if (user) {
-      const checkCount = 60; // 60 checks * 1 second = 60 seconds
-      let currentCheck = 0;
-      
-      const checkInterval = setInterval(async () => {
-        if (currentCheck >= checkCount) {
-          clearInterval(checkInterval);
-          return;
-        }
-        
-        try {
-          const { data, error } = await supabase
-            .from('profiles')
-            .select('credit')
-            .eq('id', user.id)
-            .maybeSingle();
-          
-          if (!error && data && data.credit !== credits) {
-            setCredits(data.credit);
-            toast({
-              title: 'Credits Updated',
-              description: `Your credit balance is now ${data.credit}`,
-            });
-            console.log(`Credits updated from ${credits} to ${data.credit}`);
-          }
-          
-          currentCheck++;
-        } catch (error) {
-          console.error('Error checking credits:', error);
-        }
-      }, 1000); // Check every 1 second
-      
-      return () => clearInterval(checkInterval);
-    }
-  }, [user, userCredits, toast, credits]);
+  }, [userCredits]);
   
   return (
     <div className="flex items-center gap-4">
