@@ -13,14 +13,11 @@ const supabaseUrl = Deno.env.get('SUPABASE_URL') as string;
 const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') as string;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-// Cashfree configuration
-const CASHFREE_SECRET_KEY = Deno.env.get('CASHFREE_SECRET_KEY');
-
 interface WebhookPayload {
   data: {
-    order: {
-      order_id: string;
-      order_status: string;
+    link: {
+      link_id: string;
+      link_status: string;
     }
   };
   event_time: string;
@@ -40,24 +37,24 @@ serve(async (req) => {
     
     console.log('Received webhook:', type, JSON.stringify(data));
 
-    if (type !== 'ORDER_PAY_STATUS' || !data.order) {
+    if (type !== 'LINK_STATUS_UPDATE' || !data.link) {
       return new Response(
         JSON.stringify({ received: true, processed: false, reason: 'Not a payment status update' }), 
         { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
       );
     }
 
-    const { order_id, order_status } = data.order;
+    const { link_id, link_status } = data.link;
 
     // Update order status in database
     const { data: orderData, error: findError } = await supabase
       .from('payment_orders')
       .select('*')
-      .eq('order_id', order_id)
+      .eq('order_id', link_id)
       .single();
 
     if (findError || !orderData) {
-      console.error('Order not found:', order_id);
+      console.error('Order not found:', link_id);
       return new Response(
         JSON.stringify({ received: true, processed: false, reason: 'Order not found' }), 
         { status: 404, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
@@ -67,8 +64,8 @@ serve(async (req) => {
     // Update order status
     const { error: updateError } = await supabase
       .from('payment_orders')
-      .update({ status: order_status, updated_at: new Date().toISOString() })
-      .eq('order_id', order_id);
+      .update({ status: link_status, updated_at: new Date().toISOString() })
+      .eq('order_id', link_id);
 
     if (updateError) {
       console.error('Failed to update order:', updateError);
@@ -79,7 +76,9 @@ serve(async (req) => {
     }
 
     // If payment is successful, add credits to user's account
-    if (order_status === 'PAID') {
+    if (link_status === 'PAID') {
+      console.log(`Processing successful payment for order ${link_id}`);
+      
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .select('credit')
@@ -97,6 +96,8 @@ serve(async (req) => {
       const currentCredits = profileData.credit || 0;
       const newCredits = currentCredits + orderData.credits;
 
+      console.log(`Updating credits for user ${orderData.user_id}: ${currentCredits} + ${orderData.credits} = ${newCredits}`);
+
       const { error: creditError } = await supabase
         .from('profiles')
         .update({ credit: newCredits })
@@ -110,11 +111,16 @@ serve(async (req) => {
         );
       }
 
-      console.log(`Added ${orderData.credits} credits to user ${orderData.user_id}`);
+      console.log(`Successfully added ${orderData.credits} credits to user ${orderData.user_id}. New balance: ${newCredits}`);
     }
 
     return new Response(
-      JSON.stringify({ received: true, processed: true }), 
+      JSON.stringify({ 
+        received: true, 
+        processed: true,
+        status: link_status,
+        order_id: link_id 
+      }), 
       { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
     );
   } catch (error) {
