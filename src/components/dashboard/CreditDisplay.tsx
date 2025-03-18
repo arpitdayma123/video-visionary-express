@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 import { CreditCard } from 'lucide-react';
@@ -17,30 +17,20 @@ const CreditDisplay = ({ userCredits, userStatus }: CreditDisplayProps) => {
   const { user } = useAuth();
   const [credits, setCredits] = useState(userCredits);
   const { toast } = useToast();
-  const intervalRef = useRef<number | null>(null);
   
   // Poll for credit updates when returning from payment
   useEffect(() => {
     setCredits(userCredits);
     
-    // Clear any existing interval when component remounts
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
-    
-    // Check for fresh credits more frequently (every 3 seconds for 30 seconds)
+    // Check for fresh credits more frequently (every 2 seconds for 60 seconds)
     // This helps update UI faster after payment completion
     if (user) {
-      const checkCount = 10; // 10 checks * 3 seconds = 30 seconds
+      const checkCount = 30; // 30 checks * 2 seconds = 60 seconds
       let currentCheck = 0;
       
-      const checkCredits = async () => {
+      const checkInterval = setInterval(async () => {
         if (currentCheck >= checkCount) {
-          if (intervalRef.current) {
-            clearInterval(intervalRef.current);
-            intervalRef.current = null;
-          }
+          clearInterval(checkInterval);
           return;
         }
         
@@ -64,20 +54,9 @@ const CreditDisplay = ({ userCredits, userStatus }: CreditDisplayProps) => {
         } catch (error) {
           console.error('Error checking credits:', error);
         }
-      };
+      }, 2000); // Check every 2 seconds
       
-      // Initial check
-      checkCredits();
-      
-      // Start interval
-      intervalRef.current = window.setInterval(checkCredits, 3000); // Check every 3 seconds
-      
-      return () => {
-        if (intervalRef.current) {
-          clearInterval(intervalRef.current);
-          intervalRef.current = null;
-        }
-      };
+      return () => clearInterval(checkInterval);
     }
   }, [user, userCredits, toast, credits]);
   
