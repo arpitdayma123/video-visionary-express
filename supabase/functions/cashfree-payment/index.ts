@@ -66,7 +66,7 @@ serve(async (req) => {
       customerPhone
     });
 
-    // Create order in Cashfree - updated to use the latest API requirements
+    // Create order in Cashfree
     const response = await fetch(`${CASHFREE_API_URL}/orders`, {
       method: 'POST',
       headers: {
@@ -86,20 +86,49 @@ serve(async (req) => {
           customer_name: customerName || customerEmail,
         },
         order_meta: {
-          // Updated format that doesn't use the deprecated {order_token} variable
-          return_url: returnUrl,
-          notify_url: returnUrl
+          return_url: `${returnUrl}?order_id={order_id}`,
+          notify_url: `${returnUrl}?order_id={order_id}`
         },
         order_note: `Credit purchase: ${credits} credits`,
       }),
     });
 
-    const data = await response.json();
+    // Log the full response for debugging
+    const responseText = await response.text();
+    console.log("Cashfree API raw response:", responseText);
+    
+    let data;
+    try {
+      data = JSON.parse(responseText);
+    } catch (e) {
+      console.error("Failed to parse Cashfree response:", e);
+      return new Response(
+        JSON.stringify({ 
+          error: 'Invalid response from payment gateway', 
+          details: responseText 
+        }), 
+        { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+      );
+    }
     
     if (!response.ok) {
       console.error('Cashfree error:', data);
       return new Response(
         JSON.stringify({ error: 'Failed to create payment', details: data }), 
+        { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+      );
+    }
+
+    console.log("Cashfree successful response:", data);
+
+    if (!data.payment_link) {
+      console.error('No payment link in response:', data);
+      return new Response(
+        JSON.stringify({ 
+          error: 'No payment link received', 
+          details: 'The payment gateway did not provide a payment link. Please check your Cashfree account settings.',
+          response: data
+        }), 
         { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
       );
     }
@@ -126,7 +155,12 @@ serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ success: true, payment_link: data.payment_link }), 
+      JSON.stringify({ 
+        success: true, 
+        payment_link: data.payment_link,
+        payment_session_id: data.payment_session_id,
+        cf_order_id: data.cf_order_id 
+      }), 
       { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
     );
   } catch (error) {

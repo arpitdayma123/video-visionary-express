@@ -33,6 +33,12 @@ interface PaymentOrder {
   credits: number;
 }
 
+interface CashfreeErrorResponse {
+  error: string;
+  details?: any;
+  response?: any;
+}
+
 const CreditPackage = ({ 
   title, 
   credits, 
@@ -75,6 +81,7 @@ const BuyCredits = () => {
   const [selectedPackage, setSelectedPackage] = useState<string | null>(null);
   const [phoneNumber, setPhoneNumber] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
+  const [detailedError, setDetailedError] = useState<any>(null);
   const { toast } = useToast();
   const { user } = useAuth();
 
@@ -111,6 +118,7 @@ const BuyCredits = () => {
   const handleSelectPackage = (packageId: string) => {
     setSelectedPackage(packageId);
     setError(null);
+    setDetailedError(null);
   };
 
   const handlePurchase = async () => {
@@ -128,6 +136,7 @@ const BuyCredits = () => {
     
     setIsProcessing(true);
     setError(null);
+    setDetailedError(null);
     
     try {
       const selectedPkg = packages.find(pkg => pkg.id === selectedPackage);
@@ -164,6 +173,8 @@ const BuyCredits = () => {
         }
       });
 
+      console.log("Payment function response:", response);
+
       if (response.error) {
         console.error('Payment error:', response.error);
         throw new Error(response.error.message || 'Payment initialization failed');
@@ -173,7 +184,17 @@ const BuyCredits = () => {
         // Redirect to payment page
         window.location.href = response.data.payment_link;
       } else {
-        throw new Error('No payment link received');
+        // Log the entire response for debugging
+        console.error('No payment link in response:', response);
+        
+        // Display detailed error information
+        if (response.data?.error) {
+          const errorData = response.data as CashfreeErrorResponse;
+          setDetailedError(errorData);
+          throw new Error(errorData.error || 'No payment link received');
+        } else {
+          throw new Error('No payment link received');
+        }
       }
       
     } catch (error: any) {
@@ -278,7 +299,18 @@ const BuyCredits = () => {
             
             {error && (
               <Alert variant="destructive" className="mb-6 max-w-md w-full">
-                <AlertDescription>{error}</AlertDescription>
+                <AlertDescription className="whitespace-pre-wrap">
+                  {error}
+                  {detailedError && (
+                    <>
+                      <br /><br />
+                      <strong>Details:</strong> 
+                      <pre className="mt-2 text-xs overflow-x-auto">
+                        {JSON.stringify(detailedError, null, 2)}
+                      </pre>
+                    </>
+                  )}
+                </AlertDescription>
               </Alert>
             )}
             
