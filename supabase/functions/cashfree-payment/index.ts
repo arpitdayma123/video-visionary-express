@@ -16,7 +16,8 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 // Cashfree configuration
 const CASHFREE_APP_ID = Deno.env.get('CASHFREE_APP_ID');
 const CASHFREE_SECRET_KEY = Deno.env.get('CASHFREE_SECRET_KEY');
-const CASHFREE_API_URL = "https://sandbox.cashfree.com/pg";
+// Use production URL if we want to switch to production mode
+const CASHFREE_API_URL = "https://api.cashfree.com/pg";
 
 interface PaymentRequest {
   orderId: string;
@@ -102,9 +103,11 @@ serve(async (req) => {
       returnUrl: dashboardUrl
     });
 
-    // Create payment link using Cashfree's links API
-    console.log("Using Cashfree API credentials - APP_ID:", CASHFREE_APP_ID?.substring(0, 3) + '...');
+    // Print detailed info about API credentials being used
+    console.log(`Using Cashfree API credentials - APP_ID: ${CASHFREE_APP_ID}`);
+    console.log(`Using Cashfree API URL: ${CASHFREE_API_URL}`);
     
+    // Create payment link using Cashfree's links API
     const response = await fetch(`${CASHFREE_API_URL}/links`, {
       method: 'POST',
       headers: {

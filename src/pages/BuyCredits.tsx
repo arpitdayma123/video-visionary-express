@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import MainLayout from '@/components/layout/MainLayout';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
@@ -160,6 +161,11 @@ const BuyCredits = () => {
       
       // Use dashboard as the return URL
       const returnUrl = `${window.location.origin}/dashboard`;
+      
+      console.log('Calling cashfree-payment function with:', {
+        orderAmount: selectedPkg.priceValue,
+        customerPhone: phoneNumber.trim(),
+      });
       
       // Call Cashfree payment function with phone number
       const response = await supabase.functions.invoke('cashfree-payment', {
