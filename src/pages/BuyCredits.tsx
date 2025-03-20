@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import MainLayout from '@/components/layout/MainLayout';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
@@ -10,8 +11,8 @@ import { v4 as uuidv4 } from 'uuid';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { useNavigate } from 'react-router-dom';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
 // Define interfaces for better type safety
 interface PackageOption {
@@ -46,6 +47,7 @@ const BuyCredits = () => {
   const [phoneNumber, setPhoneNumber] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
   const [detailedError, setDetailedError] = useState<any>(null);
+  const [showDialog, setShowDialog] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -58,7 +60,7 @@ const BuyCredits = () => {
       price: '₹499',
       priceValue: 499,
       description: 'Perfect for beginners',
-      icon: <CreditCard className="text-primary" />,
+      icon: <CreditCard className="h-8 w-8 text-primary" />,
     },
     {
       id: 'standard',
@@ -67,7 +69,7 @@ const BuyCredits = () => {
       price: '₹1,499',
       priceValue: 1499,
       description: 'Most popular choice',
-      icon: <Star className="text-primary" />,
+      icon: <Star className="h-8 w-8 text-primary" />,
     },
     {
       id: 'premium',
@@ -76,7 +78,7 @@ const BuyCredits = () => {
       price: '₹2,999',
       priceValue: 2999,
       description: 'Best value for pros',
-      icon: <Zap className="text-primary" />,
+      icon: <Zap className="h-8 w-8 text-primary" />,
     },
   ];
 
@@ -84,6 +86,7 @@ const BuyCredits = () => {
     setSelectedPackage(packageId);
     setError(null);
     setDetailedError(null);
+    setShowDialog(true);
   };
 
   const handlePurchase = async () => {
@@ -182,8 +185,8 @@ const BuyCredits = () => {
     }
   };
 
-  // Handle payment return from Cashfree - now checks for dashboard return
-  React.useEffect(() => {
+  // Handle payment return from Cashfree
+  useEffect(() => {
     // If user was redirected after payment, there might be order_id in the URL
     const urlParams = new URLSearchParams(window.location.search);
     const orderId = urlParams.get('order_id');
@@ -238,124 +241,122 @@ const BuyCredits = () => {
 
   return (
     <MainLayout title="Buy Credits" subtitle="Purchase credits to create more videos">
-      <div className="section-container py-12">
+      <div className="section-container py-8">
         <div className="mb-8 text-center">
-          <h2 className="text-2xl font-bold mb-2">Choose a Credit Package</h2>
+          <h2 className="text-3xl font-bold mb-2">Choose a Credit Package</h2>
           <p className="text-muted-foreground max-w-2xl mx-auto">
             Credits are used to generate videos. Each video generation costs 1 credit.
-            Purchase the package that best suits your needs.
+            Select a package that best suits your needs.
           </p>
         </div>
         
-        <div className="grid md:grid-cols-2 gap-8">
-          {/* Left side: Package selection */}
-          <div>
-            <RadioGroup 
-              value={selectedPackage || ''} 
-              onValueChange={handleSelectPackage}
-              className="space-y-4"
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+          {packages.map((pkg) => (
+            <Card 
+              key={pkg.id}
+              className={`relative overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-lg group ${
+                pkg.id === 'standard' ? 'border-primary border-2' : 'border-border'
+              }`}
+              onClick={() => handleSelectPackage(pkg.id)}
             >
-              {packages.map((pkg) => (
-                <div 
-                  key={pkg.id}
-                  className={`relative rounded-lg border p-4 cursor-pointer transition-all ${
-                    selectedPackage === pkg.id 
-                      ? 'border-primary bg-primary/5 shadow-sm' 
-                      : 'border-border hover:border-primary/50'
-                  }`}
+              {pkg.id === 'standard' && (
+                <div className="absolute top-0 right-0 bg-primary px-3 py-1 text-xs text-primary-foreground rounded-bl-md">
+                  Popular
+                </div>
+              )}
+              
+              <div className="p-6 flex flex-col h-full">
+                <div className="mb-4 flex items-center gap-3">
+                  <div className="flex items-center justify-center w-12 h-12 rounded-full bg-primary/10">
+                    {pkg.icon}
+                  </div>
+                  <h3 className="text-xl font-semibold">{pkg.title}</h3>
+                </div>
+                
+                <div className="mb-4">
+                  <div className="flex items-baseline gap-1 mb-1">
+                    <span className="text-3xl font-bold">{pkg.price}</span>
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    For {pkg.credits} credits
+                  </div>
+                </div>
+                
+                <p className="text-muted-foreground mb-6">{pkg.description}</p>
+                
+                <Button 
+                  variant={pkg.id === 'standard' ? 'default' : 'outline'} 
+                  size="lg"
+                  className="mt-auto group-hover:bg-primary group-hover:text-primary-foreground transition-colors"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleSelectPackage(pkg.id);
+                  }}
                 >
-                  <div className="flex items-start gap-4">
-                    <RadioGroupItem value={pkg.id} id={pkg.id} className="mt-1" />
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10">
-                          {pkg.icon}
-                        </div>
-                        <Label htmlFor={pkg.id} className="text-lg font-semibold cursor-pointer">
-                          {pkg.title}
-                        </Label>
-                      </div>
-                      <p className="text-muted-foreground text-sm mb-2">{pkg.description}</p>
-                      <div className="flex items-baseline gap-1">
-                        <span className="text-2xl font-bold">{pkg.price}</span>
-                        <span className="text-muted-foreground text-sm">for {pkg.credits} credits</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </RadioGroup>
-          </div>
-          
-          {/* Right side: Payment information */}
-          <div className="bg-card rounded-lg border shadow-sm p-6">
-            <h3 className="text-xl font-semibold mb-4">
-              Complete Your Purchase
-            </h3>
-            
-            {!selectedPackage ? (
-              <div className="flex flex-col items-center justify-center h-[200px] text-center">
-                <p className="text-muted-foreground mb-2">
-                  Select a package to continue
-                </p>
-                <CreditCard className="w-12 h-12 text-muted-foreground/50" />
+                  Select Package
+                </Button>
               </div>
-            ) : (
-              <>
-                <p className="text-muted-foreground mb-4">
-                  You selected the {packages.find(pkg => pkg.id === selectedPackage)?.title} package.
-                </p>
-                
-                {error && (
-                  <Alert variant="destructive" className="mb-6">
-                    <AlertDescription className="whitespace-pre-wrap">
-                      {error}
-                      {detailedError && (
-                        <>
-                          <br /><br />
-                          <strong>Details:</strong> 
-                          <pre className="mt-2 text-xs overflow-x-auto">
-                            {JSON.stringify(detailedError, null, 2)}
-                          </pre>
-                        </>
-                      )}
-                    </AlertDescription>
-                  </Alert>
-                )}
-                
-                <div className="space-y-4 mb-6">
-                  <div>
-                    <Label htmlFor="phone" className="mb-2 block">Phone Number (Required)</Label>
-                    <Input
-                      id="phone"
-                      type="tel"
-                      placeholder="Enter your phone number"
-                      value={phoneNumber}
-                      onChange={(e) => setPhoneNumber(e.target.value)}
-                    />
-                    <p className="text-xs text-muted-foreground mt-2">
-                      Your phone number is required by our payment processor for verification.
-                    </p>
-                  </div>
-                </div>
-                
-                <div className="flex space-x-4">
-                  <Button variant="outline" onClick={() => setSelectedPackage(null)}>
-                    Cancel
-                  </Button>
-                  <Button 
-                    onClick={handlePurchase} 
-                    disabled={isProcessing}
-                    className="flex-1"
-                  >
-                    {isProcessing ? 'Processing...' : 'Proceed to Payment'}
-                  </Button>
-                </div>
-              </>
-            )}
-          </div>
+            </Card>
+          ))}
         </div>
       </div>
+
+      {/* Phone Number Dialog */}
+      <Dialog open={showDialog} onOpenChange={setShowDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Complete Your Purchase</DialogTitle>
+            <DialogDescription>
+              {selectedPackage && (
+                <>You selected the {packages.find(pkg => pkg.id === selectedPackage)?.title} package.</>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+
+          {error && (
+            <Alert variant="destructive">
+              <AlertDescription className="whitespace-pre-wrap">
+                {error}
+                {detailedError && (
+                  <>
+                    <br /><br />
+                    <strong>Details:</strong> 
+                    <pre className="mt-2 text-xs overflow-x-auto">
+                      {JSON.stringify(detailedError, null, 2)}
+                    </pre>
+                  </>
+                )}
+              </AlertDescription>
+            </Alert>
+          )}
+
+          <div className="py-4">
+            <Label htmlFor="phone-dialog" className="mb-2 block">Phone Number (Required)</Label>
+            <Input
+              id="phone-dialog"
+              type="tel"
+              placeholder="Enter your phone number"
+              value={phoneNumber}
+              onChange={(e) => setPhoneNumber(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground mt-2">
+              Your phone number is required by our payment processor for verification.
+            </p>
+          </div>
+
+          <DialogFooter className="flex justify-end gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setShowDialog(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handlePurchase} 
+              disabled={isProcessing}
+            >
+              {isProcessing ? 'Processing...' : 'Proceed to Payment'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </MainLayout>
   );
 };
