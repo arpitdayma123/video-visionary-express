@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import MainLayout from '@/components/layout/MainLayout';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
@@ -12,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useNavigate } from 'react-router-dom';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
 // Define interfaces for better type safety
 interface PackageOption {
@@ -39,43 +39,6 @@ interface CashfreeErrorResponse {
   details?: any;
   response?: any;
 }
-
-const CreditPackage = ({ 
-  title, 
-  credits, 
-  price, 
-  description, 
-  icon, 
-  onSelect 
-}: { 
-  title: string;
-  credits: number;
-  price: string;
-  description: string;
-  icon: React.ReactNode;
-  onSelect: () => void;
-}) => (
-  <Card className="flex flex-col hover:shadow-lg transition-shadow">
-    <CardHeader>
-      <div className="flex items-center justify-center w-12 h-12 rounded-full bg-primary/10 mb-4">
-        {icon}
-      </div>
-      <CardTitle>{title}</CardTitle>
-      <CardDescription>{description}</CardDescription>
-    </CardHeader>
-    <CardContent className="flex-grow">
-      <div className="text-3xl font-bold mb-2">{price}</div>
-      <div className="text-muted-foreground">
-        Get {credits} credits to create videos
-      </div>
-    </CardContent>
-    <CardFooter>
-      <Button className="w-full" onClick={onSelect}>
-        Select Package
-      </Button>
-    </CardFooter>
-  </Card>
-);
 
 const BuyCredits = () => {
   const [isProcessing, setIsProcessing] = useState(false);
@@ -284,71 +247,114 @@ const BuyCredits = () => {
           </p>
         </div>
         
-        <div className="grid gap-6 md:grid-cols-3">
-          {packages.map((pkg) => (
-            <CreditPackage
-              key={pkg.id}
-              title={pkg.title}
-              credits={pkg.credits}
-              price={pkg.price}
-              description={pkg.description}
-              icon={pkg.icon}
-              onSelect={() => handleSelectPackage(pkg.id)}
-            />
-          ))}
-        </div>
-        
-        {selectedPackage && (
-          <div className="mt-10 flex flex-col items-center">
+        <div className="grid md:grid-cols-2 gap-8">
+          {/* Left side: Package selection */}
+          <div>
+            <RadioGroup 
+              value={selectedPackage || ''} 
+              onValueChange={handleSelectPackage}
+              className="space-y-4"
+            >
+              {packages.map((pkg) => (
+                <div 
+                  key={pkg.id}
+                  className={`relative rounded-lg border p-4 cursor-pointer transition-all ${
+                    selectedPackage === pkg.id 
+                      ? 'border-primary bg-primary/5 shadow-sm' 
+                      : 'border-border hover:border-primary/50'
+                  }`}
+                >
+                  <div className="flex items-start gap-4">
+                    <RadioGroupItem value={pkg.id} id={pkg.id} className="mt-1" />
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10">
+                          {pkg.icon}
+                        </div>
+                        <Label htmlFor={pkg.id} className="text-lg font-semibold cursor-pointer">
+                          {pkg.title}
+                        </Label>
+                      </div>
+                      <p className="text-muted-foreground text-sm mb-2">{pkg.description}</p>
+                      <div className="flex items-baseline gap-1">
+                        <span className="text-2xl font-bold">{pkg.price}</span>
+                        <span className="text-muted-foreground text-sm">for {pkg.credits} credits</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </RadioGroup>
+          </div>
+          
+          {/* Right side: Payment information */}
+          <div className="bg-card rounded-lg border shadow-sm p-6">
             <h3 className="text-xl font-semibold mb-4">
               Complete Your Purchase
             </h3>
-            <p className="text-muted-foreground mb-4">
-              You selected the {packages.find(pkg => pkg.id === selectedPackage)?.title} package.
-            </p>
             
-            {error && (
-              <Alert variant="destructive" className="mb-6 max-w-md w-full">
-                <AlertDescription className="whitespace-pre-wrap">
-                  {error}
-                  {detailedError && (
-                    <>
-                      <br /><br />
-                      <strong>Details:</strong> 
-                      <pre className="mt-2 text-xs overflow-x-auto">
-                        {JSON.stringify(detailedError, null, 2)}
-                      </pre>
-                    </>
-                  )}
-                </AlertDescription>
-              </Alert>
+            {!selectedPackage ? (
+              <div className="flex flex-col items-center justify-center h-[200px] text-center">
+                <p className="text-muted-foreground mb-2">
+                  Select a package to continue
+                </p>
+                <CreditCard className="w-12 h-12 text-muted-foreground/50" />
+              </div>
+            ) : (
+              <>
+                <p className="text-muted-foreground mb-4">
+                  You selected the {packages.find(pkg => pkg.id === selectedPackage)?.title} package.
+                </p>
+                
+                {error && (
+                  <Alert variant="destructive" className="mb-6">
+                    <AlertDescription className="whitespace-pre-wrap">
+                      {error}
+                      {detailedError && (
+                        <>
+                          <br /><br />
+                          <strong>Details:</strong> 
+                          <pre className="mt-2 text-xs overflow-x-auto">
+                            {JSON.stringify(detailedError, null, 2)}
+                          </pre>
+                        </>
+                      )}
+                    </AlertDescription>
+                  </Alert>
+                )}
+                
+                <div className="space-y-4 mb-6">
+                  <div>
+                    <Label htmlFor="phone" className="mb-2 block">Phone Number (Required)</Label>
+                    <Input
+                      id="phone"
+                      type="tel"
+                      placeholder="Enter your phone number"
+                      value={phoneNumber}
+                      onChange={(e) => setPhoneNumber(e.target.value)}
+                    />
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Your phone number is required by our payment processor for verification.
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="flex space-x-4">
+                  <Button variant="outline" onClick={() => setSelectedPackage(null)}>
+                    Cancel
+                  </Button>
+                  <Button 
+                    onClick={handlePurchase} 
+                    disabled={isProcessing}
+                    className="flex-1"
+                  >
+                    {isProcessing ? 'Processing...' : 'Proceed to Payment'}
+                  </Button>
+                </div>
+              </>
             )}
-            
-            <div className="w-full max-w-md mb-6">
-              <Label htmlFor="phone" className="mb-2 block">Phone Number (Required)</Label>
-              <Input
-                id="phone"
-                type="tel"
-                placeholder="Enter your phone number"
-                value={phoneNumber}
-                onChange={(e) => setPhoneNumber(e.target.value)}
-                className="mb-4"
-              />
-              <p className="text-xs text-muted-foreground mb-4">
-                Your phone number is required by our payment processor for verification purposes.
-              </p>
-            </div>
-            
-            <div className="flex space-x-4">
-              <Button variant="outline" onClick={() => setSelectedPackage(null)}>
-                Cancel
-              </Button>
-              <Button onClick={handlePurchase} disabled={isProcessing}>
-                {isProcessing ? 'Processing...' : 'Proceed to Payment'}
-              </Button>
-            </div>
           </div>
-        )}
+        </div>
       </div>
     </MainLayout>
   );
