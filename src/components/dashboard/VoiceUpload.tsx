@@ -499,7 +499,7 @@ const VoiceUpload = ({
       <Alert variant="warning" className="mb-6 border-amber-500 bg-amber-500/10">
         <AlertTriangle className="h-4 w-4 text-amber-500" />
         <AlertDescription className="text-amber-600">
-          <strong>Important:</strong> Please upload voice in a language we support. We currently support the following languages: English, Japanese, Chinese, French, and German. Please re-upload your voice in one of the supported languages to avoid errors.
+          <strong>Important:</strong> Please upload voice in a language we support. We currently support the following languages: English, Japanese, Chinese, French, and German.
         </AlertDescription>
       </Alert>
       
