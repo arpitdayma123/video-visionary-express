@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
-import { Upload, Trash2, Check, Video } from 'lucide-react';
+import { Upload, Trash2, Check, Video, AlertTriangle } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { v4 as uuidv4 } from 'uuid';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+
 type UploadedFile = {
   id: string;
   name: string;
@@ -14,6 +16,7 @@ type UploadedFile = {
   url: string;
   duration?: number;
 };
+
 interface VideoUploadProps {
   videos: UploadedFile[];
   setVideos: React.Dispatch<React.SetStateAction<UploadedFile[]>>;
@@ -22,6 +25,7 @@ interface VideoUploadProps {
   userId: string;
   updateProfile: (updates: any) => Promise<void>;
 }
+
 const VideoUpload = ({
   videos,
   setVideos,
@@ -50,6 +54,7 @@ const VideoUpload = ({
       element.src = URL.createObjectURL(file);
     });
   };
+
   const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement> | React.DragEvent<HTMLDivElement>) => {
     if (!userId) {
       toast({
@@ -249,6 +254,14 @@ const VideoUpload = ({
       </div>
       <p className="text-muted-foreground mb-6">You can upload up to 5 videos (max 30MB each) and select one  video to continue </p>
       
+      {/* Add warning alert about face visibility */}
+      <Alert variant="warning" className="mb-6 border-amber-500 bg-amber-500/10">
+        <AlertTriangle className="h-4 w-4 text-amber-500" />
+        <AlertDescription className="text-amber-600">
+          <strong>Important:</strong> Your face should be visible in the entire video without any gaps. Videos without continuous face visibility may result in errors.
+        </AlertDescription>
+      </Alert>
+      
       <div className={`file-drop-area p-8 ${isDraggingVideo ? 'active' : ''}`} onDragOver={e => {
       e.preventDefault();
       setIsDraggingVideo(true);
@@ -304,4 +317,5 @@ const VideoUpload = ({
         </div>}
     </section>;
 };
+
 export default VideoUpload;

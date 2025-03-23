@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Upload, Trash2, Check, Mic, Square, Pause, FileAudio, AlertTriangle } from 'lucide-react';
 import { Card } from '@/components/ui/card';
@@ -495,6 +494,14 @@ const VoiceUpload = ({
         <h2 className="text-2xl font-medium">Voice Upload</h2>
       </div>
       <p className="text-muted-foreground mb-6">Choose to record or upload your voice (8-40 seconds) and select one voice to continue</p>
+      
+      {/* Add warning alert about supported languages */}
+      <Alert variant="warning" className="mb-6 border-amber-500 bg-amber-500/10">
+        <AlertTriangle className="h-4 w-4 text-amber-500" />
+        <AlertDescription className="text-amber-600">
+          <strong>Important:</strong> Please upload voice in a language we support. We currently support the following languages: English, Japanese, Chinese, French, and German. Please re-upload your voice in one of the supported languages to avoid errors.
+        </AlertDescription>
+      </Alert>
       
       {/* Display limit warning if maximum has been reached */}
       {hasReachedVoiceLimit && (
