@@ -34,18 +34,20 @@ export const sendWelcomeEmail = async (email: string, name?: string) => {
     to: email,
     subject: "Welcome to Zockto!",
     html: `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h1 style="color: #6366f1;">Welcome to Zockto!</h1>
-        <p>Hi${displayName ? ` ${displayName}` : ''},</p>
-        <p>Thank you for signing up to Zockto. We're excited to have you on board!</p>
-        <p>With Zockto, you can:</p>
-        <ul>
-          <li>Generate AI videos based on your competitors</li>
-          <li>Analyze results and improve your social media presence</li>
-          <li>Save time on content creation</li>
-        </ul>
-        <p>If you have any questions, feel free to reach out to our support team.</p>
-        <p>Best regards,<br>The Zockto Team</p>
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #f4f4f4; padding: 20px; border-radius: 10px;">
+        <div style="background-color: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+          <h1 style="color: #6366f1; text-align: center;">Welcome to Zockto!</h1>
+          <p style="color: #333; line-height: 1.6;">Hi${displayName ? ` ${displayName}` : ''},</p>
+          <p style="color: #333; line-height: 1.6;">Thank you for signing up to Zockto. We're excited to have you on board!</p>
+          <p style="color: #333; line-height: 1.6;">With Zockto, you can:</p>
+          <ul style="color: #333; line-height: 1.6;">
+            <li>Generate AI videos based on your competitors</li>
+            <li>Analyze results and improve your social media presence</li>
+            <li>Save time on content creation</li>
+          </ul>
+          <p style="color: #333; line-height: 1.6;">If you have any questions, feel free to reach out to our support team.</p>
+          <p style="color: #333; line-height: 1.6;">Best regards,<br>The Zockto Team</p>
+        </div>
       </div>
     `,
   });
@@ -57,19 +59,21 @@ export const sendVerificationEmail = async (email: string, verificationLink: str
     to: email,
     subject: "Verify your email address",
     html: `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h1 style="color: #6366f1;">Verify your email address</h1>
-        <p>Please click the link below to verify your email address:</p>
-        <p>
-          <a 
-            href="${verificationLink}" 
-            style="display: inline-block; background-color: #6366f1; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;"
-          >
-            Verify Email
-          </a>
-        </p>
-        <p>If you didn't request this verification, you can safely ignore this email.</p>
-        <p>Best regards,<br>The Zockto Team</p>
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #f4f4f4; padding: 20px; border-radius: 10px;">
+        <div style="background-color: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+          <h1 style="color: #6366f1; text-align: center;">Verify your email address</h1>
+          <p style="color: #333; line-height: 1.6;">Please click the link below to verify your email address:</p>
+          <div style="text-align: center; margin: 20px 0;">
+            <a 
+              href="${verificationLink}" 
+              style="display: inline-block; background-color: #6366f1; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold;"
+            >
+              Verify Email
+            </a>
+          </div>
+          <p style="color: #333; line-height: 1.6;">If you didn't request this verification, you can safely ignore this email.</p>
+          <p style="color: #333; line-height: 1.6;">Best regards,<br>The Zockto Team</p>
+        </div>
       </div>
     `,
   });
