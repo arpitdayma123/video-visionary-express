@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -6,14 +7,21 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Label } from '@/components/ui/label';
-import { Mail, Lock, Loader2, Github } from 'lucide-react';
+import { Mail, Lock, Loader2 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { AlertTriangle } from 'lucide-react';
 
 type AuthMode = 'sign-in' | 'sign-up';
 
-const AuthForm = () => {
+interface AuthFormProps {
+  onSignUp?: (email: string, name?: string) => Promise<void>;
+}
+
+const AuthForm: React.FC<AuthFormProps> = ({ onSignUp }) => {
   const { toast } = useToast();
   const [email, setEmail] = useState('');
+  const [name, setName] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [socialLoading, setSocialLoading] = useState<string | null>(null);
@@ -50,12 +58,13 @@ const AuthForm = () => {
 
     try {
       if (mode === 'sign-up') {
-        console.log('Attempting to sign up with:', { email });
+        console.log('Attempting to sign up with:', { email, name });
         
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
           options: {
+            data: name ? { full_name: name } : undefined,
             emailRedirectTo: `https://app.zockto.com/dashboard`,
           }
         });
@@ -63,6 +72,11 @@ const AuthForm = () => {
         console.log('Sign up response:', { data, error });
 
         if (error) throw error;
+
+        // Call onSignUp callback if provided
+        if (onSignUp) {
+          await onSignUp(email, name);
+        }
 
         toast({
           title: "Account created",
@@ -248,6 +262,19 @@ const AuthForm = () => {
           </CardHeader>
           <form onSubmit={handleAuth}>
             <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="name">Full Name (Optional)</Label>
+                <div className="relative">
+                  <Input
+                    id="name"
+                    type="text"
+                    placeholder="John Doe"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="pl-3"
+                  />
+                </div>
+              </div>
               <div className="space-y-2">
                 <Label htmlFor="new-email">Email</Label>
                 <div className="relative">

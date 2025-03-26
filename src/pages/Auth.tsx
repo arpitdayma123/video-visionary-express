@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import MainLayout from '@/components/layout/MainLayout';
 import AuthForm from '@/components/auth/AuthForm';
+import { sendWelcomeEmail } from '@/utils/emailService';
 
 const Auth = () => {
   const navigate = useNavigate();
@@ -31,6 +32,14 @@ const Auth = () => {
         setLoading(false);
         
         if (data?.user && !error) {
+          // Send welcome email for OAuth sign-ups
+          try {
+            await sendWelcomeEmail(data.user.email || '', data.user?.user_metadata?.full_name);
+          } catch (emailError) {
+            console.error('Failed to send welcome email:', emailError);
+            // Continue with sign-in flow even if email fails
+          }
+          
           navigate('/dashboard');
           toast({
             title: "Authentication successful",
@@ -66,7 +75,14 @@ const Auth = () => {
             <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
           </div>
         ) : (
-          <AuthForm />
+          <AuthForm onSignUp={async (email, name) => {
+            try {
+              await sendWelcomeEmail(email, name);
+            } catch (error) {
+              console.error('Failed to send welcome email:', error);
+              // Continue with sign-up flow even if email fails
+            }
+          }} />
         )}
       </div>
     </MainLayout>
