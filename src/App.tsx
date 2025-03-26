@@ -10,6 +10,7 @@ import Results from "./pages/Results";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import BuyCredits from "./pages/BuyCredits";
+import AdminEmail from "./pages/AdminEmail";
 import { AuthProvider } from "./contexts/AuthContext";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
 
@@ -38,6 +39,11 @@ const App = () => (
             <Route path="/buy-credits" element={
               <ProtectedRoute>
                 <BuyCredits />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/email" element={
+              <ProtectedRoute>
+                <AdminEmail />
               </ProtectedRoute>
             } />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

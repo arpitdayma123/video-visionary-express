@@ -78,3 +78,59 @@ export const sendVerificationEmail = async (email: string, verificationLink: str
     `,
   });
 };
+
+// New function for sending bulk emails to all users
+interface BulkEmailContent {
+  subject: string;
+  title: string;
+  subtitle: string;
+  content: string;
+  buttonText?: string;
+  buttonUrl?: string;
+}
+
+export const sendBulkEmail = async (content: BulkEmailContent) => {
+  try {
+    // Format HTML from the provided content
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #f4f4f4; padding: 20px; border-radius: 10px;">
+        <div style="background-color: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+          <h1 style="color: #6366f1; text-align: center;">${content.title}</h1>
+          <p style="color: #333; line-height: 1.6; font-size: 18px;">${content.subtitle}</p>
+          <div style="color: #333; line-height: 1.6;">
+            ${content.content.replace(/\n/g, "<br>")}
+          </div>
+          ${content.buttonText ? 
+            `<div style="text-align: center; margin-top: 30px;">
+              <a 
+                href="${content.buttonUrl || "#"}" 
+                style="display: inline-block; background-color: #6366f1; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold;"
+              >
+                ${content.buttonText}
+              </a>
+            </div>` 
+          : ''}
+          <p style="color: #333; line-height: 1.6; margin-top: 30px;">Best regards,<br>The Zockto Team</p>
+        </div>
+      </div>
+    `;
+
+    // Call the send-bulk-email edge function
+    const { data, error } = await supabase.functions.invoke("send-bulk-email", {
+      body: { 
+        subject: content.subject,
+        html: html
+      },
+    });
+
+    if (error) {
+      console.error("Error sending bulk email:", error);
+      throw error;
+    }
+
+    return data;
+  } catch (error) {
+    console.error("Error in bulk email service:", error);
+    throw error;
+  }
+};
