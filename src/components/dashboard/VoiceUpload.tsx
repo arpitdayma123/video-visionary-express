@@ -4,11 +4,11 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 import { v4 as uuidv4 } from 'uuid';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import AudioRecorder, { RecordingStatus } from '@/utils/audioRecorder';
-import { uploadToR2, deleteFromR2, extractFilePathFromR2Url, BUCKET_CONFIG } from '@/integrations/cloudflare/r2client';
 
 type UploadedFile = {
   id: string;
@@ -49,7 +49,7 @@ const VoiceUpload = ({
   const [isProcessing, setIsProcessing] = useState(false);
   const audioRecorderRef = useRef<AudioRecorder | null>(null);
   
-  // audio recorder initialization
+  // Initialize audio recorder
   useEffect(() => {
     audioRecorderRef.current = new AudioRecorder({
       onStatusChange: (status) => setRecordingStatus(status),
@@ -169,6 +169,7 @@ const VoiceUpload = ({
           
           const fileExt = file.name.split('.').pop();
           const fileName = `${userId}/${uuidv4()}.${fileExt}`;
+          const filePath = `voices/${fileName}`;
           
           const progressCallback = (progress: number) => {
             setUploadingVoices(current => ({
@@ -193,11 +194,17 @@ const VoiceUpload = ({
             });
           }, 500);
           
-          // Upload to Cloudflare R2 instead of Supabase
-          const publicUrl = await uploadToR2(file, BUCKET_CONFIG.VOICE.NAME, fileName);
+          const { data: uploadData, error: uploadError } = 
+            await supabase.storage.from('creator_files').upload(filePath, file);
             
           clearInterval(progressInterval);
+          
+          if (uploadError) throw uploadError;
+          
           progressCallback(100);
+          
+          const { data: urlData } = 
+            supabase.storage.from('creator_files').getPublicUrl(filePath);
 
           // Include duration in the new voice file object
           const newVoiceFile = {
@@ -205,7 +212,7 @@ const VoiceUpload = ({
             name: file.name,
             size: file.size,
             type: file.type,
-            url: publicUrl,
+            url: urlData.publicUrl,
             duration: duration
           };
           
@@ -244,7 +251,7 @@ const VoiceUpload = ({
     }
   };
 
-  // voice recording functions
+  // Voice recording functions
   const startRecording = async () => {
     // Check if maximum limit has been reached
     if (hasReachedVoiceLimit) {
@@ -328,7 +335,7 @@ const VoiceUpload = ({
 
       // Create file from WAV blob
       const fileName = `recorded_voice_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.wav`;
-      const filePath = `${userId}/${uuidv4()}.wav`;
+      const filePath = `voices/${userId}/${uuidv4()}.wav`;
 
       // Upload progress simulation
       const progressInterval = setInterval(() => {
@@ -345,18 +352,22 @@ const VoiceUpload = ({
         });
       }, 300);
 
-      // Convert blob to File for upload
-      const file = new File([recordingBlob], fileName, { type: 'audio/wav' });
-      
-      // Upload to Cloudflare R2 instead of Supabase
-      const publicUrl = await uploadToR2(file, BUCKET_CONFIG.VOICE.NAME, filePath);
+      // Upload to Supabase
+      const { data: uploadData, error: uploadError } = 
+        await supabase.storage.from('creator_files').upload(filePath, recordingBlob);
         
       clearInterval(progressInterval);
+      
+      if (uploadError) throw uploadError;
       
       setUploadingVoices(prev => ({
         ...prev,
         [uploadId]: 100
       }));
+
+      // Get public URL
+      const { data: urlData } = 
+        supabase.storage.from('creator_files').getPublicUrl(filePath);
 
       // Create voice file object
       const newVoiceFile = {
@@ -364,7 +375,7 @@ const VoiceUpload = ({
         name: fileName,
         size: recordingBlob.size,
         type: 'audio/wav',
-        url: publicUrl,
+        url: urlData.publicUrl,
         duration: recordingTime
       };
 
@@ -426,19 +437,36 @@ const VoiceUpload = ({
         });
       }
       
-      // Delete the file from Cloudflare R2 storage
+      // Delete the file from Supabase storage
       try {
         // Extract the file path from the URL
-        const { bucketName, filePath } = extractFilePathFromR2Url(fileToRemove.url);
+        const fileUrl = new URL(fileToRemove.url);
+        const pathParts = fileUrl.pathname.split('/');
         
-        console.log('Removing voice file from R2:', bucketName, filePath);
+        // Find the index of 'creator_files' in the path
+        const creatorFilesIndex = pathParts.findIndex(part => part === 'creator_files');
         
-        // Delete the file from R2
-        await deleteFromR2(bucketName, filePath);
-        
-        console.log('Successfully deleted voice file from R2:', filePath);
+        if (creatorFilesIndex !== -1 && creatorFilesIndex + 1 < pathParts.length) {
+          // Get the path after 'creator_files/'
+          const storagePath = pathParts.slice(creatorFilesIndex + 1).join('/');
+          
+          console.log('Removing voice file from storage path:', storagePath);
+          
+          const { error: deleteError } = await supabase.storage
+            .from('creator_files')
+            .remove([storagePath]);
+          
+          if (deleteError) {
+            console.error('Error deleting voice file from storage:', deleteError);
+            throw deleteError;
+          }
+          
+          console.log('Successfully deleted voice file from storage:', storagePath);
+        } else {
+          console.warn('Could not determine correct storage path from URL:', fileToRemove.url);
+        }
       } catch (storageError) {
-        console.warn('Error removing voice file from R2 storage:', storageError);
+        console.warn('Error removing voice file from storage:', storageError);
         // Continue with UI removal even if storage removal fails
       }
       
@@ -486,7 +514,6 @@ const VoiceUpload = ({
     }
   };
 
-  // JSX rendering
   return (
     <section className="animate-fade-in">
       <div className="flex items-center mb-4">
