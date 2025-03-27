@@ -193,41 +193,75 @@ const VideoUpload = ({
       }
     }
   };
+  
   const handleRemoveVideo = async (id: string) => {
     try {
       const videoToRemove = videos.find(video => video.id === id);
       if (!videoToRemove) return;
+      
+      // If the deleted video is the selected one, clear the selection
       if (selectedVideo && selectedVideo.id === id) {
         setSelectedVideo(null);
         await updateProfile({
           selected_video: null
         });
       }
+      
+      // Delete the file from Supabase storage
       try {
-        const urlParts = videoToRemove.url.split('/');
-        const filePath = urlParts.slice(urlParts.indexOf('creator_files') + 1).join('/');
-        await supabase.storage.from('creator_files').remove([filePath]);
+        // Extract the file path from the URL
+        const fileUrl = new URL(videoToRemove.url);
+        const pathParts = fileUrl.pathname.split('/');
+        
+        // Find the index of 'creator_files' in the path
+        const creatorFilesIndex = pathParts.findIndex(part => part === 'creator_files');
+        
+        if (creatorFilesIndex !== -1 && creatorFilesIndex + 1 < pathParts.length) {
+          // Get the path after 'creator_files/'
+          const storagePath = pathParts.slice(creatorFilesIndex + 1).join('/');
+          
+          console.log('Removing file from storage path:', storagePath);
+          
+          const { error: deleteError } = await supabase.storage
+            .from('creator_files')
+            .remove([storagePath]);
+          
+          if (deleteError) {
+            console.error('Error deleting file from storage:', deleteError);
+            throw deleteError;
+          }
+          
+          console.log('Successfully deleted file from storage:', storagePath);
+        } else {
+          console.warn('Could not determine correct storage path from URL:', videoToRemove.url);
+        }
       } catch (storageError) {
-        console.warn('Could not remove file from storage:', storageError);
+        console.warn('Error removing file from storage:', storageError);
+        // Continue with UI removal even if storage removal fails
       }
+      
+      // Update videos state and profile
       const updatedVideos = videos.filter(video => video.id !== id);
       setVideos(updatedVideos);
+      
       await updateProfile({
         videos: updatedVideos
       });
+      
       toast({
         title: "Video removed",
-        description: "Successfully removed the video."
+        description: "Successfully removed the video from your collection and storage."
       });
     } catch (error) {
       console.error('Error removing video:', error);
       toast({
         title: "Removal Failed",
-        description: "Failed to remove the video.",
+        description: "Failed to completely remove the video. Please try again.",
         variant: "destructive"
       });
     }
   };
+  
   const handleSelectVideo = async (video: UploadedFile) => {
     try {
       setSelectedVideo(video);

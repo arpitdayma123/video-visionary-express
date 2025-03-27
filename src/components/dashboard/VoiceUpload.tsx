@@ -429,6 +429,7 @@ const VoiceUpload = ({
       const fileToRemove = voiceFiles.find(file => file.id === id);
       if (!fileToRemove) return;
       
+      // If the deleted voice is the selected one, clear the selection
       if (selectedVoice && selectedVoice.id === id) {
         setSelectedVoice(null);
         await updateProfile({
@@ -436,14 +437,40 @@ const VoiceUpload = ({
         });
       }
       
+      // Delete the file from Supabase storage
       try {
-        const urlParts = fileToRemove.url.split('/');
-        const filePath = urlParts.slice(urlParts.indexOf('creator_files') + 1).join('/');
-        await supabase.storage.from('creator_files').remove([filePath]);
+        // Extract the file path from the URL
+        const fileUrl = new URL(fileToRemove.url);
+        const pathParts = fileUrl.pathname.split('/');
+        
+        // Find the index of 'creator_files' in the path
+        const creatorFilesIndex = pathParts.findIndex(part => part === 'creator_files');
+        
+        if (creatorFilesIndex !== -1 && creatorFilesIndex + 1 < pathParts.length) {
+          // Get the path after 'creator_files/'
+          const storagePath = pathParts.slice(creatorFilesIndex + 1).join('/');
+          
+          console.log('Removing voice file from storage path:', storagePath);
+          
+          const { error: deleteError } = await supabase.storage
+            .from('creator_files')
+            .remove([storagePath]);
+          
+          if (deleteError) {
+            console.error('Error deleting voice file from storage:', deleteError);
+            throw deleteError;
+          }
+          
+          console.log('Successfully deleted voice file from storage:', storagePath);
+        } else {
+          console.warn('Could not determine correct storage path from URL:', fileToRemove.url);
+        }
       } catch (storageError) {
-        console.warn('Could not remove file from storage:', storageError);
+        console.warn('Error removing voice file from storage:', storageError);
+        // Continue with UI removal even if storage removal fails
       }
       
+      // Update voice files state and profile
       const updatedVoiceFiles = voiceFiles.filter(file => file.id !== id);
       setVoiceFiles(updatedVoiceFiles);
       
@@ -453,13 +480,13 @@ const VoiceUpload = ({
       
       toast({
         title: "Voice file removed",
-        description: "Successfully removed the voice file."
+        description: "Successfully removed the voice file from your collection and storage."
       });
     } catch (error) {
       console.error('Error removing voice file:', error);
       toast({
         title: "Removal Failed",
-        description: "Failed to remove the voice file.",
+        description: "Failed to completely remove the voice file. Please try again.",
         variant: "destructive"
       });
     }
