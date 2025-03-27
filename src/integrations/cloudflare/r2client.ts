@@ -1,3 +1,4 @@
+
 import { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
 
 // R2 Configuration
@@ -9,7 +10,7 @@ const R2_VOICE_PUBLIC_URL = "https://pub-4b649cc1db3b4eaeb1bdf1062acd5b4a.r2.dev
 const VIDEO_BUCKET_NAME = "video";
 const VOICE_BUCKET_NAME = "voice";
 
-// Create an S3 client with R2 configuration
+// Create an S3 client with R2 configuration that works in browser
 export const r2Client = new S3Client({
   region: 'auto',
   endpoint: R2_ENDPOINT,
@@ -17,6 +18,8 @@ export const r2Client = new S3Client({
     accessKeyId: R2_ACCESS_KEY_ID,
     secretAccessKey: R2_SECRET_ACCESS_KEY,
   },
+  // Force path style for R2 compatibility
+  forcePathStyle: true
 });
 
 /**
@@ -38,12 +41,14 @@ export const uploadToR2 = async (
   try {
     console.log(`Uploading file to R2: ${key} in bucket ${bucketName}`);
     
-    // Use the file directly in browser environments
-    // The AWS SDK will handle browser File and Blob objects correctly
+    // Convert file to ArrayBuffer for browser compatibility
+    const arrayBuffer = await file.arrayBuffer();
+    
+    // Set up the PutObjectCommand with ArrayBuffer
     const putCommand = new PutObjectCommand({
       Bucket: bucketName,
       Key: key,
-      Body: file,
+      Body: arrayBuffer,
       ContentType: contentType || file.type,
     });
 
