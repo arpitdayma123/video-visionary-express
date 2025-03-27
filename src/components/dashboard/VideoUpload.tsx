@@ -140,8 +140,12 @@ const VideoUpload = ({
             });
           }, 500);
 
+          console.log('Starting upload to R2 bucket:', BUCKET_CONFIG.VIDEO.NAME);
+
           // Upload to Cloudflare R2 instead of Supabase
           const publicUrl = await uploadToR2(file, BUCKET_CONFIG.VIDEO.NAME, fileName);
+          
+          console.log('R2 upload successful, got URL:', publicUrl);
           
           clearInterval(progressInterval);
           progressCallback(100);
