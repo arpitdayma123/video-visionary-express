@@ -4,11 +4,11 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
 import { v4 as uuidv4 } from 'uuid';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import AudioRecorder, { RecordingStatus } from '@/utils/audioRecorder';
+import { uploadToR2, deleteFromR2, getKeyFromUrl, getBucketFromUrl } from '@/integrations/cloudflare/r2client';
 
 type UploadedFile = {
   id: string;
@@ -169,7 +169,6 @@ const VoiceUpload = ({
           
           const fileExt = file.name.split('.').pop();
           const fileName = `${userId}/${uuidv4()}.${fileExt}`;
-          const filePath = `voices/${fileName}`;
           
           const progressCallback = (progress: number) => {
             setUploadingVoices(current => ({
@@ -194,17 +193,11 @@ const VoiceUpload = ({
             });
           }, 500);
           
-          const { data: uploadData, error: uploadError } = 
-            await supabase.storage.from('creator_files').upload(filePath, file);
-            
+          // Upload to Cloudflare R2 instead of Supabase
+          const publicUrl = await uploadToR2(file, fileName, 'voice', file.type);
+          
           clearInterval(progressInterval);
-          
-          if (uploadError) throw uploadError;
-          
           progressCallback(100);
-          
-          const { data: urlData } = 
-            supabase.storage.from('creator_files').getPublicUrl(filePath);
 
           // Include duration in the new voice file object
           const newVoiceFile = {
@@ -212,7 +205,7 @@ const VoiceUpload = ({
             name: file.name,
             size: file.size,
             type: file.type,
-            url: urlData.publicUrl,
+            url: publicUrl,
             duration: duration
           };
           
@@ -334,8 +327,7 @@ const VoiceUpload = ({
       }));
 
       // Create file from WAV blob
-      const fileName = `recorded_voice_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.wav`;
-      const filePath = `voices/${userId}/${uuidv4()}.wav`;
+      const fileName = `${userId}/${uuidv4()}.wav`;
 
       // Upload progress simulation
       const progressInterval = setInterval(() => {
@@ -352,30 +344,23 @@ const VoiceUpload = ({
         });
       }, 300);
 
-      // Upload to Supabase
-      const { data: uploadData, error: uploadError } = 
-        await supabase.storage.from('creator_files').upload(filePath, recordingBlob);
-        
-      clearInterval(progressInterval);
+      // Upload to Cloudflare R2 instead of Supabase
+      const publicUrl = await uploadToR2(recordingBlob, fileName, 'voice', 'audio/wav');
       
-      if (uploadError) throw uploadError;
+      clearInterval(progressInterval);
       
       setUploadingVoices(prev => ({
         ...prev,
         [uploadId]: 100
       }));
 
-      // Get public URL
-      const { data: urlData } = 
-        supabase.storage.from('creator_files').getPublicUrl(filePath);
-
       // Create voice file object
       const newVoiceFile = {
         id: uuidv4(),
-        name: fileName,
+        name: `recorded_voice_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.wav`,
         size: recordingBlob.size,
         type: 'audio/wav',
-        url: urlData.publicUrl,
+        url: publicUrl,
         duration: recordingTime
       };
 
@@ -437,33 +422,21 @@ const VoiceUpload = ({
         });
       }
       
-      // Delete the file from Supabase storage
+      // Delete the file from Cloudflare R2 storage
       try {
-        // Extract the file path from the URL
-        const fileUrl = new URL(fileToRemove.url);
-        const pathParts = fileUrl.pathname.split('/');
-        
-        // Find the index of 'creator_files' in the path
-        const creatorFilesIndex = pathParts.findIndex(part => part === 'creator_files');
-        
-        if (creatorFilesIndex !== -1 && creatorFilesIndex + 1 < pathParts.length) {
-          // Get the path after 'creator_files/'
-          const storagePath = pathParts.slice(creatorFilesIndex + 1).join('/');
+        // Only attempt to delete if it's an R2 URL
+        if (fileToRemove.url.includes('r2.cloudflarestorage.com')) {
+          const key = getKeyFromUrl(fileToRemove.url);
+          const bucket = getBucketFromUrl(fileToRemove.url) || 'voice';
           
-          console.log('Removing voice file from storage path:', storagePath);
-          
-          const { error: deleteError } = await supabase.storage
-            .from('creator_files')
-            .remove([storagePath]);
-          
-          if (deleteError) {
-            console.error('Error deleting voice file from storage:', deleteError);
-            throw deleteError;
-          }
-          
-          console.log('Successfully deleted voice file from storage:', storagePath);
+          console.log('Removing voice file from R2:', key, bucket);
+          await deleteFromR2(key, bucket as 'video' | 'voice');
+          console.log('Successfully deleted voice file from R2 storage');
+        } else if (fileToRemove.url.includes('supabase')) {
+          // Handle legacy Supabase storage URLs if needed
+          console.log('Skipping Supabase URL, will be migrated to R2 on next upload');
         } else {
-          console.warn('Could not determine correct storage path from URL:', fileToRemove.url);
+          console.warn('Unknown storage provider in URL:', fileToRemove.url);
         }
       } catch (storageError) {
         console.warn('Error removing voice file from storage:', storageError);

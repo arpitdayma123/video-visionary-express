@@ -4,9 +4,9 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
 import { v4 as uuidv4 } from 'uuid';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { uploadToR2, deleteFromR2, getKeyFromUrl, getBucketFromUrl } from '@/integrations/cloudflare/r2client';
 
 type UploadedFile = {
   id: string;
@@ -119,7 +119,7 @@ const VideoUpload = ({
           setUploadingVideos(uploadingProgress);
           const fileExt = file.name.split('.').pop();
           const fileName = `${userId}/${uuidv4()}.${fileExt}`;
-          const filePath = `videos/${fileName}`;
+          
           const progressCallback = (progress: number) => {
             setUploadingVideos(current => ({
               ...current,
@@ -140,16 +140,12 @@ const VideoUpload = ({
               };
             });
           }, 500);
-          const {
-            data: uploadData,
-            error: uploadError
-          } = await supabase.storage.from('creator_files').upload(filePath, file);
+          
+          // Upload to Cloudflare R2 instead of Supabase
+          const publicUrl = await uploadToR2(file, fileName, 'video', file.type);
+          
           clearInterval(progressInterval);
-          if (uploadError) throw uploadError;
           progressCallback(100);
-          const {
-            data: urlData
-          } = supabase.storage.from('creator_files').getPublicUrl(filePath);
 
           // Include duration in the new video object
           const newVideo = {
@@ -157,7 +153,7 @@ const VideoUpload = ({
             name: file.name,
             size: file.size,
             type: file.type,
-            url: urlData.publicUrl,
+            url: publicUrl,
             duration: duration
           };
           const newVideos = [...videos, newVideo];
@@ -207,33 +203,21 @@ const VideoUpload = ({
         });
       }
       
-      // Delete the file from Supabase storage
+      // Delete the file from Cloudflare R2 storage
       try {
-        // Extract the file path from the URL
-        const fileUrl = new URL(videoToRemove.url);
-        const pathParts = fileUrl.pathname.split('/');
-        
-        // Find the index of 'creator_files' in the path
-        const creatorFilesIndex = pathParts.findIndex(part => part === 'creator_files');
-        
-        if (creatorFilesIndex !== -1 && creatorFilesIndex + 1 < pathParts.length) {
-          // Get the path after 'creator_files/'
-          const storagePath = pathParts.slice(creatorFilesIndex + 1).join('/');
+        // Only attempt to delete if it's an R2 URL
+        if (videoToRemove.url.includes('r2.cloudflarestorage.com')) {
+          const key = getKeyFromUrl(videoToRemove.url);
+          const bucket = getBucketFromUrl(videoToRemove.url) || 'video';
           
-          console.log('Removing file from storage path:', storagePath);
-          
-          const { error: deleteError } = await supabase.storage
-            .from('creator_files')
-            .remove([storagePath]);
-          
-          if (deleteError) {
-            console.error('Error deleting file from storage:', deleteError);
-            throw deleteError;
-          }
-          
-          console.log('Successfully deleted file from storage:', storagePath);
+          console.log('Removing file from R2:', key, bucket);
+          await deleteFromR2(key, bucket as 'video' | 'voice');
+          console.log('Successfully deleted file from R2 storage');
+        } else if (videoToRemove.url.includes('supabase')) {
+          // Handle legacy Supabase storage URLs if needed
+          console.log('Skipping Supabase URL, will be migrated to R2 on next upload');
         } else {
-          console.warn('Could not determine correct storage path from URL:', videoToRemove.url);
+          console.warn('Unknown storage provider in URL:', videoToRemove.url);
         }
       } catch (storageError) {
         console.warn('Error removing file from storage:', storageError);
@@ -281,6 +265,7 @@ const VideoUpload = ({
       });
     }
   };
+  
   return <section className="animate-fade-in">
       <div className="flex items-center mb-4">
         <Video className="mr-2 h-5 w-5 text-primary" />
