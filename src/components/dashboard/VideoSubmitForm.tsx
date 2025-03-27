@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
@@ -108,16 +107,41 @@ const VideoSubmitForm = ({
         customScript: (scriptOption === 'custom' || scriptOption === 'ai_remake') ? customScript : ''
       });
       
+      // Improved fetch with better error handling and timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+      
+      console.log(`Sending webhook request to: https://primary-production-ce25.up.railway.app/webhook/trendy?${params.toString()}`);
+      
       const response = await fetch(`https://primary-production-ce25.up.railway.app/webhook/trendy?${params.toString()}`, {
         method: 'GET',
         headers: {
-          'Accept': 'application/json'
-        }
+          'Accept': 'application/json',
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
+        },
+        signal: controller.signal,
+        credentials: 'omit', // Don't send cookies with the request
+        mode: 'cors', // Enable CORS
       });
       
+      clearTimeout(timeoutId);
+      
       if (!response.ok) {
-        throw new Error('Failed to process video request');
+        // Get error details
+        let errorDetails;
+        try {
+          errorDetails = await response.text();
+        } catch (e) {
+          errorDetails = 'Unable to get error details';
+        }
+        
+        console.error('Webhook response error:', response.status, errorDetails);
+        throw new Error(`Server responded with status: ${response.status}. Details: ${errorDetails}`);
       }
+      
+      const responseData = await response.json();
+      console.log('Webhook response:', responseData);
       
       toast({
         title: "Request sent successfully",
@@ -127,6 +151,17 @@ const VideoSubmitForm = ({
     } catch (error) {
       console.error('Error processing video:', error);
       
+      // Provide more specific error messages based on error type
+      let errorMessage = "There was an error processing your request.";
+      
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        errorMessage = "Request timed out. Please try again later.";
+      } else if (error instanceof TypeError && error.message.includes('fetch')) {
+        errorMessage = "Network error. Please check your internet connection and try again.";
+      } else if (error instanceof Error) {
+        errorMessage = `Error: ${error.message}`;
+      }
+      
       // Revert status back to Completed if there was an error
       await updateProfile({
         status: 'Completed'
@@ -135,7 +170,7 @@ const VideoSubmitForm = ({
       
       toast({
         title: "Processing failed",
-        description: "There was an error processing your request.",
+        description: errorMessage,
         variant: "destructive"
       });
     }

@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
-import { InfoIcon, AlertTriangle } from 'lucide-react';
+import { InfoIcon, AlertTriangle, WifiOff } from 'lucide-react';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 
 interface GenerateVideoProps {
@@ -36,6 +36,7 @@ const GenerateVideo = ({
   const { toast } = useToast();
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingProgress, setProcessingProgress] = useState(0);
+  const [networkError, setNetworkError] = useState(false);
 
   const getMissingSteps = () => {
     const steps = [];
@@ -66,8 +67,23 @@ const GenerateVideo = ({
   const missingSteps = getMissingSteps();
   const shouldShowProgress = !isFormComplete && missingSteps.length > 0;
 
+  const checkNetworkStatus = () => {
+    setNetworkError(!navigator.onLine);
+    return navigator.onLine;
+  };
+
   const handleGenerateClick = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Check network status before attempting to generate
+    if (!checkNetworkStatus()) {
+      toast({
+        title: "Network Error",
+        description: "You appear to be offline. Please check your internet connection and try again.",
+        variant: "destructive"
+      });
+      return;
+    }
     
     if (!isFormComplete) {
       toast({
@@ -99,25 +115,38 @@ const GenerateVideo = ({
     }
     
     setIsProcessing(true);
+    setProcessingProgress(0);
+    
     const interval = setInterval(() => {
       setProcessingProgress(prev => {
-        if (prev >= 100) {
-          clearInterval(interval);
-          return 100;
+        // Make progress slower to avoid false perception of completion
+        if (prev >= 85) {
+          return prev + 1;
         }
-        return prev + 10;
+        return prev + 5;
       });
     }, 800);
     
     try {
       await onSubmit(e);
-    } finally {
       clearInterval(interval);
       setProcessingProgress(100);
+    } catch (error) {
+      clearInterval(interval);
+      console.error('Error in generate click:', error);
+      
+      // Check if it's a network error
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        setNetworkError(true);
+      }
+      
+      setProcessingProgress(0);
+    } finally {
       setTimeout(() => {
         setIsProcessing(false);
         setProcessingProgress(0);
-      }, 500);
+        setNetworkError(false);
+      }, 1000);
     }
   };
 
@@ -137,6 +166,13 @@ const GenerateVideo = ({
           {userCredits < 1 && (
             <div className="mt-2 text-sm font-medium text-red-600 dark:text-red-400">
               Insufficient credits.
+            </div>
+          )}
+          
+          {networkError && (
+            <div className="mt-2 flex items-center text-sm font-medium text-red-600 dark:text-red-400">
+              <WifiOff className="h-4 w-4 mr-1" />
+              Network connection issues detected.
             </div>
           )}
         </div>

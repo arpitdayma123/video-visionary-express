@@ -14,7 +14,15 @@ import AdminEmail from "./pages/AdminEmail";
 import { AuthProvider } from "./contexts/AuthContext";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      retryDelay: 1000, // 1 second delay between retries
+      refetchOnWindowFocus: false
+    },
+  }
+});
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
