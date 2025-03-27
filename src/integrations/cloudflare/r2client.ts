@@ -9,7 +9,7 @@ const R2_ENDPOINT_URL = "https://59a6ce4614e27914884ec61b197b5415.r2.cloudflares
 // Bucket Configuration
 export const BUCKET_CONFIG = {
   VIDEO: {
-    NAME: "videos",
+    NAME: "video", // Updated from "videos" to "video" to match your actual bucket name
     PUBLIC_URL: "https://pub-6e830637fe3847779d4fc5a82ea93d64.r2.dev"
   },
   VOICE: {
@@ -32,7 +32,7 @@ const s3Client = new S3Client({
  * Upload a file to Cloudflare R2
  * 
  * @param file - The file to upload
- * @param bucketName - The bucket name (videos or voices)
+ * @param bucketName - The bucket name (video or voices)
  * @param filePath - The path to store the file at
  * @returns The public URL of the uploaded file
  */
