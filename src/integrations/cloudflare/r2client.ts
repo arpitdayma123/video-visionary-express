@@ -1,4 +1,3 @@
-
 import { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
 
 // R2 Configuration
@@ -39,15 +38,12 @@ export const uploadToR2 = async (
   try {
     console.log(`Uploading file to R2: ${key} in bucket ${bucketName}`);
     
-    // Convert file to Uint8Array for browser compatibility
-    const arrayBuffer = await file.arrayBuffer();
-    const uint8Array = new Uint8Array(arrayBuffer);
-    
-    // Set up the PutObjectCommand with Uint8Array
+    // Use the file directly in browser environments
+    // The AWS SDK will handle browser File and Blob objects correctly
     const putCommand = new PutObjectCommand({
       Bucket: bucketName,
       Key: key,
-      Body: uint8Array,
+      Body: file,
       ContentType: contentType || file.type,
     });
 
