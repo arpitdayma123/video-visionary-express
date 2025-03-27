@@ -1,5 +1,5 @@
 
-import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
 
 // R2 Configuration
 const R2_ACCESS_KEY_ID = "4b62c6d6b71a694ee506a892c58ae30b";
@@ -35,6 +35,8 @@ export const uploadToR2 = async (
   const bucketName = bucket === 'video' ? VIDEO_BUCKET_NAME : VOICE_BUCKET_NAME;
   
   try {
+    console.log(`Uploading file to R2: ${key} in bucket ${bucketName}`);
+    
     // Convert File to Buffer for upload
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
@@ -49,6 +51,7 @@ export const uploadToR2 = async (
 
     // Upload the file
     await r2Client.send(putCommand);
+    console.log(`Successfully uploaded to R2: ${key}`);
     
     // Return the public URL
     return `${R2_ENDPOINT}/${bucketName}/${key}`;
@@ -70,6 +73,7 @@ export const deleteFromR2 = async (
   const bucketName = bucket === 'video' ? VIDEO_BUCKET_NAME : VOICE_BUCKET_NAME;
   
   try {
+    console.log(`Deleting file from R2: ${key} in bucket ${bucketName}`);
     const deleteCommand = new DeleteObjectCommand({
       Bucket: bucketName,
       Key: key,
@@ -118,4 +122,36 @@ export const getBucketFromUrl = (url: string): 'video' | 'voice' | null => {
     return 'voice';
   }
   return null;
+};
+
+/**
+ * Check if a URL is from R2 storage
+ * @param url The URL to check
+ * @returns Boolean indicating if the URL is from R2
+ */
+export const isR2Url = (url: string): boolean => {
+  return url.includes(R2_ENDPOINT);
+};
+
+/**
+ * Check if a file exists in R2
+ * @param key The key (path) of the file
+ * @param bucket The bucket name
+ * @returns Boolean indicating if the file exists
+ */
+export const checkFileExistsInR2 = async (key: string, bucket: 'video' | 'voice'): Promise<boolean> => {
+  const bucketName = bucket === 'video' ? VIDEO_BUCKET_NAME : VOICE_BUCKET_NAME;
+  
+  try {
+    const command = new GetObjectCommand({
+      Bucket: bucketName,
+      Key: key,
+    });
+    
+    await r2Client.send(command);
+    return true;
+  } catch (error) {
+    // If the file doesn't exist, return false
+    return false;
+  }
 };

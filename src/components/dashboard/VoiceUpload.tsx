@@ -8,7 +8,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import AudioRecorder, { RecordingStatus } from '@/utils/audioRecorder';
-import { uploadToR2, deleteFromR2, getKeyFromUrl, getBucketFromUrl } from '@/integrations/cloudflare/r2client';
+import { uploadToR2, deleteFromR2, getKeyFromUrl, getBucketFromUrl, isR2Url } from '@/integrations/cloudflare/r2client';
 
 type UploadedFile = {
   id: string;
@@ -193,8 +193,10 @@ const VoiceUpload = ({
             });
           }, 500);
           
-          // Upload to Cloudflare R2 instead of Supabase
+          // Upload to Cloudflare R2
+          console.log('Starting voice upload to R2...');
           const publicUrl = await uploadToR2(file, fileName, 'voice', file.type);
+          console.log('R2 voice upload successful, URL:', publicUrl);
           
           clearInterval(progressInterval);
           progressCallback(100);
@@ -344,8 +346,10 @@ const VoiceUpload = ({
         });
       }, 300);
 
-      // Upload to Cloudflare R2 instead of Supabase
+      // Upload to Cloudflare R2
+      console.log('Starting recording upload to R2...');
       const publicUrl = await uploadToR2(recordingBlob, fileName, 'voice', 'audio/wav');
+      console.log('R2 recording upload successful, URL:', publicUrl);
       
       clearInterval(progressInterval);
       
@@ -422,20 +426,25 @@ const VoiceUpload = ({
         });
       }
       
-      // Delete the file from Cloudflare R2 storage
+      // Delete the file from storage
       try {
-        // Only attempt to delete if it's an R2 URL
-        if (fileToRemove.url.includes('r2.cloudflarestorage.com')) {
-          const key = getKeyFromUrl(fileToRemove.url);
-          const bucket = getBucketFromUrl(fileToRemove.url) || 'voice';
+        const url = fileToRemove.url;
+        
+        // Handle R2 URLs
+        if (isR2Url(url)) {
+          const key = getKeyFromUrl(url);
+          const bucket = getBucketFromUrl(url) || 'voice';
           
           console.log('Removing voice file from R2:', key, bucket);
           await deleteFromR2(key, bucket as 'video' | 'voice');
           console.log('Successfully deleted voice file from R2 storage');
-        } else if (fileToRemove.url.includes('supabase')) {
-          // Handle legacy Supabase storage URLs if needed
-          console.log('Skipping Supabase URL, will be migrated to R2 on next upload');
-        } else {
+        } 
+        // Handle Supabase URLs (legacy)
+        else if (url.includes('supabase')) {
+          console.log('Detected Supabase URL, will be migrated to R2 on next upload');
+          // We're not deleting from Supabase since we're migrating away
+        } 
+        else {
           console.warn('Unknown storage provider in URL:', fileToRemove.url);
         }
       } catch (storageError) {
@@ -487,6 +496,7 @@ const VoiceUpload = ({
     }
   };
 
+  
   return (
     <section className="animate-fade-in">
       <div className="flex items-center mb-4">

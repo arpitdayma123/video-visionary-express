@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Upload, Trash2, Check, Video, AlertTriangle } from 'lucide-react';
 import { Card } from '@/components/ui/card';
@@ -6,7 +7,7 @@ import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import { v4 as uuidv4 } from 'uuid';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { uploadToR2, deleteFromR2, getKeyFromUrl, getBucketFromUrl } from '@/integrations/cloudflare/r2client';
+import { uploadToR2, deleteFromR2, getKeyFromUrl, getBucketFromUrl, isR2Url } from '@/integrations/cloudflare/r2client';
 
 type UploadedFile = {
   id: string;
@@ -141,8 +142,10 @@ const VideoUpload = ({
             });
           }, 500);
           
-          // Upload to Cloudflare R2 instead of Supabase
+          // Upload to Cloudflare R2
+          console.log('Starting upload to R2...');
           const publicUrl = await uploadToR2(file, fileName, 'video', file.type);
+          console.log('R2 upload successful, URL:', publicUrl);
           
           clearInterval(progressInterval);
           progressCallback(100);
@@ -203,21 +206,26 @@ const VideoUpload = ({
         });
       }
       
-      // Delete the file from Cloudflare R2 storage
+      // Delete the file from storage
       try {
-        // Only attempt to delete if it's an R2 URL
-        if (videoToRemove.url.includes('r2.cloudflarestorage.com')) {
-          const key = getKeyFromUrl(videoToRemove.url);
-          const bucket = getBucketFromUrl(videoToRemove.url) || 'video';
+        const url = videoToRemove.url;
+        
+        // Handle R2 URLs
+        if (isR2Url(url)) {
+          const key = getKeyFromUrl(url);
+          const bucket = getBucketFromUrl(url) || 'video';
           
           console.log('Removing file from R2:', key, bucket);
           await deleteFromR2(key, bucket as 'video' | 'voice');
           console.log('Successfully deleted file from R2 storage');
-        } else if (videoToRemove.url.includes('supabase')) {
-          // Handle legacy Supabase storage URLs if needed
-          console.log('Skipping Supabase URL, will be migrated to R2 on next upload');
-        } else {
-          console.warn('Unknown storage provider in URL:', videoToRemove.url);
+        } 
+        // Handle Supabase URLs (legacy)
+        else if (url.includes('supabase')) {
+          console.log('Detected Supabase URL, will be migrated to R2 on next upload');
+          // We're not deleting from Supabase since we're migrating away
+        } 
+        else {
+          console.warn('Unknown storage provider in URL:', url);
         }
       } catch (storageError) {
         console.warn('Error removing file from storage:', storageError);
