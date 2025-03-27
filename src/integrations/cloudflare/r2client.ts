@@ -39,15 +39,14 @@ export const uploadToR2 = async (
   try {
     console.log(`Uploading file to R2: ${key} in bucket ${bucketName}`);
     
-    // Convert File to Buffer for upload
+    // Get array buffer from File/Blob - this works in browser environments
     const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-
+    
     // Set up the PutObjectCommand
     const putCommand = new PutObjectCommand({
       Bucket: bucketName,
       Key: key,
-      Body: buffer,
+      Body: arrayBuffer, // Use arrayBuffer directly without Buffer conversion
       ContentType: contentType || file.type,
     });
 
