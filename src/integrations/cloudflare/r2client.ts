@@ -5,7 +5,8 @@ import { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand } fro
 const R2_ACCESS_KEY_ID = "4b62c6d6b71a694ee506a892c58ae30b";
 const R2_SECRET_ACCESS_KEY = "2a9559383968f2d250122b93ef7ab762586b8cbfa1845377e727fc31b8154472";
 const R2_ENDPOINT = "https://59a6ce4614e27914884ec61b197b5415.r2.cloudflarestorage.com";
-const R2_PUBLIC_URL = "https://pub-6e830637fe3847779d4fc5a82ea93d64.r2.dev";
+const R2_VIDEO_PUBLIC_URL = "https://pub-6e830637fe3847779d4fc5a82ea93d64.r2.dev";
+const R2_VOICE_PUBLIC_URL = "https://pub-4b649cc1db3b4eaeb1bdf1062acd5b4a.r2.dev";
 const VIDEO_BUCKET_NAME = "video";
 const VOICE_BUCKET_NAME = "voice";
 
@@ -54,8 +55,12 @@ export const uploadToR2 = async (
     await r2Client.send(putCommand);
     console.log(`Successfully uploaded to R2: ${key}`);
     
-    // Return the public URL
-    return `${R2_PUBLIC_URL}/${bucketName}/${key}`;
+    // Return the appropriate public URL based on bucket type
+    const publicUrl = bucket === 'video' 
+      ? `${R2_VIDEO_PUBLIC_URL}/${key}` 
+      : `${R2_VOICE_PUBLIC_URL}/${key}`;
+    
+    return publicUrl;
   } catch (error) {
     console.error('Error uploading to R2:', error);
     throw error;
@@ -94,22 +99,27 @@ export const deleteFromR2 = async (
  * @returns The key (path) of the file
  */
 export const getKeyFromUrl = (url: string): string => {
-  // Match against both old and new public URLs
-  const videoPattern = new RegExp(`(${R2_ENDPOINT}|${R2_PUBLIC_URL})/${VIDEO_BUCKET_NAME}/(.+)`);
-  const voicePattern = new RegExp(`(${R2_ENDPOINT}|${R2_PUBLIC_URL})/${VOICE_BUCKET_NAME}/(.+)`);
-  
-  let match = url.match(videoPattern) || url.match(voicePattern);
-  
-  if (match && match[2]) {
-    return match[2];
+  // Match against both video and voice public URLs
+  if (url.includes(R2_VIDEO_PUBLIC_URL)) {
+    return url.replace(`${R2_VIDEO_PUBLIC_URL}/`, '');
+  } else if (url.includes(R2_VOICE_PUBLIC_URL)) {
+    return url.replace(`${R2_VOICE_PUBLIC_URL}/`, '');
+  } else if (url.includes(R2_ENDPOINT)) {
+    // Handle endpoint URLs with bucket names
+    const videoPattern = new RegExp(`${R2_ENDPOINT}/${VIDEO_BUCKET_NAME}/(.+)`);
+    const voicePattern = new RegExp(`${R2_ENDPOINT}/${VOICE_BUCKET_NAME}/(.+)`);
+    
+    let match = url.match(videoPattern) || url.match(voicePattern);
+    if (match && match[1]) {
+      return match[1];
+    }
   }
   
-  // Fallback for URLs that don't match the pattern
-  console.warn('Could not extract key from URL:', url);
+  // Fallback for URLs that don't match the patterns
+  console.warn('Could not extract key from URL using pattern matching:', url);
   const urlObj = new URL(url);
-  const pathParts = urlObj.pathname.split('/');
-  // Remove the first empty string and the bucket name
-  return pathParts.slice(2).join('/');
+  // Return everything after the domain
+  return urlObj.pathname.slice(1);
 };
 
 /**
@@ -118,9 +128,9 @@ export const getKeyFromUrl = (url: string): string => {
  * @returns The bucket ('video' or 'voice')
  */
 export const getBucketFromUrl = (url: string): 'video' | 'voice' | null => {
-  if (url.includes(`/${VIDEO_BUCKET_NAME}/`)) {
+  if (url.includes(R2_VIDEO_PUBLIC_URL) || url.includes(`/${VIDEO_BUCKET_NAME}/`)) {
     return 'video';
-  } else if (url.includes(`/${VOICE_BUCKET_NAME}/`)) {
+  } else if (url.includes(R2_VOICE_PUBLIC_URL) || url.includes(`/${VOICE_BUCKET_NAME}/`)) {
     return 'voice';
   }
   return null;
@@ -132,7 +142,11 @@ export const getBucketFromUrl = (url: string): 'video' | 'voice' | null => {
  * @returns Boolean indicating if the URL is from R2
  */
 export const isR2Url = (url: string): boolean => {
-  return url.includes(R2_ENDPOINT) || url.includes(R2_PUBLIC_URL);
+  return (
+    url.includes(R2_ENDPOINT) || 
+    url.includes(R2_VIDEO_PUBLIC_URL) || 
+    url.includes(R2_VOICE_PUBLIC_URL)
+  );
 };
 
 /**
