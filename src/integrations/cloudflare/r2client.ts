@@ -1,4 +1,3 @@
-
 import { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
 
 // R2 Configuration
@@ -39,14 +38,12 @@ export const uploadToR2 = async (
   try {
     console.log(`Uploading file to R2: ${key} in bucket ${bucketName}`);
     
-    // Get array buffer from File/Blob - this works in browser environments
-    const arrayBuffer = await file.arrayBuffer();
-    
-    // Set up the PutObjectCommand
+    // For browser environments, we need to use the file directly as a Blob
+    // The AWS SDK will handle the conversion internally
     const putCommand = new PutObjectCommand({
       Bucket: bucketName,
       Key: key,
-      Body: arrayBuffer, // Use arrayBuffer directly without Buffer conversion
+      Body: file, // Use the file directly; AWS SDK will handle it correctly
       ContentType: contentType || file.type,
     });
 
