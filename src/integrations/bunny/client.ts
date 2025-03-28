@@ -17,6 +17,7 @@ const BUNNY_CDN_URL = `https://${BUNNY_STORAGE_ZONE}.b-cdn.net`;
  */
 export const uploadToBunny = async (file: File, path: string): Promise<string> => {
   try {
+    console.log('Starting upload to Bunny Storage:', path);
     const fileBuffer = await file.arrayBuffer();
     
     // Make API request to upload the file
@@ -35,6 +36,7 @@ export const uploadToBunny = async (file: File, path: string): Promise<string> =
       throw new Error(`Failed to upload to Bunny Storage: ${response.status} ${response.statusText}`);
     }
 
+    console.log('Successfully uploaded to Bunny Storage:', path);
     // Return the CDN URL
     return `${BUNNY_CDN_URL}/${path}`;
   } catch (error) {
@@ -55,6 +57,7 @@ export const deleteFromBunny = async (path: string): Promise<boolean> => {
       path = path.substring(BUNNY_CDN_URL.length + 1); // +1 for the slash
     }
 
+    console.log('Deleting from Bunny Storage:', path);
     const response = await fetch(`${BUNNY_STORAGE_URL}/${path}`, {
       method: 'DELETE',
       headers: {
@@ -68,6 +71,7 @@ export const deleteFromBunny = async (path: string): Promise<boolean> => {
       throw new Error(`Failed to delete from Bunny Storage: ${response.status} ${response.statusText}`);
     }
 
+    console.log('Successfully deleted from Bunny Storage:', path);
     return true;
   } catch (error) {
     console.error('Error deleting from Bunny Storage:', error);
