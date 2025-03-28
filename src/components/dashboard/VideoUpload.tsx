@@ -1,12 +1,13 @@
+
 import React, { useState } from 'react';
 import { Upload, Trash2, Check, Video, AlertTriangle } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
 import { v4 as uuidv4 } from 'uuid';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { uploadToBunny, deleteFromBunny, getPathFromBunnyUrl } from '@/integrations/bunny/client';
 
 type UploadedFile = {
   id: string;
@@ -117,15 +118,19 @@ const VideoUpload = ({
           };
           uploadingProgress[uploadId] = 0;
           setUploadingVideos(uploadingProgress);
+          
           const fileExt = file.name.split('.').pop();
           const fileName = `${userId}/${uuidv4()}.${fileExt}`;
           const filePath = `videos/${fileName}`;
+          
+          // Update progress
           const progressCallback = (progress: number) => {
             setUploadingVideos(current => ({
               ...current,
               [uploadId]: progress
             }));
           };
+          
           progressCallback(1);
           const progressInterval = setInterval(() => {
             setUploadingVideos(current => {
@@ -140,16 +145,12 @@ const VideoUpload = ({
               };
             });
           }, 500);
-          const {
-            data: uploadData,
-            error: uploadError
-          } = await supabase.storage.from('creator_files').upload(filePath, file);
+          
+          // Upload to BunnyCDN instead of Supabase
+          const bunnyUrl = await uploadToBunny(file, filePath);
+          
           clearInterval(progressInterval);
-          if (uploadError) throw uploadError;
           progressCallback(100);
-          const {
-            data: urlData
-          } = supabase.storage.from('creator_files').getPublicUrl(filePath);
 
           // Include duration in the new video object
           const newVideo = {
@@ -157,12 +158,14 @@ const VideoUpload = ({
             name: file.name,
             size: file.size,
             type: file.type,
-            url: urlData.publicUrl,
+            url: bunnyUrl,
             duration: duration
           };
+          
           const newVideos = [...videos, newVideo];
           setVideos(newVideos);
           setSelectedVideo(newVideo);
+          
           setTimeout(() => {
             setUploadingVideos(current => {
               const updated = {
@@ -178,10 +181,13 @@ const VideoUpload = ({
             title: "Video uploaded",
             description: `Successfully uploaded ${file.name} (${Math.round(duration)} seconds).`
           });
+          
+          // Update profile in Supabase
           await updateProfile({
             videos: newVideos,
             selected_video: newVideo
           });
+          
         } catch (error) {
           console.error('Error uploading video:', error);
           toast({
@@ -207,31 +213,14 @@ const VideoUpload = ({
         });
       }
       
-      // Delete the file from Supabase storage
+      // Delete the file from BunnyCDN storage
       try {
-        // Extract the file path from the URL
-        const fileUrl = new URL(videoToRemove.url);
-        const pathParts = fileUrl.pathname.split('/');
+        const bunnyPath = getPathFromBunnyUrl(videoToRemove.url);
         
-        // Find the index of 'creator_files' in the path
-        const creatorFilesIndex = pathParts.findIndex(part => part === 'creator_files');
-        
-        if (creatorFilesIndex !== -1 && creatorFilesIndex + 1 < pathParts.length) {
-          // Get the path after 'creator_files/'
-          const storagePath = pathParts.slice(creatorFilesIndex + 1).join('/');
-          
-          console.log('Removing file from storage path:', storagePath);
-          
-          const { error: deleteError } = await supabase.storage
-            .from('creator_files')
-            .remove([storagePath]);
-          
-          if (deleteError) {
-            console.error('Error deleting file from storage:', deleteError);
-            throw deleteError;
-          }
-          
-          console.log('Successfully deleted file from storage:', storagePath);
+        if (bunnyPath) {
+          console.log('Removing file from BunnyCDN path:', bunnyPath);
+          await deleteFromBunny(bunnyPath);
+          console.log('Successfully deleted file from BunnyCDN:', bunnyPath);
         } else {
           console.warn('Could not determine correct storage path from URL:', videoToRemove.url);
         }

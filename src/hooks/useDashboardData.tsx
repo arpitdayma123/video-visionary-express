@@ -165,8 +165,10 @@ export const useDashboardData = (user: User | null) => {
   const updateProfile = async (updates: any) => {
     if (!user) return;
     try {
+      console.log('Updating profile with:', updates);
       const { error } = await supabase.from('profiles').update(updates).eq('id', user.id);
       if (error) throw error;
+      console.log('Profile updated successfully');
     } catch (error) {
       console.error('Error updating profile:', error);
       toast({
