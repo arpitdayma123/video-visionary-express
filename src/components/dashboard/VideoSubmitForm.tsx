@@ -1,7 +1,9 @@
+
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import VideoUpload from './VideoUpload';
+import VideoUpload2 from './VideoUpload2';
 import VoiceUpload from './VoiceUpload';
 import NicheSelection from './NicheSelection';
 import CompetitorInput from './CompetitorInput';
@@ -189,6 +191,18 @@ const VideoSubmitForm = ({
         userId={userId || ''} 
         updateProfile={updateProfile} 
       />
+
+      {/* New Video Upload 2 Section */}
+      <div className="border-t border-border pt-12">
+        <VideoUpload2 
+          videos={videos} 
+          setVideos={setVideos} 
+          selectedVideo={selectedVideo} 
+          setSelectedVideo={setSelectedVideo} 
+          userId={userId || ''} 
+          updateProfile={updateProfile} 
+        />
+      </div>
 
       {/* Voice Upload Section */}
       <VoiceUpload 
