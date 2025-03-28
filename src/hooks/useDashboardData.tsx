@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -83,25 +84,29 @@ export const useDashboardData = (user: User | null) => {
         
         // Load videos - URLs will now be Bunny Storage CDN URLs
         if (profile.videos && profile.videos.length > 0) {
+          console.log('Loading videos from profile:', profile.videos);
           updatedData.videos = profile.videos.map((video: any) => ({
             id: video.id || uuidv4(),
             name: video.name,
             size: video.size,
             type: video.type,
-            url: video.url,
+            url: video.url, // This should be a Bunny CDN URL
             duration: video.duration
           }));
+          console.log('Processed videos array:', updatedData.videos);
         }
         
         // Load voice files - URLs will now be Bunny Storage CDN URLs
         if (profile.voice_files && profile.voice_files.length > 0) {
+          console.log('Loading voice files from profile:', profile.voice_files);
           updatedData.voiceFiles = profile.voice_files.map((file: any) => ({
             id: file.id || uuidv4(),
             name: file.name,
             size: file.size,
             type: file.type,
-            url: file.url
+            url: file.url // This should be a Bunny CDN URL
           }));
+          console.log('Processed voice files array:', updatedData.voiceFiles);
         }
         
         if (profile.selected_niches && profile.selected_niches.length > 0) {
@@ -115,12 +120,13 @@ export const useDashboardData = (user: User | null) => {
         if (profile.selected_video && typeof profile.selected_video === 'object') {
           const videoData = profile.selected_video as any;
           if (videoData.id && videoData.name && videoData.url) {
+            console.log('Loading selected video:', videoData);
             updatedData.selectedVideo = {
               id: videoData.id,
               name: videoData.name,
               size: videoData.size || 0,
               type: videoData.type || 'video/mp4',
-              url: videoData.url,
+              url: videoData.url, // This should be a Bunny CDN URL
               duration: videoData.duration
             };
           }
@@ -129,12 +135,13 @@ export const useDashboardData = (user: User | null) => {
         if (profile.selected_voice && typeof profile.selected_voice === 'object') {
           const voiceData = profile.selected_voice as any;
           if (voiceData.id && voiceData.name && voiceData.url) {
+            console.log('Loading selected voice:', voiceData);
             updatedData.selectedVoice = {
               id: voiceData.id,
               name: voiceData.name,
               size: voiceData.size || 0,
               type: voiceData.type || 'audio/mpeg',
-              url: voiceData.url
+              url: voiceData.url // This should be a Bunny CDN URL
             };
           }
         }
@@ -166,8 +173,10 @@ export const useDashboardData = (user: User | null) => {
   const updateProfile = async (updates: any) => {
     if (!user) return;
     try {
+      console.log('Updating profile with:', updates);
       const { error } = await supabase.from('profiles').update(updates).eq('id', user.id);
       if (error) throw error;
+      console.log('Profile updated successfully');
     } catch (error) {
       console.error('Error updating profile:', error);
       toast({
@@ -179,18 +188,22 @@ export const useDashboardData = (user: User | null) => {
   };
   
   const setVideos = (newVideos: UploadedFile[]) => {
+    console.log('Setting videos:', newVideos);
     setData(prev => ({ ...prev, videos: newVideos }));
   };
   
   const setVoiceFiles = (newVoiceFiles: UploadedFile[]) => {
+    console.log('Setting voice files:', newVoiceFiles);
     setData(prev => ({ ...prev, voiceFiles: newVoiceFiles }));
   };
   
   const setSelectedVideo = (video: UploadedFile | null) => {
+    console.log('Setting selected video:', video);
     setData(prev => ({ ...prev, selectedVideo: video }));
   };
   
   const setSelectedVoice = (voice: UploadedFile | null) => {
+    console.log('Setting selected voice:', voice);
     setData(prev => ({ ...prev, selectedVoice: voice }));
   };
   

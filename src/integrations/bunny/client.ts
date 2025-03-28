@@ -38,7 +38,9 @@ export const uploadToBunny = async (file: File, path: string): Promise<string> =
 
     console.log('Successfully uploaded to Bunny Storage:', path);
     // Return the CDN URL
-    return `${BUNNY_CDN_URL}/${path}`;
+    const cdnUrl = `${BUNNY_CDN_URL}/${path}`;
+    console.log('Generated Bunny CDN URL:', cdnUrl);
+    return cdnUrl;
   } catch (error) {
     console.error('Error uploading to Bunny Storage:', error);
     throw error;
@@ -86,7 +88,10 @@ export const deleteFromBunny = async (path: string): Promise<boolean> => {
  */
 export const getPathFromBunnyUrl = (cdnUrl: string): string => {
   if (cdnUrl.startsWith(BUNNY_CDN_URL)) {
-    return cdnUrl.substring(BUNNY_CDN_URL.length + 1); // +1 for the slash
+    const path = cdnUrl.substring(BUNNY_CDN_URL.length + 1); // +1 for the slash
+    console.log('Extracted path from Bunny URL:', path);
+    return path;
   }
+  console.log('URL does not start with Bunny CDN URL, returning as is:', cdnUrl);
   return cdnUrl;
 };

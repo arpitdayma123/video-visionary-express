@@ -57,7 +57,7 @@ const Dashboard = () => {
           selectedVoice={selectedVoice}
           selectedNiches={selectedNiches}
           competitors={competitors}
-          userId={user?.id}
+          userId={user?.id || ''}
           userCredits={userCredits}
           userStatus={userStatus}
           scriptOption={scriptOption}

@@ -139,9 +139,12 @@ const VideoUpload = ({
             });
           }, 500);
           
+          console.log('Starting upload to Bunny with file:', file.name, 'to path:', filePath);
+          
           // Upload to Bunny Storage
-          console.log('Uploading to Bunny:', filePath);
           const cdnUrl = await uploadToBunny(file, filePath);
+          console.log('Upload complete, received CDN URL:', cdnUrl);
+          
           clearInterval(progressInterval);
           
           setUploadingVideos(prev => ({
@@ -159,6 +162,8 @@ const VideoUpload = ({
             duration: duration
           };
           
+          console.log('Created new video object:', newVideo);
+          
           const newVideos = [...videos, newVideo];
           setVideos(newVideos);
           setSelectedVideo(newVideo);
@@ -173,16 +178,17 @@ const VideoUpload = ({
             });
           }, 1000);
 
+          // Update profile with new video information
+          console.log('Updating profile with new videos array:', newVideos);
+          await updateProfile({
+            videos: newVideos,
+            selected_video: newVideo
+          });
+
           // Update success message to include duration
           toast({
             title: "Video uploaded",
             description: `Successfully uploaded ${file.name} (${Math.round(duration)} seconds).`
-          });
-          
-          // Update profile with new video information
-          await updateProfile({
-            videos: newVideos,
-            selected_video: newVideo
           });
         } catch (error) {
           console.error('Error uploading video:', error);
@@ -201,6 +207,8 @@ const VideoUpload = ({
       const videoToRemove = videos.find(video => video.id === id);
       if (!videoToRemove) return;
       
+      console.log('Removing video:', videoToRemove);
+      
       // If the deleted video is the selected one, clear the selection
       if (selectedVideo && selectedVideo.id === id) {
         setSelectedVideo(null);
@@ -212,7 +220,7 @@ const VideoUpload = ({
       // Delete the file from Bunny Storage
       try {
         const filePath = getPathFromBunnyUrl(videoToRemove.url);
-        console.log('Removing video from Bunny:', filePath);
+        console.log('Removing video from Bunny using path:', filePath);
         await deleteFromBunny(filePath);
         console.log('Successfully deleted video from Bunny Storage');
       } catch (storageError) {
