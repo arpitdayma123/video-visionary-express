@@ -1,13 +1,12 @@
-
 import React, { useState } from 'react';
 import { Upload, Trash2, Check, Video, AlertTriangle } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 import { v4 as uuidv4 } from 'uuid';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { uploadToBunny, deleteFromBunny, getPathFromBunnyUrl } from '@/integrations/bunny/client';
 
 type UploadedFile = {
   id: string;
@@ -118,13 +117,16 @@ const VideoUpload = ({
           };
           uploadingProgress[uploadId] = 0;
           setUploadingVideos(uploadingProgress);
-          
-          // Generate unique filename
           const fileExt = file.name.split('.').pop();
-          const fileName = `${uuidv4()}.${fileExt}`;
-          const filePath = `videos/${userId}/${fileName}`;
-          
-          // Set up progress simulation
+          const fileName = `${userId}/${uuidv4()}.${fileExt}`;
+          const filePath = `videos/${fileName}`;
+          const progressCallback = (progress: number) => {
+            setUploadingVideos(current => ({
+              ...current,
+              [uploadId]: progress
+            }));
+          };
+          progressCallback(1);
           const progressInterval = setInterval(() => {
             setUploadingVideos(current => {
               const currentProgress = current[uploadId] || 0;
@@ -138,36 +140,29 @@ const VideoUpload = ({
               };
             });
           }, 500);
-          
-          console.log('Starting upload to Bunny with file:', file.name, 'to path:', filePath);
-          
-          // Upload to Bunny Storage
-          const cdnUrl = await uploadToBunny(file, filePath);
-          console.log('Upload complete, received CDN URL:', cdnUrl);
-          
+          const {
+            data: uploadData,
+            error: uploadError
+          } = await supabase.storage.from('creator_files').upload(filePath, file);
           clearInterval(progressInterval);
-          
-          setUploadingVideos(prev => ({
-            ...prev,
-            [uploadId]: 100
-          }));
+          if (uploadError) throw uploadError;
+          progressCallback(100);
+          const {
+            data: urlData
+          } = supabase.storage.from('creator_files').getPublicUrl(filePath);
 
-          // Create new video object
+          // Include duration in the new video object
           const newVideo = {
             id: uuidv4(),
             name: file.name,
             size: file.size,
             type: file.type,
-            url: cdnUrl,
+            url: urlData.publicUrl,
             duration: duration
           };
-          
-          console.log('Created new video object:', newVideo);
-          
           const newVideos = [...videos, newVideo];
           setVideos(newVideos);
           setSelectedVideo(newVideo);
-          
           setTimeout(() => {
             setUploadingVideos(current => {
               const updated = {
@@ -178,17 +173,14 @@ const VideoUpload = ({
             });
           }, 1000);
 
-          // Update profile with new video information
-          console.log('Updating profile with new videos array:', newVideos);
-          await updateProfile({
-            videos: newVideos,
-            selected_video: newVideo
-          });
-
           // Update success message to include duration
           toast({
             title: "Video uploaded",
             description: `Successfully uploaded ${file.name} (${Math.round(duration)} seconds).`
+          });
+          await updateProfile({
+            videos: newVideos,
+            selected_video: newVideo
           });
         } catch (error) {
           console.error('Error uploading video:', error);
@@ -207,8 +199,6 @@ const VideoUpload = ({
       const videoToRemove = videos.find(video => video.id === id);
       if (!videoToRemove) return;
       
-      console.log('Removing video:', videoToRemove);
-      
       // If the deleted video is the selected one, clear the selection
       if (selectedVideo && selectedVideo.id === id) {
         setSelectedVideo(null);
@@ -217,14 +207,36 @@ const VideoUpload = ({
         });
       }
       
-      // Delete the file from Bunny Storage
+      // Delete the file from Supabase storage
       try {
-        const filePath = getPathFromBunnyUrl(videoToRemove.url);
-        console.log('Removing video from Bunny using path:', filePath);
-        await deleteFromBunny(filePath);
-        console.log('Successfully deleted video from Bunny Storage');
+        // Extract the file path from the URL
+        const fileUrl = new URL(videoToRemove.url);
+        const pathParts = fileUrl.pathname.split('/');
+        
+        // Find the index of 'creator_files' in the path
+        const creatorFilesIndex = pathParts.findIndex(part => part === 'creator_files');
+        
+        if (creatorFilesIndex !== -1 && creatorFilesIndex + 1 < pathParts.length) {
+          // Get the path after 'creator_files/'
+          const storagePath = pathParts.slice(creatorFilesIndex + 1).join('/');
+          
+          console.log('Removing file from storage path:', storagePath);
+          
+          const { error: deleteError } = await supabase.storage
+            .from('creator_files')
+            .remove([storagePath]);
+          
+          if (deleteError) {
+            console.error('Error deleting file from storage:', deleteError);
+            throw deleteError;
+          }
+          
+          console.log('Successfully deleted file from storage:', storagePath);
+        } else {
+          console.warn('Could not determine correct storage path from URL:', videoToRemove.url);
+        }
       } catch (storageError) {
-        console.warn('Error removing file from Bunny Storage:', storageError);
+        console.warn('Error removing file from storage:', storageError);
         // Continue with UI removal even if storage removal fails
       }
       
@@ -269,7 +281,6 @@ const VideoUpload = ({
       });
     }
   };
-  
   return <section className="animate-fade-in">
       <div className="flex items-center mb-4">
         <Video className="mr-2 h-5 w-5 text-primary" />

@@ -4,11 +4,11 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 import { v4 as uuidv4 } from 'uuid';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import AudioRecorder, { RecordingStatus } from '@/utils/audioRecorder';
-import { uploadToBunny, deleteFromBunny, getPathFromBunnyUrl } from '@/integrations/bunny/client';
 
 type UploadedFile = {
   id: string;
@@ -167,12 +167,19 @@ const VoiceUpload = ({
           uploadingProgress[uploadId] = 0;
           setUploadingVoices(uploadingProgress);
           
-          // Generate unique filename
           const fileExt = file.name.split('.').pop();
-          const fileName = `${uuidv4()}.${fileExt}`;
-          const filePath = `voices/${userId}/${fileName}`;
+          const fileName = `${userId}/${uuidv4()}.${fileExt}`;
+          const filePath = `voices/${fileName}`;
           
-          // Set up progress simulation
+          const progressCallback = (progress: number) => {
+            setUploadingVoices(current => ({
+              ...current,
+              [uploadId]: progress
+            }));
+          };
+          
+          progressCallback(1);
+          
           const progressInterval = setInterval(() => {
             setUploadingVoices(current => {
               const currentProgress = current[uploadId] || 0;
@@ -187,23 +194,25 @@ const VoiceUpload = ({
             });
           }, 500);
           
-          // Upload to Bunny Storage
-          console.log('Uploading voice to Bunny:', filePath);
-          const cdnUrl = await uploadToBunny(file, filePath);
+          const { data: uploadData, error: uploadError } = 
+            await supabase.storage.from('creator_files').upload(filePath, file);
+            
           clearInterval(progressInterval);
           
-          setUploadingVoices(prev => ({
-            ...prev,
-            [uploadId]: 100
-          }));
+          if (uploadError) throw uploadError;
+          
+          progressCallback(100);
+          
+          const { data: urlData } = 
+            supabase.storage.from('creator_files').getPublicUrl(filePath);
 
-          // Create voice file object
+          // Include duration in the new voice file object
           const newVoiceFile = {
             id: uuidv4(),
             name: file.name,
             size: file.size,
             type: file.type,
-            url: cdnUrl,
+            url: urlData.publicUrl,
             duration: duration
           };
           
@@ -327,9 +336,6 @@ const VoiceUpload = ({
       // Create file from WAV blob
       const fileName = `recorded_voice_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.wav`;
       const filePath = `voices/${userId}/${uuidv4()}.wav`;
-      
-      // Convert blob to File object for upload
-      const file = new File([recordingBlob], fileName, { type: 'audio/wav' });
 
       // Upload progress simulation
       const progressInterval = setInterval(() => {
@@ -346,15 +352,22 @@ const VoiceUpload = ({
         });
       }, 300);
 
-      // Upload to Bunny Storage
-      console.log('Uploading recording to Bunny:', filePath);
-      const cdnUrl = await uploadToBunny(file, filePath);
+      // Upload to Supabase
+      const { data: uploadData, error: uploadError } = 
+        await supabase.storage.from('creator_files').upload(filePath, recordingBlob);
+        
       clearInterval(progressInterval);
+      
+      if (uploadError) throw uploadError;
       
       setUploadingVoices(prev => ({
         ...prev,
         [uploadId]: 100
       }));
+
+      // Get public URL
+      const { data: urlData } = 
+        supabase.storage.from('creator_files').getPublicUrl(filePath);
 
       // Create voice file object
       const newVoiceFile = {
@@ -362,7 +375,7 @@ const VoiceUpload = ({
         name: fileName,
         size: recordingBlob.size,
         type: 'audio/wav',
-        url: cdnUrl,
+        url: urlData.publicUrl,
         duration: recordingTime
       };
 
@@ -424,14 +437,36 @@ const VoiceUpload = ({
         });
       }
       
-      // Delete the file from Bunny Storage
+      // Delete the file from Supabase storage
       try {
-        const filePath = getPathFromBunnyUrl(fileToRemove.url);
-        console.log('Removing voice file from Bunny:', filePath);
-        await deleteFromBunny(filePath);
-        console.log('Successfully deleted voice file from Bunny Storage');
+        // Extract the file path from the URL
+        const fileUrl = new URL(fileToRemove.url);
+        const pathParts = fileUrl.pathname.split('/');
+        
+        // Find the index of 'creator_files' in the path
+        const creatorFilesIndex = pathParts.findIndex(part => part === 'creator_files');
+        
+        if (creatorFilesIndex !== -1 && creatorFilesIndex + 1 < pathParts.length) {
+          // Get the path after 'creator_files/'
+          const storagePath = pathParts.slice(creatorFilesIndex + 1).join('/');
+          
+          console.log('Removing voice file from storage path:', storagePath);
+          
+          const { error: deleteError } = await supabase.storage
+            .from('creator_files')
+            .remove([storagePath]);
+          
+          if (deleteError) {
+            console.error('Error deleting voice file from storage:', deleteError);
+            throw deleteError;
+          }
+          
+          console.log('Successfully deleted voice file from storage:', storagePath);
+        } else {
+          console.warn('Could not determine correct storage path from URL:', fileToRemove.url);
+        }
       } catch (storageError) {
-        console.warn('Error removing voice file from Bunny Storage:', storageError);
+        console.warn('Error removing voice file from storage:', storageError);
         // Continue with UI removal even if storage removal fails
       }
       
