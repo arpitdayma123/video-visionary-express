@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -82,6 +81,7 @@ export const useDashboardData = (user: User | null) => {
           updatedData.errorMessage = profile.message;
         }
         
+        // Load videos - URLs will now be Bunny Storage CDN URLs
         if (profile.videos && profile.videos.length > 0) {
           updatedData.videos = profile.videos.map((video: any) => ({
             id: video.id || uuidv4(),
@@ -93,6 +93,7 @@ export const useDashboardData = (user: User | null) => {
           }));
         }
         
+        // Load voice files - URLs will now be Bunny Storage CDN URLs
         if (profile.voice_files && profile.voice_files.length > 0) {
           updatedData.voiceFiles = profile.voice_files.map((file: any) => ({
             id: file.id || uuidv4(),
