@@ -2,7 +2,6 @@
 import React, { useState } from 'react';
 import { Upload, Trash2, Check, Video, AlertTriangle } from 'lucide-react';
 import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import { v4 as uuidv4 } from 'uuid';
@@ -35,9 +34,7 @@ const VideoUpload = ({
   userId,
   updateProfile
 }: VideoUploadProps) => {
-  const {
-    toast
-  } = useToast();
+  const { toast } = useToast();
   const [isDraggingVideo, setIsDraggingVideo] = useState(false);
   const [uploadingVideos, setUploadingVideos] = useState<{
     [key: string]: number;
@@ -185,10 +182,24 @@ const VideoUpload = ({
             description: `Successfully uploaded ${file.name} (${Math.round(duration)} seconds).`
           });
           
-          // Update profile in Supabase
+          // Important: Only update the profile with the JSON data, not the actual File object
           await updateProfile({
-            videos: newVideos,
-            selected_video: newVideo
+            videos: newVideos.map(video => ({
+              id: video.id,
+              name: video.name,
+              size: video.size,
+              type: video.type,
+              url: video.url,
+              duration: video.duration
+            })),
+            selected_video: {
+              id: newVideo.id,
+              name: newVideo.name,
+              size: newVideo.size,
+              type: newVideo.type,
+              url: newVideo.url,
+              duration: newVideo.duration
+            }
           });
           
         } catch (error) {
@@ -236,8 +247,16 @@ const VideoUpload = ({
       const updatedVideos = videos.filter(video => video.id !== id);
       setVideos(updatedVideos);
       
+      // Important: Only update the profile with the JSON data, not the actual File objects
       await updateProfile({
-        videos: updatedVideos
+        videos: updatedVideos.map(video => ({
+          id: video.id,
+          name: video.name,
+          size: video.size,
+          type: video.type,
+          url: video.url,
+          duration: video.duration
+        }))
       });
       
       toast({
@@ -257,9 +276,19 @@ const VideoUpload = ({
   const handleSelectVideo = async (video: UploadedFile) => {
     try {
       setSelectedVideo(video);
+      
+      // Important: Only update the profile with the JSON data, not the actual File object
       await updateProfile({
-        selected_video: video
+        selected_video: {
+          id: video.id,
+          name: video.name,
+          size: video.size,
+          type: video.type,
+          url: video.url,
+          duration: video.duration
+        }
       });
+      
       toast({
         title: "Target Video Selected",
         description: `"${video.name}" is now your target video.`
