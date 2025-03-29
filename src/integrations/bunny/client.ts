@@ -19,7 +19,7 @@ export const uploadToBunny = async (file: File, path: string): Promise<string> =
   console.log(`Uploading to BunnyCDN: ${path}`);
   
   try {
-    // Convert File to ArrayBuffer
+    // Convert File to ArrayBuffer for reliable binary upload
     const arrayBuffer = await file.arrayBuffer();
     const buffer = new Uint8Array(arrayBuffer);
     

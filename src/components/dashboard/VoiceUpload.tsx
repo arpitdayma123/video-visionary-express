@@ -1,14 +1,15 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Upload, Trash2, Check, Mic, Square, Pause, FileAudio, AlertTriangle } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
 import { v4 as uuidv4 } from 'uuid';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import AudioRecorder, { RecordingStatus } from '@/utils/audioRecorder';
+import { uploadToBunny, deleteFromBunny, getPathFromBunnyUrl } from '@/integrations/bunny/client';
 
 type UploadedFile = {
   id: string;
@@ -168,8 +169,9 @@ const VoiceUpload = ({
           setUploadingVoices(uploadingProgress);
           
           const fileExt = file.name.split('.').pop();
-          const fileName = `${userId}/${uuidv4()}.${fileExt}`;
-          const filePath = `voices/${fileName}`;
+          const fileId = uuidv4();
+          const fileName = `${fileId}.${fileExt}`;
+          const filePath = `voices/${userId}/${fileName}`;
           
           const progressCallback = (progress: number) => {
             setUploadingVoices(current => ({
@@ -179,6 +181,8 @@ const VoiceUpload = ({
           };
           
           progressCallback(1);
+          
+          console.log(`Uploading voice file to BunnyCDN: ${filePath}`);
           
           const progressInterval = setInterval(() => {
             setUploadingVoices(current => {
@@ -194,25 +198,21 @@ const VoiceUpload = ({
             });
           }, 500);
           
-          const { data: uploadData, error: uploadError } = 
-            await supabase.storage.from('creator_files').upload(filePath, file);
-            
+          // Upload to BunnyCDN
+          const bunnyUrl = await uploadToBunny(file, filePath);
+          
           clearInterval(progressInterval);
-          
-          if (uploadError) throw uploadError;
-          
           progressCallback(100);
           
-          const { data: urlData } = 
-            supabase.storage.from('creator_files').getPublicUrl(filePath);
-
-          // Include duration in the new voice file object
+          console.log('Voice file uploaded to BunnyCDN:', bunnyUrl);
+          
+          // Create new voice file object
           const newVoiceFile = {
-            id: uuidv4(),
+            id: fileId,
             name: file.name,
             size: file.size,
             type: file.type,
-            url: urlData.publicUrl,
+            url: bunnyUrl,
             duration: duration
           };
           
@@ -234,9 +234,24 @@ const VoiceUpload = ({
             description: `Successfully uploaded ${file.name} (${Math.round(duration)} seconds).`
           });
           
+          // Important: Only update the profile with the JSON data, not the actual File object
           await updateProfile({
-            voice_files: newVoiceFiles,
-            selected_voice: newVoiceFile
+            voice_files: newVoiceFiles.map(voice => ({
+              id: voice.id,
+              name: voice.name,
+              size: voice.size,
+              type: voice.type,
+              url: voice.url,
+              duration: voice.duration
+            })),
+            selected_voice: {
+              id: newVoiceFile.id,
+              name: newVoiceFile.name,
+              size: newVoiceFile.size,
+              type: newVoiceFile.type,
+              url: newVoiceFile.url,
+              duration: newVoiceFile.duration
+            }
           });
           
         } catch (error) {
@@ -334,8 +349,9 @@ const VoiceUpload = ({
       }));
 
       // Create file from WAV blob
-      const fileName = `recorded_voice_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.wav`;
-      const filePath = `voices/${userId}/${uuidv4()}.wav`;
+      const fileId = uuidv4();
+      const fileName = `recorded_voice_${fileId}.wav`;
+      const filePath = `voices/${userId}/${fileName}`;
 
       // Upload progress simulation
       const progressInterval = setInterval(() => {
@@ -352,30 +368,27 @@ const VoiceUpload = ({
         });
       }, 300);
 
-      // Upload to Supabase
-      const { data: uploadData, error: uploadError } = 
-        await supabase.storage.from('creator_files').upload(filePath, recordingBlob);
+      console.log(`Uploading recorded voice to BunnyCDN: ${filePath}`);
+
+      // Upload to BunnyCDN
+      const bunnyUrl = await uploadToBunny(new File([recordingBlob], fileName, { type: 'audio/wav' }), filePath);
         
       clearInterval(progressInterval);
-      
-      if (uploadError) throw uploadError;
       
       setUploadingVoices(prev => ({
         ...prev,
         [uploadId]: 100
       }));
 
-      // Get public URL
-      const { data: urlData } = 
-        supabase.storage.from('creator_files').getPublicUrl(filePath);
+      console.log('Recorded voice file uploaded to BunnyCDN:', bunnyUrl);
 
       // Create voice file object
       const newVoiceFile = {
-        id: uuidv4(),
+        id: fileId,
         name: fileName,
         size: recordingBlob.size,
         type: 'audio/wav',
-        url: urlData.publicUrl,
+        url: bunnyUrl,
         duration: recordingTime
       };
 
@@ -397,10 +410,24 @@ const VoiceUpload = ({
       setRecordingBlob(null);
       setRecordingTime(0);
 
-      // Update user profile
+      // Important: Only update the profile with the JSON data, not the actual blob
       await updateProfile({
-        voice_files: updatedVoiceFiles,
-        selected_voice: newVoiceFile
+        voice_files: updatedVoiceFiles.map(voice => ({
+          id: voice.id,
+          name: voice.name,
+          size: voice.size,
+          type: voice.type,
+          url: voice.url,
+          duration: voice.duration
+        })),
+        selected_voice: {
+          id: newVoiceFile.id,
+          name: newVoiceFile.name,
+          size: newVoiceFile.size,
+          type: newVoiceFile.type,
+          url: newVoiceFile.url,
+          duration: newVoiceFile.duration
+        }
       });
       
       toast({
@@ -437,45 +464,37 @@ const VoiceUpload = ({
         });
       }
       
-      // Delete the file from Supabase storage
+      // Delete the file from BunnyCDN
       try {
-        // Extract the file path from the URL
-        const fileUrl = new URL(fileToRemove.url);
-        const pathParts = fileUrl.pathname.split('/');
+        // Get path from BunnyCDN URL
+        const bunnyPath = getPathFromBunnyUrl(fileToRemove.url);
         
-        // Find the index of 'creator_files' in the path
-        const creatorFilesIndex = pathParts.findIndex(part => part === 'creator_files');
-        
-        if (creatorFilesIndex !== -1 && creatorFilesIndex + 1 < pathParts.length) {
-          // Get the path after 'creator_files/'
-          const storagePath = pathParts.slice(creatorFilesIndex + 1).join('/');
-          
-          console.log('Removing voice file from storage path:', storagePath);
-          
-          const { error: deleteError } = await supabase.storage
-            .from('creator_files')
-            .remove([storagePath]);
-          
-          if (deleteError) {
-            console.error('Error deleting voice file from storage:', deleteError);
-            throw deleteError;
-          }
-          
-          console.log('Successfully deleted voice file from storage:', storagePath);
+        if (bunnyPath) {
+          console.log('Removing voice file from BunnyCDN:', bunnyPath);
+          await deleteFromBunny(bunnyPath);
+          console.log('Successfully deleted voice file from BunnyCDN');
         } else {
-          console.warn('Could not determine correct storage path from URL:', fileToRemove.url);
+          console.warn('Could not determine correct path from URL:', fileToRemove.url);
         }
       } catch (storageError) {
         console.warn('Error removing voice file from storage:', storageError);
         // Continue with UI removal even if storage removal fails
       }
       
-      // Update voice files state and profile
+      // Update voice files state
       const updatedVoiceFiles = voiceFiles.filter(file => file.id !== id);
       setVoiceFiles(updatedVoiceFiles);
       
+      // Important: Only update the profile with the JSON data, not the actual File objects
       await updateProfile({
-        voice_files: updatedVoiceFiles
+        voice_files: updatedVoiceFiles.map(voice => ({
+          id: voice.id,
+          name: voice.name,
+          size: voice.size,
+          type: voice.type,
+          url: voice.url,
+          duration: voice.duration
+        }))
       });
       
       toast({
@@ -496,8 +515,16 @@ const VoiceUpload = ({
     try {
       setSelectedVoice(voice);
       
+      // Important: Only update the profile with the JSON data, not the actual File object
       await updateProfile({
-        selected_voice: voice
+        selected_voice: {
+          id: voice.id,
+          name: voice.name,
+          size: voice.size,
+          type: voice.type,
+          url: voice.url,
+          duration: voice.duration
+        }
       });
       
       toast({
