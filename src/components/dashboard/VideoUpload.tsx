@@ -120,8 +120,8 @@ const VideoUpload = ({
           setUploadingVideos(uploadingProgress);
           
           const fileExt = file.name.split('.').pop();
-          const fileName = `${userId}/${uuidv4()}.${fileExt}`;
-          const filePath = `videos/${fileName}`;
+          const fileName = `${uuidv4()}.${fileExt}`;
+          const filePath = `videos/${userId}/${fileName}`;
           
           // Update progress
           const progressCallback = (progress: number) => {
@@ -146,7 +146,8 @@ const VideoUpload = ({
             });
           }, 500);
           
-          // Upload to BunnyCDN instead of Supabase
+          // Upload to BunnyCDN
+          console.log(`Uploading file to BunnyCDN path: ${filePath}`);
           const bunnyUrl = await uploadToBunny(file, filePath);
           
           clearInterval(progressInterval);
@@ -161,6 +162,8 @@ const VideoUpload = ({
             url: bunnyUrl,
             duration: duration
           };
+          
+          console.log("Video uploaded successfully to BunnyCDN:", newVideo);
           
           const newVideos = [...videos, newVideo];
           setVideos(newVideos);

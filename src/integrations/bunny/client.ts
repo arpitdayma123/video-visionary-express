@@ -19,13 +19,17 @@ export const uploadToBunny = async (file: File, path: string): Promise<string> =
   console.log(`Uploading to BunnyCDN: ${path}`);
   
   try {
+    // Convert File to ArrayBuffer
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = new Uint8Array(arrayBuffer);
+    
     const response = await fetch(`${BUNNY_STORAGE_URL}/${path}`, {
       method: 'PUT',
       headers: {
         'AccessKey': BUNNY_API_KEY,
         'Content-Type': 'application/octet-stream',
       },
-      body: file
+      body: buffer
     });
     
     if (!response.ok) {
