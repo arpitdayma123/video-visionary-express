@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -27,6 +26,7 @@ export type DashboardData = {
   scriptOption: string;
   customScript: string;
   isLoading: boolean;
+  counter: number; // Added counter
 };
 
 export const useDashboardData = (user: User | null) => {
@@ -43,7 +43,8 @@ export const useDashboardData = (user: User | null) => {
     errorMessage: null,
     scriptOption: 'ai_find',
     customScript: '',
-    isLoading: true
+    isLoading: true,
+    counter: 0 // Added default counter
   });
 
   useEffect(() => {
@@ -146,6 +147,10 @@ export const useDashboardData = (user: User | null) => {
         if (profile.custom_script) {
           updatedData.customScript = profile.custom_script;
         }
+
+        if (profile.counter !== undefined) {
+          updatedData.counter = profile.counter;
+        }
         
         setData(updatedData);
       } catch (error) {
@@ -174,6 +179,29 @@ export const useDashboardData = (user: User | null) => {
       toast({
         title: 'Update Failed',
         description: 'Failed to update your profile.',
+        variant: 'destructive'
+      });
+    }
+  };
+  
+  // New method to update counter
+  const updateCounter = async (newCounter: number) => {
+    if (!user) return;
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ counter: newCounter })
+        .eq('id', user.id);
+      
+      if (error) throw error;
+      
+      setData(prev => ({ ...prev, counter: newCounter }));
+      console.log('Counter updated successfully');
+    } catch (error) {
+      console.error('Error updating counter:', error);
+      toast({
+        title: 'Update Failed',
+        description: 'Failed to update counter.',
         variant: 'destructive'
       });
     }
@@ -218,6 +246,7 @@ export const useDashboardData = (user: User | null) => {
   return {
     ...data,
     updateProfile,
+    updateCounter, // Added new method
     setVideos,
     setVoiceFiles,
     setSelectedVideo,

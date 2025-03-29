@@ -80,6 +80,7 @@ export type Database = {
       profiles: {
         Row: {
           competitors: string[] | null
+          counter: number
           created_at: string | null
           credit: number
           custom_script: string | null
@@ -98,6 +99,7 @@ export type Database = {
         }
         Insert: {
           competitors?: string[] | null
+          counter?: number
           created_at?: string | null
           credit?: number
           custom_script?: string | null
@@ -116,6 +118,7 @@ export type Database = {
         }
         Update: {
           competitors?: string[] | null
+          counter?: number
           created_at?: string | null
           credit?: number
           custom_script?: string | null
