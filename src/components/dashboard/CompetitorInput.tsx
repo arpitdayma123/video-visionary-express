@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { User, Plus, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -25,6 +24,9 @@ const CompetitorInput = ({
     
     if (newCompetitor.trim() === '') return;
     
+    // Convert username to lowercase
+    const lowercaseUsername = newCompetitor.trim().toLowerCase();
+    
     // Check for maximum competitors
     if (competitors.length >= 15) {
       toast({
@@ -35,8 +37,8 @@ const CompetitorInput = ({
       return;
     }
     
-    // Check for duplicate usernames
-    if (competitors.includes(newCompetitor.trim())) {
+    // Check for duplicate usernames (case insensitive)
+    if (competitors.includes(lowercaseUsername)) {
       toast({
         title: "Duplicate username",
         description: "This username has already been added.",
@@ -46,7 +48,7 @@ const CompetitorInput = ({
     }
     
     try {
-      const updatedCompetitors = [...competitors, newCompetitor.trim()];
+      const updatedCompetitors = [...competitors, lowercaseUsername];
       setCompetitors(updatedCompetitors);
       setNewCompetitor('');
       await updateProfile({
