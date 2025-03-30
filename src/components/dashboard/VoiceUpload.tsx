@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Upload, Trash2, Check, Mic, Square, Pause, FileAudio, AlertTriangle } from 'lucide-react';
+import { Upload, Trash2, Check, Mic, FileAudio, AlertTriangle } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -8,7 +8,6 @@ import { useToast } from '@/hooks/use-toast';
 import { v4 as uuidv4 } from 'uuid';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import AudioRecorder, { RecordingStatus } from '@/utils/audioRecorder';
 import { uploadToBunny, deleteFromBunny, getPathFromBunnyUrl } from '@/integrations/bunny/client';
 
 type UploadedFile = {
@@ -42,36 +41,6 @@ const VoiceUpload = ({
   const [uploadingVoices, setUploadingVoices] = useState<{
     [key: string]: number;
   }>({});
-
-  // Voice recording states
-  const [recordingStatus, setRecordingStatus] = useState<RecordingStatus>('inactive');
-  const [recordingTime, setRecordingTime] = useState(0);
-  const [recordingBlob, setRecordingBlob] = useState<Blob | null>(null);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const audioRecorderRef = useRef<AudioRecorder | null>(null);
-  
-  // Initialize audio recorder
-  useEffect(() => {
-    audioRecorderRef.current = new AudioRecorder({
-      onStatusChange: (status) => setRecordingStatus(status),
-      onTimeUpdate: (seconds) => setRecordingTime(seconds),
-      onError: (error) => {
-        console.error('Recording error:', error);
-        toast({
-          title: "Recording Error",
-          description: error.message || "An error occurred during recording",
-          variant: "destructive"
-        });
-      }
-    });
-    
-    return () => {
-      // Clean up on component unmount
-      if (audioRecorderRef.current && audioRecorderRef.current.getStatus() !== 'inactive') {
-        audioRecorderRef.current.stop().catch(err => console.error('Error stopping recorder:', err));
-      }
-    };
-  }, [toast]);
 
   // Check if the maximum limit of voice files has been reached
   const hasReachedVoiceLimit = voiceFiles.length >= 5;
@@ -266,191 +235,6 @@ const VoiceUpload = ({
     }
   };
 
-  // Voice recording functions
-  const startRecording = async () => {
-    // Check if maximum limit has been reached
-    if (hasReachedVoiceLimit) {
-      toast({
-        title: "Maximum Limit Reached",
-        description: "You can only have 5 voice files. To record more, delete previous voices.",
-        variant: "destructive"
-      });
-      return;
-    }
-    
-    try {
-      if (audioRecorderRef.current) {
-        await audioRecorderRef.current.start();
-      }
-    } catch (error) {
-      console.error('Error starting recording:', error);
-      toast({
-        title: "Recording Failed",
-        description: "Could not access microphone. Please check your browser permissions.",
-        variant: "destructive"
-      });
-    }
-  };
-  
-  const pauseRecording = () => {
-    if (audioRecorderRef.current && recordingStatus === 'recording') {
-      audioRecorderRef.current.pause();
-    }
-  };
-  
-  const resumeRecording = () => {
-    if (audioRecorderRef.current && recordingStatus === 'paused') {
-      audioRecorderRef.current.resume();
-    }
-  };
-  
-  const stopRecording = async () => {
-    if (audioRecorderRef.current && recordingStatus !== 'inactive') {
-      try {
-        const blob = await audioRecorderRef.current.stop();
-        setRecordingBlob(blob);
-      } catch (error) {
-        console.error('Error stopping recording:', error);
-        toast({
-          title: "Recording Error",
-          description: "Failed to stop recording properly.",
-          variant: "destructive"
-        });
-      }
-    }
-  };
-  
-  const saveRecording = async () => {
-    if (!recordingBlob || !userId) return;
-    
-    try {
-      // Validate recording duration
-      if (recordingTime < 8) {
-        toast({
-          title: "Recording too short",
-          description: "Voice recording must be at least 8 seconds long.",
-          variant: "destructive"
-        });
-        return;
-      }
-      
-      setIsProcessing(true);
-      
-      // Show processing message
-      toast({
-        title: "Processing recording",
-        description: "Preparing your high-quality WAV recording...",
-      });
-      
-      const uploadId = uuidv4();
-      setUploadingVoices(prev => ({
-        ...prev,
-        [uploadId]: 0
-      }));
-
-      // Create file from WAV blob
-      const fileId = uuidv4();
-      const fileName = `recorded_voice_${fileId}.wav`;
-      const filePath = `voices/${userId}/${fileName}`;
-
-      // Upload progress simulation
-      const progressInterval = setInterval(() => {
-        setUploadingVoices(current => {
-          const currentProgress = current[uploadId] || 0;
-          if (currentProgress >= 90) {
-            clearInterval(progressInterval);
-            return current;
-          }
-          return {
-            ...current,
-            [uploadId]: Math.min(90, currentProgress + 10)
-          };
-        });
-      }, 300);
-
-      console.log(`Uploading recorded voice to BunnyCDN: ${filePath}`);
-
-      // Upload to BunnyCDN
-      const bunnyUrl = await uploadToBunny(new File([recordingBlob], fileName, { type: 'audio/wav' }), filePath);
-        
-      clearInterval(progressInterval);
-      
-      setUploadingVoices(prev => ({
-        ...prev,
-        [uploadId]: 100
-      }));
-
-      console.log('Recorded voice file uploaded to BunnyCDN:', bunnyUrl);
-
-      // Create voice file object
-      const newVoiceFile = {
-        id: fileId,
-        name: fileName,
-        size: recordingBlob.size,
-        type: 'audio/wav',
-        url: bunnyUrl,
-        duration: recordingTime
-      };
-
-      // Update state
-      const updatedVoiceFiles = [...voiceFiles, newVoiceFile];
-      setVoiceFiles(updatedVoiceFiles);
-      setSelectedVoice(newVoiceFile);
-
-      // Clean up
-      setTimeout(() => {
-        setUploadingVoices(current => {
-          const updated = { ...current };
-          delete updated[uploadId];
-          return updated;
-        });
-      }, 1000);
-
-      // Reset recording state
-      setRecordingBlob(null);
-      setRecordingTime(0);
-
-      // Important: Only update the profile with the JSON data, not the actual blob
-      await updateProfile({
-        voice_files: updatedVoiceFiles.map(voice => ({
-          id: voice.id,
-          name: voice.name,
-          size: voice.size,
-          type: voice.type,
-          url: voice.url,
-          duration: voice.duration
-        })),
-        selected_voice: {
-          id: newVoiceFile.id,
-          name: newVoiceFile.name,
-          size: newVoiceFile.size,
-          type: newVoiceFile.type,
-          url: newVoiceFile.url,
-          duration: newVoiceFile.duration
-        }
-      });
-      
-      toast({
-        title: "Recording saved",
-        description: `Successfully saved as high-quality WAV format (${recordingTime} seconds).`
-      });
-    } catch (error) {
-      console.error('Error saving recording:', error);
-      toast({
-        title: "Save Failed",
-        description: "Failed to save voice recording.",
-        variant: "destructive"
-      });
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-  
-  const discardRecording = () => {
-    setRecordingBlob(null);
-    setRecordingTime(0);
-  };
-  
   const handleRemoveVoiceFile = async (id: string) => {
     try {
       const fileToRemove = voiceFiles.find(file => file.id === id);
@@ -547,7 +331,7 @@ const VoiceUpload = ({
         <Mic className="mr-2 h-5 w-5 text-primary" />
         <h2 className="text-2xl font-medium">Voice Upload</h2>
       </div>
-      <p className="text-muted-foreground mb-6">Choose to record or upload your voice (8-40 seconds) and select one voice to continue</p>
+      <p className="text-muted-foreground mb-6">Upload your voice (8-40 seconds) and select one voice to continue</p>
       
       {/* Add warning alert about supported languages */}
       <Alert variant="warning" className="mb-6 border-amber-500 bg-amber-500/10">
@@ -576,7 +360,7 @@ const VoiceUpload = ({
           </TabsTrigger>
           <TabsTrigger value="record" className="flex items-center gap-2">
             <Mic className="h-4 w-4" />
-            <span>Record Your Voice</span>
+            <span>Record Using Your Device</span>
           </TabsTrigger>
         </TabsList>
         
@@ -621,144 +405,40 @@ const VoiceUpload = ({
           </Card>
         </TabsContent>
         
-        {/* Record Tab Content */}
+        {/* Record Tab Content - Changed to instructions for using device's recording app */}
         <TabsContent value="record">
           <Card className="p-6">
-            {!recordingBlob ? (
-              <div className="mb-4">
-                {recordingStatus === 'inactive' ? (
-                  <div className="flex flex-col items-center text-center">
-                    <div className="bg-secondary/50 rounded-full p-8 mb-4">
-                      <Mic className="h-12 w-12 text-primary" />
-                    </div>
-                    <div className="text-center mb-4">
-                      <p className="text-sm mb-2 font-medium">Recording Tips:</p>
-                      <ul className="text-xs text-muted-foreground text-left list-disc pl-5 space-y-1">
-                        <li>Use a quiet environment with minimal background noise</li>
-                        <li>Speak clearly at a consistent volume</li>
-                        <li>Position yourself 6-12 inches from your microphone</li>
-                        <li>Avoid plosive sounds (p, b, t) by speaking at an angle</li>
-                      </ul>
-                    </div>
-                    <Button 
-                      type="button" 
-                      onClick={startRecording} 
-                      size="lg" 
-                      className="text-white px-6 flex items-center gap-2 mb-3 bg-primary" 
-                      disabled={hasReachedVoiceLimit}
-                    >
-                      <Mic className="h-4 w-4" />
-                      Start High-Quality Recording
-                    </Button>
-                    {hasReachedVoiceLimit ? (
-                      <p className="text-sm text-amber-600 font-medium">
-                        You've reached the limit of 5 voices. Delete existing voices to record more.
-                      </p>
-                    ) : (
-                      <p className="text-sm text-muted-foreground">Recording must be between 8-40 seconds</p>
-                    )}
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center">
-                    <div className="bg-black/5 dark:bg-white/5 p-6 rounded-xl mb-4 text-center">
-                      <div className="flex items-center justify-center gap-4 mb-4">
-                        <div className="w-3 h-3 rounded-full bg-red-500 animate-pulse"></div>
-                        <span className="text-2xl font-mono tabular-nums">{recordingTime}s</span>
-                        {recordingTime < 8 && (
-                          <span className="text-sm text-amber-500 font-medium">
-                            (Need {8 - recordingTime}s more)
-                          </span>
-                        )}
-                      </div>
-                      
-                      <div className="mb-4">
-                        <Progress value={recordingTime / 40 * 100} className="h-2" />
-                      </div>
-                      
-                      <div className="flex justify-center gap-3">
-                        {recordingStatus === 'paused' ? (
-                          <Button 
-                            type="button" 
-                            onClick={resumeRecording} 
-                            variant="outline" 
-                            className="gap-2"
-                          >
-                            <Mic className="h-4 w-4" />
-                            Resume
-                          </Button>
-                        ) : (
-                          <Button 
-                            type="button" 
-                            onClick={pauseRecording} 
-                            variant="outline" 
-                            className="gap-2"
-                          >
-                            <Pause className="h-4 w-4" />
-                            Pause
-                          </Button>
-                        )}
-                        
-                        <Button 
-                          type="button" 
-                          onClick={stopRecording} 
-                          variant="secondary" 
-                          className="gap-2"
-                        >
-                          <Square className="h-4 w-4" />
-                          Stop Recording
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                )}
+            <div className="flex flex-col items-center text-center">
+              <div className="bg-secondary/50 rounded-full p-8 mb-4">
+                <Mic className="h-12 w-12 text-primary" />
               </div>
-            ) : (
-              <div className="bg-card rounded-lg overflow-hidden p-4">
-                <div className="flex flex-col mb-3">
-                  <h4 className="text-sm font-medium mb-2">Review Recording</h4>
-                  <div className="bg-secondary/30 p-3 rounded-md mb-2">
-                    <audio src={URL.createObjectURL(recordingBlob)} className="w-full" controls />
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm text-muted-foreground">
-                      {recordingTime} seconds {recordingTime < 8 ? "(too short)" : ""}
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      {(recordingBlob.size / (1024 * 1024)).toFixed(2)} MB
-                    </p>
-                  </div>
-                </div>
-                <div className="flex gap-3 justify-end">
-                  <Button 
-                    type="button" 
-                    onClick={discardRecording} 
-                    variant="outline" 
-                    className="gap-2"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                    Discard
-                  </Button>
-                  <Button 
-                    type="button" 
-                    onClick={saveRecording} 
-                    className="bg-primary hover:bg-primary/90 text-white gap-2" 
-                    disabled={recordingTime < 8 || isProcessing}
-                  >
-                    {isProcessing ? (
-                      <div className="flex items-center">
-                        <div className="animate-spin mr-2 h-4 w-4 border-2 border-white border-opacity-50 border-t-white rounded-full"></div>
-                        Processing...
-                      </div>
-                    ) : (
-                      <>
-                        <Check className="h-4 w-4" />
-                        Save High-Quality WAV
-                      </>
-                    )}
-                  </Button>
+              
+              <h3 className="text-xl font-medium mb-4">Use Your Device's Recording App</h3>
+              
+              <div className="text-left max-w-md mx-auto space-y-4">
+                <p>Follow these steps to create a high-quality voice recording:</p>
+                
+                <ol className="list-decimal pl-5 space-y-2 text-muted-foreground">
+                  <li>Open the voice recording app on your device (Voice Memos on iPhone, Voice Recorder on Android)</li>
+                  <li>Find a quiet environment with minimal background noise</li>
+                  <li>Hold your device about 6-12 inches from your mouth</li>
+                  <li>Record your voice for 8-40 seconds (required length)</li>
+                  <li>Save the recording</li>
+                  <li>Upload the saved file using the "Upload Voice File" tab</li>
+                </ol>
+                
+                <div className="bg-secondary/30 p-4 rounded-md mt-4">
+                  <h4 className="font-medium mb-2">For best results:</h4>
+                  <ul className="list-disc pl-5 text-sm space-y-1 text-muted-foreground">
+                    <li>Speak clearly at a consistent volume</li>
+                    <li>Avoid background noise and echoes</li>
+                    <li>Use MP3 or WAV format (most recording apps support these)</li>
+                    <li>Record at least 8 seconds but no more than 40 seconds</li>
+                    <li>Avoid plosive sounds (p, b, t) by speaking at an angle</li>
+                  </ul>
                 </div>
               </div>
-            )}
+            </div>
           </Card>
         </TabsContent>
       </Tabs>
