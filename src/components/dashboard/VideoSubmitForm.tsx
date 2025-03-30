@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
@@ -192,8 +191,16 @@ const VideoSubmitForm = ({
     }
   };
 
-  const isFormComplete = videos.length > 0 && voiceFiles.length > 0 && selectedNiches.length > 0 && competitors.length > 0 && selectedVideo !== null && selectedVoice !== null && 
-    (scriptOption !== 'ig_reel' || (scriptOption === 'ig_reel' && reelUrl));
+  // Fix the type issue by ensuring isFormComplete is always a boolean
+  const isFormComplete = Boolean(
+    videos.length > 0 && 
+    voiceFiles.length > 0 && 
+    selectedNiches.length > 0 && 
+    competitors.length > 0 && 
+    selectedVideo !== null && 
+    selectedVoice !== null && 
+    (scriptOption !== 'ig_reel' || (scriptOption === 'ig_reel' && reelUrl))
+  );
 
   return (
     <form onSubmit={handleSubmit} className="space-y-12">
