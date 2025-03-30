@@ -87,6 +87,7 @@ export type Database = {
           email: string | null
           id: string
           message: string | null
+          reel_url: string | null
           result: Json | null
           script_option: string | null
           selected_niches: string[] | null
@@ -106,6 +107,7 @@ export type Database = {
           email?: string | null
           id: string
           message?: string | null
+          reel_url?: string | null
           result?: Json | null
           script_option?: string | null
           selected_niches?: string[] | null
@@ -125,6 +127,7 @@ export type Database = {
           email?: string | null
           id?: string
           message?: string | null
+          reel_url?: string | null
           result?: Json | null
           script_option?: string | null
           selected_niches?: string[] | null

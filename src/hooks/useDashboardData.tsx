@@ -25,8 +25,9 @@ export type DashboardData = {
   errorMessage: string | null;
   scriptOption: string;
   customScript: string;
+  reelUrl: string;  // Added reelUrl
   isLoading: boolean;
-  counter: number; // Added counter
+  counter: number;
 };
 
 export const useDashboardData = (user: User | null) => {
@@ -43,8 +44,9 @@ export const useDashboardData = (user: User | null) => {
     errorMessage: null,
     scriptOption: 'ai_find',
     customScript: '',
+    reelUrl: '',  // Added reelUrl with default empty string
     isLoading: true,
-    counter: 0 // Added default counter
+    counter: 0
   });
 
   useEffect(() => {
@@ -148,6 +150,11 @@ export const useDashboardData = (user: User | null) => {
           updatedData.customScript = profile.custom_script;
         }
 
+        // Load Instagram reel URL if available
+        if (profile.reel_url) {
+          updatedData.reelUrl = profile.reel_url;
+        }
+
         if (profile.counter !== undefined) {
           updatedData.counter = profile.counter;
         }
@@ -242,11 +249,15 @@ export const useDashboardData = (user: User | null) => {
   const setUserStatus = (status: string) => {
     setData(prev => ({ ...prev, userStatus: status }));
   };
+  
+  const setReelUrl = (url: string) => {
+    setData(prev => ({ ...prev, reelUrl: url }));
+  };
 
   return {
     ...data,
     updateProfile,
-    updateCounter, // Added new method
+    updateCounter,
     setVideos,
     setVoiceFiles,
     setSelectedVideo,
@@ -255,6 +266,7 @@ export const useDashboardData = (user: User | null) => {
     setCompetitors,
     setScriptOption,
     setCustomScript,
+    setReelUrl,  // Add the new setter
     setUserStatus
   };
 };

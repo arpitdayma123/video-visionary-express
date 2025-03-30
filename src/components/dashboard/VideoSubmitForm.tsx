@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
@@ -21,6 +22,7 @@ interface VideoSubmitFormProps {
   userStatus: string;
   scriptOption: string;
   customScript: string;
+  reelUrl: string;
   setVideos: (videos: UploadedFile[]) => void;
   setVoiceFiles: (voiceFiles: UploadedFile[]) => void;
   setSelectedVideo: (video: UploadedFile | null) => void;
@@ -29,6 +31,7 @@ interface VideoSubmitFormProps {
   setCompetitors: (competitors: string[]) => void;
   setScriptOption: (option: string) => void;
   setCustomScript: (script: string) => void;
+  setReelUrl: (url: string) => void;
   setUserStatus: (status: string) => void;
   updateProfile: (updates: any) => Promise<void>;
 }
@@ -45,6 +48,7 @@ const VideoSubmitForm = ({
   userStatus,
   scriptOption,
   customScript,
+  reelUrl,
   setVideos,
   setVoiceFiles,
   setSelectedVideo,
@@ -53,6 +57,7 @@ const VideoSubmitForm = ({
   setCompetitors,
   setScriptOption,
   setCustomScript,
+  setReelUrl,
   setUserStatus,
   updateProfile
 }: VideoSubmitFormProps) => {
@@ -90,6 +95,16 @@ const VideoSubmitForm = ({
       return;
     }
     
+    // Special validation for Instagram reel option
+    if (scriptOption === 'ig_reel' && !reelUrl) {
+      toast({
+        title: "Missing Instagram Reel URL",
+        description: "Please provide an Instagram reel URL to proceed.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     try {
       if (!userId) {
         throw new Error('User not authenticated');
@@ -104,7 +119,8 @@ const VideoSubmitForm = ({
       const params = new URLSearchParams({
         userId: userId,
         scriptOption: scriptOption,
-        customScript: (scriptOption === 'custom' || scriptOption === 'ai_remake') ? customScript : ''
+        customScript: (scriptOption === 'custom' || scriptOption === 'ai_remake') ? customScript : '',
+        reelUrl: scriptOption === 'ig_reel' ? reelUrl : ''
       });
       
       // Improved fetch with better error handling and timeout
@@ -176,7 +192,8 @@ const VideoSubmitForm = ({
     }
   };
 
-  const isFormComplete = videos.length > 0 && voiceFiles.length > 0 && selectedNiches.length > 0 && competitors.length > 0 && selectedVideo !== null && selectedVoice !== null;
+  const isFormComplete = videos.length > 0 && voiceFiles.length > 0 && selectedNiches.length > 0 && competitors.length > 0 && selectedVideo !== null && selectedVoice !== null && 
+    (scriptOption !== 'ig_reel' || (scriptOption === 'ig_reel' && reelUrl));
 
   return (
     <form onSubmit={handleSubmit} className="space-y-12">

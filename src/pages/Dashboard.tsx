@@ -21,6 +21,7 @@ const Dashboard = () => {
     errorMessage,
     scriptOption,
     customScript,
+    reelUrl,
     isLoading,
     updateProfile,
     setVideos,
@@ -31,6 +32,7 @@ const Dashboard = () => {
     setCompetitors,
     setScriptOption,
     setCustomScript,
+    setReelUrl,
     setUserStatus
   } = useDashboardData(user);
 
@@ -62,6 +64,7 @@ const Dashboard = () => {
           userStatus={userStatus}
           scriptOption={scriptOption}
           customScript={customScript}
+          reelUrl={reelUrl}
           setVideos={setVideos}
           setVoiceFiles={setVoiceFiles}
           setSelectedVideo={setSelectedVideo}
@@ -70,6 +73,7 @@ const Dashboard = () => {
           setCompetitors={setCompetitors}
           setScriptOption={setScriptOption}
           setCustomScript={setCustomScript}
+          setReelUrl={setReelUrl}
           setUserStatus={setUserStatus}
           updateProfile={updateProfile}
         />
