@@ -1,5 +1,6 @@
+
 import React, { useState, useRef, useEffect } from 'react';
-import { Upload, Trash2, Check, Mic, FileAudio, AlertTriangle, Phone } from 'lucide-react';
+import { Upload, Trash2, Check, Mic, FileAudio, AlertTriangle } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -324,44 +325,6 @@ const VoiceUpload = ({
     }
   };
 
-  // Handle native recording app launch
-  const launchRecordingApp = () => {
-    try {
-      // For iOS devices
-      if (/(iPhone|iPad|iPod)/i.test(navigator.userAgent)) {
-        // Create a deep link to Voice Memos app
-        window.location.href = 'voice-memos://';
-        
-        toast({
-          title: "Opening Voice Memos",
-          description: "Attempting to open Voice Memos app on your device."
-        });
-      } 
-      // For Android devices
-      else if (/android/i.test(navigator.userAgent)) {
-        // Intent to open the default recording app
-        window.location.href = 'intent://com.android.soundrecorder/#Intent;scheme=android-app;end';
-        
-        toast({
-          title: "Opening Voice Recorder",
-          description: "Attempting to open Voice Recorder app on your device."
-        });
-      } else {
-        toast({
-          title: "Device Not Supported",
-          description: "Please open your recording app manually."
-        });
-      }
-    } catch (error) {
-      console.error('Error launching recording app:', error);
-      toast({
-        title: "Cannot Launch App",
-        description: "Please open your recording app manually.",
-        variant: "destructive"
-      });
-    }
-  };
-
   return (
     <section className="animate-fade-in">
       <div className="flex items-center mb-4">
@@ -442,7 +405,7 @@ const VoiceUpload = ({
           </Card>
         </TabsContent>
         
-        {/* Record Tab Content - Modified to include a button to launch the recording app */}
+        {/* Record Tab Content - Changed to instructions for using device's recording app */}
         <TabsContent value="record">
           <Card className="p-6">
             <div className="flex flex-col items-center text-center">
@@ -451,16 +414,6 @@ const VoiceUpload = ({
               </div>
               
               <h3 className="text-xl font-medium mb-4">Use Your Device's Recording App</h3>
-              
-              {/* New button to launch recording app */}
-              <Button 
-                onClick={launchRecordingApp} 
-                className="mb-6 bg-primary hover:bg-primary/90"
-                size="lg"
-              >
-                <Phone className="mr-2 h-5 w-5" />
-                Open Recording App
-              </Button>
               
               <div className="text-left max-w-md mx-auto space-y-4">
                 <p>Follow these steps to create a high-quality voice recording:</p>
