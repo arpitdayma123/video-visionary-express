@@ -17,10 +17,19 @@ const Tutorial = () => {
     // Mark the user as having seen the tutorial
     if (user) {
       try {
-        await supabase
+        // Use update with typesafe fields
+        const { error } = await supabase
           .from('profiles')
-          .update({ has_seen_tutorial: true })
+          .update({
+            // Using a cast to inform TypeScript that we know what we're doing
+            // This is a workaround until the types are updated
+            "has_seen_tutorial": true
+          } as any)
           .eq('id', user.id);
+          
+        if (error) {
+          console.error('Error updating profile:', error);
+        }
       } catch (error) {
         console.error('Error updating profile:', error);
       }

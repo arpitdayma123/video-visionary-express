@@ -18,14 +18,14 @@ const Auth = () => {
       const { data } = await supabase.auth.getSession();
       if (data.session) {
         // Get user profile to check if they've seen the tutorial
-        const { data: profileData } = await supabase
+        const { data: profileData, error } = await supabase
           .from('profiles')
-          .select('has_seen_tutorial')
+          .select('*')
           .eq('id', data.session.user.id)
           .single();
         
         // If new user or has not seen tutorial, redirect to tutorial
-        if (!profileData || profileData.has_seen_tutorial !== true) {
+        if (!profileData || error || profileData.has_seen_tutorial !== true) {
           navigate('/tutorial');
         } else {
           navigate('/dashboard');
@@ -40,10 +40,10 @@ const Auth = () => {
       // Check for '#' in URL which may contain auth tokens for providers like Google
       if (window.location.hash) {
         setLoading(true);
-        const { data, error } = await supabase.auth.getUser();
+        const { data, error: userError } = await supabase.auth.getUser();
         setLoading(false);
         
-        if (data?.user && !error) {
+        if (data?.user && !userError) {
           // Send welcome email for OAuth sign-ups
           try {
             await sendWelcomeEmail(data.user.email || '', data.user?.user_metadata?.full_name);
@@ -53,13 +53,13 @@ const Auth = () => {
           }
           
           // Check if user has seen tutorial
-          const { data: profileData } = await supabase
+          const { data: profileData, error } = await supabase
             .from('profiles')
-            .select('has_seen_tutorial')
+            .select('*')
             .eq('id', data.user.id)
             .single();
           
-          if (!profileData || profileData.has_seen_tutorial !== true) {
+          if (!profileData || error || profileData.has_seen_tutorial !== true) {
             navigate('/tutorial');
           } else {
             navigate('/dashboard');
@@ -80,13 +80,13 @@ const Auth = () => {
       async (event, session) => {
         if (event === 'SIGNED_IN' && session) {
           // Check if user has seen tutorial
-          const { data: profileData } = await supabase
+          const { data: profileData, error } = await supabase
             .from('profiles')
-            .select('has_seen_tutorial')
+            .select('*')
             .eq('id', session.user.id)
             .single();
           
-          if (!profileData || profileData.has_seen_tutorial !== true) {
+          if (!profileData || error || profileData.has_seen_tutorial !== true) {
             navigate('/tutorial');
           } else {
             navigate('/dashboard');
