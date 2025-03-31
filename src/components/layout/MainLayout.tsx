@@ -2,7 +2,7 @@
 import React from 'react';
 import { Toaster } from "@/components/ui/toaster";
 import { useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, Video, User, Settings, LogOut, CreditCard } from 'lucide-react';
+import { ArrowLeft, Video, User, Settings, LogOut, CreditCard, FileVideo, BookOpen } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   DropdownMenu,
@@ -83,6 +83,14 @@ const MainLayout = ({
                       <DropdownMenuItem onClick={() => navigate('/dashboard')}>
                         <Video className="mr-2 h-4 w-4" />
                         Dashboard
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => navigate('/tutorial')}>
+                        <BookOpen className="mr-2 h-4 w-4" />
+                        Tutorial
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => navigate('/results')}>
+                        <FileVideo className="mr-2 h-4 w-4" />
+                        Results
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => navigate('/buy-credits')}>
                         <CreditCard className="mr-2 h-4 w-4" />
