@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Upload, Trash2, Check, Mic, FileAudio, AlertTriangle } from 'lucide-react';
 import { Card } from '@/components/ui/card';
@@ -338,6 +337,16 @@ const VoiceUpload = ({
         <AlertTriangle className="h-4 w-4 text-amber-500" />
         <AlertDescription className="text-amber-600">
           <strong>Important:</strong> Please upload voice in a language we support. We currently support the following languages: English, Japanese, Chinese, French, and German.
+          <br /><br />
+          <strong>Voice Recording Tips:</strong>
+          <ul className="list-disc pl-5 mt-2 space-y-1">
+            <li>Ensure a clear, professional-sounding recording</li>
+            <li>Speak continuously without long pauses</li>
+            <li>Maintain a consistent volume and tone</li>
+            <li>Minimize background noise</li>
+            <li>Avoid filler words like "um" or "ah"</li>
+            <li>Speak naturally and confidently</li>
+          </ul>
         </AlertDescription>
       </Alert>
       
