@@ -17,7 +17,19 @@ const Auth = () => {
     const checkSession = async () => {
       const { data } = await supabase.auth.getSession();
       if (data.session) {
-        navigate('/dashboard');
+        // Get user profile to check if they've seen the tutorial
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('has_seen_tutorial')
+          .eq('id', data.session.user.id)
+          .single();
+        
+        // If new user or has not seen tutorial, redirect to tutorial
+        if (!profileData || profileData.has_seen_tutorial !== true) {
+          navigate('/tutorial');
+        } else {
+          navigate('/dashboard');
+        }
       }
     };
     
@@ -40,7 +52,19 @@ const Auth = () => {
             // Continue with sign-in flow even if email fails
           }
           
-          navigate('/dashboard');
+          // Check if user has seen tutorial
+          const { data: profileData } = await supabase
+            .from('profiles')
+            .select('has_seen_tutorial')
+            .eq('id', data.user.id)
+            .single();
+          
+          if (!profileData || profileData.has_seen_tutorial !== true) {
+            navigate('/tutorial');
+          } else {
+            navigate('/dashboard');
+          }
+          
           toast({
             title: "Authentication successful",
             description: "You've been signed in.",
@@ -53,9 +77,20 @@ const Auth = () => {
 
     // Set up auth state listener
     const { data: authListener } = supabase.auth.onAuthStateChange(
-      (event, session) => {
+      async (event, session) => {
         if (event === 'SIGNED_IN' && session) {
-          navigate('/dashboard');
+          // Check if user has seen tutorial
+          const { data: profileData } = await supabase
+            .from('profiles')
+            .select('has_seen_tutorial')
+            .eq('id', session.user.id)
+            .single();
+          
+          if (!profileData || profileData.has_seen_tutorial !== true) {
+            navigate('/tutorial');
+          } else {
+            navigate('/dashboard');
+          }
         }
       }
     );
