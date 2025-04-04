@@ -23,6 +23,8 @@ const Auth = () => {
         lastName = nameParts.slice(1).join(' ');
       }
 
+      console.log("Calling add-to-resend-audience with:", { email, first_name: firstName, last_name: lastName });
+
       const { data, error } = await supabase.functions.invoke("add-to-resend-audience", {
         body: { 
           email, 
@@ -55,7 +57,7 @@ const Auth = () => {
         
         // Add existing user to Resend audience
         if (data.session.user.email) {
-          addUserToResendAudience(
+          await addUserToResendAudience(
             data.session.user.email, 
             data.session.user.user_metadata?.full_name
           );
@@ -83,7 +85,7 @@ const Auth = () => {
         if (data?.user && !userError) {
           // Add OAuth user to Resend audience
           if (data.user.email) {
-            addUserToResendAudience(
+            await addUserToResendAudience(
               data.user.email, 
               data.user.user_metadata?.full_name
             );
@@ -123,10 +125,11 @@ const Auth = () => {
     // Set up auth state listener
     const { data: authListener } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        console.log("Auth state changed:", event);
         if (event === 'SIGNED_IN' && session) {
           // Add user to Resend audience on sign-in
           if (session.user.email) {
-            addUserToResendAudience(
+            await addUserToResendAudience(
               session.user.email,
               session.user.user_metadata?.full_name
             );
