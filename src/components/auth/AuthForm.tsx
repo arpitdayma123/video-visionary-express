@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -73,7 +72,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onSignUp }) => {
 
         if (error) throw error;
 
-        // Call onSignUp callback if provided
+        // Call onSignUp callback if provided - this will add the user to Resend audience
         if (onSignUp) {
           await onSignUp(email, name);
         }

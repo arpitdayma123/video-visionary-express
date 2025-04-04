@@ -12,6 +12,35 @@ const Auth = () => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
 
+  // Function to add user to Resend audience
+  const addUserToResendAudience = async (email: string, name?: string) => {
+    try {
+      // Split name into first and last name if provided
+      let firstName = "", lastName = "";
+      if (name) {
+        const nameParts = name.split(' ');
+        firstName = nameParts[0];
+        lastName = nameParts.slice(1).join(' ');
+      }
+
+      const { data, error } = await supabase.functions.invoke("add-to-resend-audience", {
+        body: { 
+          email, 
+          first_name: firstName, 
+          last_name: lastName 
+        },
+      });
+
+      if (error) {
+        console.error("Error adding user to Resend audience:", error);
+      } else {
+        console.log("User added to Resend audience:", data);
+      }
+    } catch (error) {
+      console.error("Error in addUserToResendAudience:", error);
+    }
+  };
+
   useEffect(() => {
     // Check if user is already logged in
     const checkSession = async () => {
@@ -23,6 +52,14 @@ const Auth = () => {
           .select('*')
           .eq('id', data.session.user.id)
           .single();
+        
+        // Add existing user to Resend audience
+        if (data.session.user.email) {
+          addUserToResendAudience(
+            data.session.user.email, 
+            data.session.user.user_metadata?.full_name
+          );
+        }
         
         // If new user or has not seen tutorial, redirect to tutorial
         if (!profileData || error || profileData.has_seen_tutorial !== true) {
@@ -44,6 +81,14 @@ const Auth = () => {
         setLoading(false);
         
         if (data?.user && !userError) {
+          // Add OAuth user to Resend audience
+          if (data.user.email) {
+            addUserToResendAudience(
+              data.user.email, 
+              data.user.user_metadata?.full_name
+            );
+          }
+          
           // Send welcome email for OAuth sign-ups
           try {
             await sendWelcomeEmail(data.user.email || '', data.user?.user_metadata?.full_name);
@@ -79,6 +124,14 @@ const Auth = () => {
     const { data: authListener } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (event === 'SIGNED_IN' && session) {
+          // Add user to Resend audience on sign-in
+          if (session.user.email) {
+            addUserToResendAudience(
+              session.user.email,
+              session.user.user_metadata?.full_name
+            );
+          }
+          
           // Check if user has seen tutorial
           const { data: profileData, error } = await supabase
             .from('profiles')
@@ -111,6 +164,9 @@ const Auth = () => {
           </div>
         ) : (
           <AuthForm onSignUp={async (email, name) => {
+            // Add new user to Resend audience on sign up
+            await addUserToResendAudience(email, name);
+            
             try {
               await sendWelcomeEmail(email, name);
             } catch (error) {
