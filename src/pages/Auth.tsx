@@ -48,20 +48,27 @@ const Auth = () => {
     const checkSession = async () => {
       const { data } = await supabase.auth.getSession();
       if (data.session) {
+        console.log("Existing session found:", data.session.user.email);
+        
+        // Add existing user to Resend audience
+        if (data.session.user.email) {
+          try {
+            console.log("Adding existing user to Resend audience:", data.session.user.email);
+            await addUserToResendAudience(
+              data.session.user.email, 
+              data.session.user.user_metadata?.full_name
+            );
+          } catch (e) {
+            console.error("Failed to add existing user to audience:", e);
+          }
+        }
+        
         // Get user profile to check if they've seen the tutorial
         const { data: profileData, error } = await supabase
           .from('profiles')
           .select('*')
           .eq('id', data.session.user.id)
           .single();
-        
-        // Add existing user to Resend audience
-        if (data.session.user.email) {
-          await addUserToResendAudience(
-            data.session.user.email, 
-            data.session.user.user_metadata?.full_name
-          );
-        }
         
         // If new user or has not seen tutorial, redirect to tutorial
         if (!profileData || error || profileData.has_seen_tutorial !== true) {
@@ -83,12 +90,19 @@ const Auth = () => {
         setLoading(false);
         
         if (data?.user && !userError) {
+          console.log("OAuth user authenticated:", data.user.email);
+          
           // Add OAuth user to Resend audience
           if (data.user.email) {
-            await addUserToResendAudience(
-              data.user.email, 
-              data.user.user_metadata?.full_name
-            );
+            try {
+              console.log("Adding OAuth user to Resend audience:", data.user.email);
+              await addUserToResendAudience(
+                data.user.email, 
+                data.user.user_metadata?.full_name
+              );
+            } catch (e) {
+              console.error("Failed to add OAuth user to audience:", e);
+            }
           }
           
           // Send welcome email for OAuth sign-ups
@@ -127,12 +141,19 @@ const Auth = () => {
       async (event, session) => {
         console.log("Auth state changed:", event);
         if (event === 'SIGNED_IN' && session) {
+          console.log("User signed in:", session.user.email);
+          
           // Add user to Resend audience on sign-in
           if (session.user.email) {
-            await addUserToResendAudience(
-              session.user.email,
-              session.user.user_metadata?.full_name
-            );
+            try {
+              console.log("Adding signed-in user to Resend audience:", session.user.email);
+              await addUserToResendAudience(
+                session.user.email,
+                session.user.user_metadata?.full_name
+              );
+            } catch (e) {
+              console.error("Failed to add signed-in user to audience:", e);
+            }
           }
           
           // Check if user has seen tutorial
@@ -167,8 +188,14 @@ const Auth = () => {
           </div>
         ) : (
           <AuthForm onSignUp={async (email, name) => {
+            console.log("Sign-up callback triggered for:", email);
             // Add new user to Resend audience on sign up
-            await addUserToResendAudience(email, name);
+            try {
+              console.log("Adding new signup user to Resend audience:", email);
+              await addUserToResendAudience(email, name);
+            } catch (e) {
+              console.error("Failed to add new signup user to audience:", e);
+            }
             
             try {
               await sendWelcomeEmail(email, name);

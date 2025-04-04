@@ -74,6 +74,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onSignUp }) => {
 
         // Call onSignUp callback if provided - this will add the user to Resend audience
         if (onSignUp) {
+          console.log("Calling onSignUp callback with:", email, name);
           await onSignUp(email, name);
         }
 
@@ -123,6 +124,8 @@ const AuthForm: React.FC<AuthFormProps> = ({ onSignUp }) => {
   const handleSocialAuth = async (provider: 'google') => {
     setSocialLoading(provider);
     try {
+      console.log(`Attempting to sign in with ${provider}`);
+      
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
@@ -133,6 +136,10 @@ const AuthForm: React.FC<AuthFormProps> = ({ onSignUp }) => {
       console.log('Social sign in response:', { data, error });
 
       if (error) throw error;
+      
+      // Note: We can't call onSignUp here because OAuth redirects away from the page
+      // The Auth.tsx component will handle adding the user to Resend after redirect
+      
     } catch (error: any) {
       console.error('Social authentication error:', error);
       
