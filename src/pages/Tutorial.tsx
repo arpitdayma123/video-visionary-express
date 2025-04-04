@@ -65,7 +65,7 @@ const Tutorial = () => {
         <div className="w-full max-w-4xl mb-8">
           <div style={{position: 'relative', paddingTop: '56.25%'}}>
             <iframe 
-              src="https://iframe.mediadelivery.net/embed/402462/5965a119-cb3c-4b63-937f-a661531775c1?autoplay=true&loop=false&muted=false&preload=true&responsive=true" 
+              src="https://iframe.mediadelivery.net/embed/402462/1da615cd-6479-4589-9bfc-3e702a91333f?autoplay=true&loop=false&muted=false&preload=true&responsive=true" 
               loading="lazy" 
               style={{border: 0, position: 'absolute', top: 0, height: '100%', width: '100%'}} 
               allow="accelerometer;gyroscope;autoplay;encrypted-media;picture-in-picture;" 
