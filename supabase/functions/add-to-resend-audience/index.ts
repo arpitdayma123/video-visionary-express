@@ -32,7 +32,7 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   // Explicitly set the audience ID
-  const RESEND_AUDIENCE_ID = "24ff27e2-5b68-4555-bdb0-7853d06c7d96"; // Your audience ID
+  const RESEND_AUDIENCE_ID = "24ff27e2-5b68-4555-bdb0-7853d06c7d96";
 
   try {
     const { email, first_name, last_name }: UserData = await req.json();
@@ -47,7 +47,7 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    console.log(`Adding user ${email} to Resend audience ${RESEND_AUDIENCE_ID}`);
+    console.log(`Attempting to add user ${email} to Resend audience ${RESEND_AUDIENCE_ID}`);
 
     const response = await fetch(`https://api.resend.com/audiences/${RESEND_AUDIENCE_ID}/contacts`, {
       method: "POST",
@@ -68,6 +68,7 @@ const handler = async (req: Request): Promise<Response> => {
     try {
       responseData = JSON.parse(responseText);
     } catch (e) {
+      console.error("Failed to parse response:", responseText);
       responseData = { raw: responseText };
     }
 
@@ -82,7 +83,7 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    console.log("User added successfully to audience:", responseData);
+    console.log("User successfully added to audience:", responseData);
 
     return new Response(JSON.stringify(responseData), {
       status: 200,
@@ -92,7 +93,7 @@ const handler = async (req: Request): Promise<Response> => {
       },
     });
   } catch (error: any) {
-    console.error(`Error in add-to-resend-audience function: ${error.message}`, error);
+    console.error(`Unexpected error in add-to-resend-audience function: ${error.message}`, error);
     return new Response(
       JSON.stringify({ error: error.message }),
       {
