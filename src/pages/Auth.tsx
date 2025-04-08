@@ -71,9 +71,14 @@ const Auth = () => {
           .single();
         
         // If new user or has not seen tutorial, redirect to tutorial
-        if (!profileData || error || profileData.has_seen_tutorial !== true) {
+        if (!profileData || error) {
+          console.log("No profile found or error, redirecting to tutorial");
+          navigate('/tutorial');
+        } else if (profileData.has_seen_tutorial !== true) {
+          console.log("User has not seen tutorial, redirecting to tutorial");
           navigate('/tutorial');
         } else {
+          console.log("User has seen tutorial, redirecting to dashboard");
           navigate('/dashboard');
         }
       }
@@ -121,8 +126,10 @@ const Auth = () => {
             .single();
           
           if (!profileData || error || profileData.has_seen_tutorial !== true) {
+            console.log("OAuth user needs to see tutorial");
             navigate('/tutorial');
           } else {
+            console.log("OAuth user has seen tutorial");
             navigate('/dashboard');
           }
           
@@ -163,9 +170,13 @@ const Auth = () => {
             .eq('id', session.user.id)
             .single();
           
+          console.log("Profile data for redirection check:", profileData, error);
+          
           if (!profileData || error || profileData.has_seen_tutorial !== true) {
+            console.log("Redirecting new user to tutorial");
             navigate('/tutorial');
           } else {
+            console.log("Redirecting existing user to dashboard");
             navigate('/dashboard');
           }
         }
