@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
@@ -30,7 +29,7 @@ const ScriptSelection = ({
   const [reelUrl, setReelUrl] = useState('');
   const [isValidReelUrl, setIsValidReelUrl] = useState(true);
   const { toast } = useToast();
-  const MAX_WORDS = 150;
+  const MAX_WORDS = 200;
 
   useEffect(() => {
     // Calculate word count whenever customScript changes
@@ -138,7 +137,7 @@ const ScriptSelection = ({
           <RadioGroupItem value="custom" id="custom" />
           <div className="grid gap-1.5">
             <Label htmlFor="custom" className="font-medium">Use your own script</Label>
-            <p className="text-sm text-muted-foreground">Write your own script for the video (limit: 150 words)</p>
+            <p className="text-sm text-muted-foreground">Write your own script for the video (limit: 200 words)</p>
           </div>
         </div>
         
@@ -181,7 +180,7 @@ const ScriptSelection = ({
               <AlertTriangle className="h-4 w-4" />
               <AlertTitle>Word limit exceeded</AlertTitle>
               <AlertDescription>
-                Please reduce your script to 150 words or fewer.
+                Please reduce your script to 200 words or fewer.
               </AlertDescription>
             </Alert>
           )}
