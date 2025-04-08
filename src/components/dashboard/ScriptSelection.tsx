@@ -25,17 +25,20 @@ const ScriptSelection = ({
 }: ScriptSelectionProps) => {
   const [wordCount, setWordCount] = useState(0);
   const [isExceedingLimit, setIsExceedingLimit] = useState(false);
+  const [isUnderMinimumLimit, setIsUnderMinimumLimit] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [reelUrl, setReelUrl] = useState('');
   const [isValidReelUrl, setIsValidReelUrl] = useState(true);
   const { toast } = useToast();
   const MAX_WORDS = 200;
+  const MIN_WORDS = 30;
 
   useEffect(() => {
     // Calculate word count whenever customScript changes
     const words = customScript.trim() ? customScript.trim().split(/\s+/).length : 0;
     setWordCount(words);
     setIsExceedingLimit(words > MAX_WORDS);
+    setIsUnderMinimumLimit(words > 0 && words < MIN_WORDS);
   }, [customScript]);
 
   const handleScriptOptionChange = (value: string) => {
@@ -61,7 +64,7 @@ const ScriptSelection = ({
   };
 
   const handleSaveScript = async () => {
-    if (isExceedingLimit) return;
+    if (isExceedingLimit || isUnderMinimumLimit) return;
     
     setIsSaving(true);
     try {
@@ -162,7 +165,7 @@ const ScriptSelection = ({
         <div className="mt-6 animate-fade-in">
           <div className="flex justify-between items-center mb-2">
             <Label htmlFor="custom-script" className="font-medium">Your Script</Label>
-            <span className={`text-xs ${isExceedingLimit ? 'text-destructive' : 'text-muted-foreground'}`}>
+            <span className={`text-xs ${isExceedingLimit || isUnderMinimumLimit ? 'text-destructive' : 'text-muted-foreground'}`}>
               {wordCount}/{MAX_WORDS} words
             </span>
           </div>
@@ -172,7 +175,7 @@ const ScriptSelection = ({
             placeholder="Enter your script here..."
             value={customScript}
             onChange={handleCustomScriptChange}
-            className={`h-32 ${isExceedingLimit ? 'border-destructive' : ''}`}
+            className={`h-32 ${isExceedingLimit || isUnderMinimumLimit ? 'border-destructive' : ''}`}
           />
           
           {isExceedingLimit && (
@@ -184,11 +187,21 @@ const ScriptSelection = ({
               </AlertDescription>
             </Alert>
           )}
+
+          {isUnderMinimumLimit && (
+            <Alert variant="destructive" className="mt-2">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertTitle>Minimum word limit</AlertTitle>
+              <AlertDescription>
+                Your script must be at least 30 words long.
+              </AlertDescription>
+            </Alert>
+          )}
           
           <Button 
             onClick={handleSaveScript} 
             className="mt-4"
-            disabled={isExceedingLimit || !customScript.trim() || isSaving}
+            disabled={isExceedingLimit || isUnderMinimumLimit || !customScript.trim() || isSaving}
           >
             {isSaving ? 'Saving...' : 'Save Script'}
           </Button>
