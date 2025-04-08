@@ -13,8 +13,22 @@ const Tutorial = () => {
   const [loading, setLoading] = useState(false);
   const [countdown, setCountdown] = useState(15);
   const [buttonEnabled, setButtonEnabled] = useState(false);
+  const [pageReady, setPageReady] = useState(false);
+
+  // Make sure the tutorial page is properly initialized
+  useEffect(() => {
+    // Set page as ready after a short delay to ensure components mount properly
+    const timer = setTimeout(() => {
+      setPageReady(true);
+      console.log("Tutorial page ready");
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
+    if (!pageReady) return;
+
     const timer = setInterval(() => {
       setCountdown((prevCountdown) => {
         if (prevCountdown <= 1) {
@@ -27,7 +41,7 @@ const Tutorial = () => {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, []);
+  }, [pageReady]);
 
   const handleSkipTutorial = async () => {
     if (!buttonEnabled) return;
@@ -37,18 +51,18 @@ const Tutorial = () => {
     // Mark the user as having seen the tutorial
     if (user) {
       try {
-        // Use update with typesafe fields
+        console.log("Updating profile to mark tutorial as seen");
         const { error } = await supabase
           .from('profiles')
           .update({
-            // Using a cast to inform TypeScript that we know what we're doing
-            // This is a workaround until the types are updated
             "has_seen_tutorial": true
           } as any)
           .eq('id', user.id);
           
         if (error) {
           console.error('Error updating profile:', error);
+        } else {
+          console.log('Successfully marked tutorial as seen');
         }
       } catch (error) {
         console.error('Error updating profile:', error);
@@ -58,6 +72,17 @@ const Tutorial = () => {
     setLoading(false);
     navigate('/dashboard');
   };
+
+  // Show loading indicator while page is initializing
+  if (!pageReady) {
+    return (
+      <MainLayout title="Loading Tutorial..." subtitle="Please wait" showNav={false}>
+        <div className="flex justify-center items-center h-[60vh]">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+        </div>
+      </MainLayout>
+    );
+  }
 
   return (
     <MainLayout title="Welcome Tutorial" subtitle="Learn how to create your first video" showNav={false}>
