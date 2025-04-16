@@ -72,7 +72,11 @@ const AudioTrimmer: React.FC<AudioTrimmerProps> = ({ audioFile, onSave, onCancel
   };
 
   // Toggle play/pause
-  const togglePlayPause = () => {
+  const togglePlayPause = (e: React.MouseEvent<HTMLButtonElement>) => {
+    // Prevent event from bubbling up to the form
+    e.preventDefault();
+    e.stopPropagation();
+
     if (audioRef.current) {
       if (isPlaying) {
         audioRef.current.pause();
@@ -109,7 +113,11 @@ const AudioTrimmer: React.FC<AudioTrimmerProps> = ({ audioFile, onSave, onCancel
   };
 
   // Create the trimmed audio blob
-  const handleSaveTrim = async () => {
+  const handleSaveTrim = async (e: React.MouseEvent<HTMLButtonElement>) => {
+    // Prevent event from bubbling up to the form
+    e.preventDefault();
+    e.stopPropagation();
+
     if (!audioBuffer.current || !audioContext.current) return;
     
     try {
@@ -165,8 +173,21 @@ const AudioTrimmer: React.FC<AudioTrimmerProps> = ({ audioFile, onSave, onCancel
     }
   };
 
+  // Handle cancel button click
+  const handleCancel = (e: React.MouseEvent<HTMLButtonElement>) => {
+    // Prevent event from bubbling up to the form
+    e.preventDefault();
+    e.stopPropagation();
+    
+    onCancel();
+  };
+
   // Skip forward/backward 5 seconds
-  const skipForward = () => {
+  const skipForward = (e: React.MouseEvent<HTMLButtonElement>) => {
+    // Prevent event from bubbling up to the form
+    e.preventDefault();
+    e.stopPropagation();
+
     if (audioRef.current) {
       audioRef.current.currentTime = Math.min(
         audioRef.current.duration,
@@ -175,7 +196,11 @@ const AudioTrimmer: React.FC<AudioTrimmerProps> = ({ audioFile, onSave, onCancel
     }
   };
 
-  const skipBackward = () => {
+  const skipBackward = (e: React.MouseEvent<HTMLButtonElement>) => {
+    // Prevent event from bubbling up to the form
+    e.preventDefault();
+    e.stopPropagation();
+
     if (audioRef.current) {
       audioRef.current.currentTime = Math.max(
         0,
@@ -246,16 +271,27 @@ const AudioTrimmer: React.FC<AudioTrimmerProps> = ({ audioFile, onSave, onCancel
   // Calculate the trim duration
   const trimDuration = (trimRange[1] - trimRange[0]) / 1000;
 
+  // Stop any form submission when clicking inside the trimmer
+  const handleFormClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
   return (
-    <Card className="p-6 animate-fade-in">
+    <Card 
+      className="p-6 animate-fade-in" 
+      onClick={handleFormClick}
+      data-active-trimmer="true" // Add this data attribute to indicate active trimming
+    >
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <h3 className="text-lg font-medium">Trim Audio</h3>
           <Button 
             variant="ghost" 
             size="icon" 
-            onClick={onCancel} 
+            onClick={handleCancel} 
             aria-label="Cancel"
+            type="button"
           >
             <X className="h-4 w-4" />
           </Button>
@@ -325,6 +361,7 @@ const AudioTrimmer: React.FC<AudioTrimmerProps> = ({ audioFile, onSave, onCancel
               size="icon"
               onClick={skipBackward}
               aria-label="Skip backward 5 seconds"
+              type="button"
             >
               <SkipBack className="h-4 w-4" />
             </Button>
@@ -333,6 +370,7 @@ const AudioTrimmer: React.FC<AudioTrimmerProps> = ({ audioFile, onSave, onCancel
               variant="secondary"
               className="w-20"
               aria-label={isPlaying ? "Pause" : "Play"}
+              type="button"
             >
               {isPlaying ? <Pause className="h-4 w-4 mr-1" /> : <Play className="h-4 w-4 mr-1" />}
               {isPlaying ? "Pause" : "Play"}
@@ -342,6 +380,7 @@ const AudioTrimmer: React.FC<AudioTrimmerProps> = ({ audioFile, onSave, onCancel
               size="icon"
               onClick={skipForward}
               aria-label="Skip forward 5 seconds"
+              type="button"
             >
               <SkipForward className="h-4 w-4" />
             </Button>
@@ -351,7 +390,8 @@ const AudioTrimmer: React.FC<AudioTrimmerProps> = ({ audioFile, onSave, onCancel
         <div className="flex justify-end gap-2">
           <Button 
             variant="outline" 
-            onClick={onCancel}
+            onClick={handleCancel}
+            type="button"
           >
             Cancel
           </Button>
@@ -359,6 +399,7 @@ const AudioTrimmer: React.FC<AudioTrimmerProps> = ({ audioFile, onSave, onCancel
             onClick={handleSaveTrim}
             disabled={trimDuration < 8 || trimDuration > 40}
             className="gap-1"
+            type="button"
           >
             <Save className="h-4 w-4" />
             Save Trimmed Audio

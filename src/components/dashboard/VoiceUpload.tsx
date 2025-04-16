@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Upload, Trash2, Check, Mic, FileAudio, AlertTriangle, Scissors } from 'lucide-react';
 import { Card } from '@/components/ui/card';
@@ -80,7 +79,11 @@ const VoiceUpload = ({
   }, [isLiveRecording, toast, recordingStatus]);
 
   // Start recording
-  const startRecording = async () => {
+  const startRecording = async (e: React.MouseEvent<HTMLButtonElement>) => {
+    // Prevent form submission
+    e.preventDefault();
+    e.stopPropagation();
+    
     try {
       setIsLiveRecording(true);
       setRecordingTime(0);
@@ -114,7 +117,11 @@ const VoiceUpload = ({
   };
 
   // Stop recording
-  const stopRecording = async () => {
+  const stopRecording = async (e: React.MouseEvent<HTMLButtonElement>) => {
+    // Prevent form submission
+    e.preventDefault();
+    e.stopPropagation();
+    
     if (recorderRef.current && recordingStatus === 'recording') {
       try {
         const blob = await recorderRef.current.stop();
@@ -160,6 +167,10 @@ const VoiceUpload = ({
 
   // File upload handler now just prepares the file for preview/trimming
   const handleVoiceUpload = async (e: React.ChangeEvent<HTMLInputElement> | React.DragEvent<HTMLDivElement>) => {
+    // Prevent default actions and form submission
+    e.preventDefault();
+    e.stopPropagation();
+    
     if (!userId) {
       toast({
         title: "Authentication Error",
@@ -181,7 +192,6 @@ const VoiceUpload = ({
     let files: FileList | null = null;
     
     if ('dataTransfer' in e) {
-      e.preventDefault();
       files = e.dataTransfer.files;
       setIsDraggingVoice(false);
     } else if (e.target.files) {
@@ -331,7 +341,14 @@ const VoiceUpload = ({
   };
 
   // Cancel trimming and reset the UI state
-  const handleCancelTrim = () => {
+  const handleCancelTrim = (e?: React.MouseEvent) => {
+    // Add optional event parameter
+    if (e) {
+      // Prevent form submission if event is provided
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    
     setShowTrimmer(false);
     setSelectedFile(null);
     setRecordedBlob(null);
@@ -428,7 +445,7 @@ const VoiceUpload = ({
   };
 
   return (
-    <section className="animate-fade-in">
+    <section className="animate-fade-in" onClick={e => e.stopPropagation()}>
       {showTrimmer && selectedFile ? (
         <AudioTrimmer 
           audioFile={selectedFile} 

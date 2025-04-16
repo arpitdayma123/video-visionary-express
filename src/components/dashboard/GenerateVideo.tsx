@@ -74,6 +74,14 @@ const GenerateVideo = ({
 
   const handleGenerateClick = async (e: React.FormEvent) => {
     e.preventDefault();
+    e.stopPropagation();
+    
+    // Check if there's an active trimmer in the document, and if so, don't proceed
+    const hasActiveTrimmer = document.querySelector('[data-active-trimmer="true"]');
+    if (hasActiveTrimmer) {
+      console.log('Audio trimming is in progress, canceling video generation');
+      return;
+    }
     
     // Check network status before attempting to generate
     if (!checkNetworkStatus()) {
