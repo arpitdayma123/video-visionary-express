@@ -28,6 +28,7 @@ interface Region {
   color: string;
   resize: boolean;
   drag: boolean;
+  update: (params: Partial<Omit<Region, 'update'>>) => void;
 }
 
 const AudioTrimmer: React.FC<AudioTrimmerProps> = ({ audioFile, onSave, onCancel }) => {
