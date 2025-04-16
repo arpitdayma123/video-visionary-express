@@ -50,7 +50,7 @@ const GenerateVideo = ({
     
     // Set up a mutation observer to detect when the trimmer appears or disappears
     const observer = new MutationObserver(checkForActiveTrimmer);
-    observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-active-trimmer'] });
+    observer.observe(document.body, { childList: true, subtree: true });
     
     return () => observer.disconnect();
   }, []);
