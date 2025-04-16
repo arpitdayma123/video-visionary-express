@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -12,7 +11,6 @@ import {
   SkipForward,
   GripHorizontal
 } from 'lucide-react';
-import LoadingOverlay from './audio/LoadingOverlay';
 
 interface AudioTrimmerProps {
   audioFile: File;
@@ -26,9 +24,7 @@ const AudioTrimmer: React.FC<AudioTrimmerProps> = ({ audioFile, onSave, onCancel
   const [duration, setDuration] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
   const [trimRange, setTrimRange] = useState<[number, number]>([0, 100]);
-  const [isLoading, setIsLoading] = useState(false);
   const [waveformData, setWaveformData] = useState<number[]>([]);
-  const [isProcessing, setIsProcessing] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioContext = useRef<AudioContext | null>(null);
   const audioBuffer = useRef<AudioBuffer | null>(null);
@@ -44,7 +40,6 @@ const AudioTrimmer: React.FC<AudioTrimmerProps> = ({ audioFile, onSave, onCancel
   // Generate waveform data
   useEffect(() => {
     const generateWaveform = async () => {
-      setIsLoading(true);
       try {
         const context = new AudioContext();
         audioContext.current = context;
@@ -80,8 +75,6 @@ const AudioTrimmer: React.FC<AudioTrimmerProps> = ({ audioFile, onSave, onCancel
         setWaveformData(normalizedWaveform);
       } catch (error) {
         console.error('Error loading audio:', error);
-      } finally {
-        setIsLoading(false);
       }
     };
     
@@ -198,8 +191,6 @@ const AudioTrimmer: React.FC<AudioTrimmerProps> = ({ audioFile, onSave, onCancel
     if (!audioBuffer.current || !audioContext.current) return;
     
     try {
-      setIsProcessing(true);
-      
       // Calculate start and end in seconds
       const startSec = trimRange[0] / 1000;
       const endSec = trimRange[1] / 1000;
@@ -249,8 +240,6 @@ const AudioTrimmer: React.FC<AudioTrimmerProps> = ({ audioFile, onSave, onCancel
       onSave(wavBlob, trimmedDuration);
     } catch (error) {
       console.error('Error saving trimmed audio:', error);
-    } finally {
-      setIsProcessing(false);
     }
   };
 
@@ -364,10 +353,6 @@ const AudioTrimmer: React.FC<AudioTrimmerProps> = ({ audioFile, onSave, onCancel
       onClick={handleFormClick}
       data-active-trimmer="true" // Add this data attribute to indicate active trimming
     >
-      {(isLoading || isProcessing) && (
-        <LoadingOverlay message={isLoading ? "Analyzing audio..." : "Processing trim..."} />
-      )}
-      
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <h3 className="text-lg font-medium">Trim Audio</h3>
@@ -488,7 +473,7 @@ const AudioTrimmer: React.FC<AudioTrimmerProps> = ({ audioFile, onSave, onCancel
           </Button>
           <Button 
             onClick={handleSaveTrim}
-            disabled={trimDuration < 8 || trimDuration > 40 || isProcessing}
+            disabled={trimDuration < 8 || trimDuration > 40}
             className="gap-1"
             type="button"
           >

@@ -10,6 +10,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { uploadToBunny, deleteFromBunny, getPathFromBunnyUrl } from '@/integrations/bunny/client';
 import AudioRecorder, { RecordingStatus } from '@/utils/audioRecorder';
 import AudioTrimmer from './AudioTrimmer';
+import LoadingOverlay from './audio/LoadingOverlay';
 
 type UploadedFile = {
   id: string;
@@ -641,7 +642,7 @@ const VoiceUpload = ({
 
           {/* Upload progress indicators */}
           {Object.keys(uploadingVoices).length > 0 && (
-            <div className="mt-4 space-y-3">
+            <div className="mt-4 space-y-3 relative">
               <h4 className="text-sm font-medium">Uploading voice files...</h4>
               {Object.keys(uploadingVoices).map(id => (
                 <div key={id} className="space-y-1">
@@ -652,6 +653,7 @@ const VoiceUpload = ({
                   <Progress value={uploadingVoices[id]} className="h-2" />
                 </div>
               ))}
+              <LoadingOverlay message="Uploading voice to server..." />
             </div>
           )}
 
