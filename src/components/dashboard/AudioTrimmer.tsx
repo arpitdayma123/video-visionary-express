@@ -28,10 +28,12 @@ const AudioTrimmer: React.FC<AudioTrimmerProps> = ({ audioFile, onSave, onCancel
   const [trimRange, setTrimRange] = useState<[number, number]>([0, 100]);
   const [waveformData, setWaveformData] = useState<number[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+  const [isDragging, setIsDragging] = useState<'start' | 'end' | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioContext = useRef<AudioContext | null>(null);
   const audioBuffer = useRef<AudioBuffer | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
 
   // Create audio URL for preview
   useEffect(() => {
@@ -180,10 +182,55 @@ const AudioTrimmer: React.FC<AudioTrimmerProps> = ({ audioFile, onSave, onCancel
     }
   }, [currentTime, trimRange, isPlaying]);
 
-  // Handle trim range change
+  // Handle trim range change from slider
   const handleTrimChange = (values: number[]) => {
     setTrimRange([values[0], values[1]]);
   };
+
+  // Manual drag handlers for trim points
+  const handleMouseDown = (position: 'start' | 'end') => (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(position);
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging || !containerRef.current) return;
+    
+    const rect = containerRef.current.getBoundingClientRect();
+    const offsetX = e.clientX - rect.left;
+    const percentage = offsetX / rect.width;
+    const newPosition = Math.max(0, Math.min(percentage * (duration * 1000), duration * 1000));
+    
+    if (isDragging === 'start') {
+      // Ensure start doesn't go beyond end point - 1 second minimum
+      const newStart = Math.min(newPosition, trimRange[1] - 1000);
+      setTrimRange([newStart, trimRange[1]]);
+    } else {
+      // Ensure end doesn't go below start point + 1 second minimum
+      const newEnd = Math.max(newPosition, trimRange[0] + 1000);
+      setTrimRange([trimRange[0], newEnd]);
+    }
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(null);
+  };
+
+  // Add mouse up event listener to window to handle when mouse is released outside component
+  useEffect(() => {
+    const handleGlobalMouseUp = () => {
+      setIsDragging(null);
+    };
+    
+    if (isDragging) {
+      window.addEventListener('mouseup', handleGlobalMouseUp);
+    }
+    
+    return () => {
+      window.removeEventListener('mouseup', handleGlobalMouseUp);
+    };
+  }, [isDragging]);
 
   // Create the trimmed audio blob
   const handleSaveTrim = async (e: React.MouseEvent<HTMLButtonElement>) => {
@@ -245,6 +292,7 @@ const AudioTrimmer: React.FC<AudioTrimmerProps> = ({ audioFile, onSave, onCancel
       onSave(wavBlob, trimmedDuration);
     } catch (error) {
       console.error('Error saving trimmed audio:', error);
+      setIsSaving(false);
     }
   };
 
@@ -406,7 +454,13 @@ const AudioTrimmer: React.FC<AudioTrimmerProps> = ({ audioFile, onSave, onCancel
           </div>
           
           {/* Waveform visualization */}
-          <div className="h-32 mb-4 relative">
+          <div 
+            ref={containerRef}
+            className="h-32 mb-4 relative" 
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseUp}
+          >
             <canvas 
               ref={canvasRef} 
               width={600} 
@@ -414,10 +468,11 @@ const AudioTrimmer: React.FC<AudioTrimmerProps> = ({ audioFile, onSave, onCancel
               className="w-full h-full bg-muted rounded-md"
             />
             
-            {/* Trim handles - now both with circular design */}
+            {/* Draggable circular trim handles */}
             <div 
               className="absolute top-0 h-full w-6 flex items-center justify-center cursor-ew-resize"
               style={{ left: `calc(${(trimRange[0] / (duration * 1000)) * 100}% - 12px)` }}
+              onMouseDown={handleMouseDown('start')}
             >
               <div className="h-6 w-6 bg-primary rounded-full flex items-center justify-center">
                 <CircleDot className="h-4 w-4 text-white" />
@@ -426,6 +481,7 @@ const AudioTrimmer: React.FC<AudioTrimmerProps> = ({ audioFile, onSave, onCancel
             <div 
               className="absolute top-0 h-full w-6 flex items-center justify-center cursor-ew-resize"
               style={{ left: `calc(${(trimRange[1] / (duration * 1000)) * 100}% - 12px)` }}
+              onMouseDown={handleMouseDown('end')}
             >
               <div className="h-6 w-6 bg-primary rounded-full flex items-center justify-center">
                 <CircleDot className="h-4 w-4 text-white" />
@@ -496,7 +552,7 @@ const AudioTrimmer: React.FC<AudioTrimmerProps> = ({ audioFile, onSave, onCancel
         </div>
 
         <div className="text-sm text-muted-foreground">
-          <p>Trim your audio to between 8 and 40 seconds by dragging the slider handles.</p>
+          <p>Trim your audio to between 8 and 40 seconds by dragging the slider handles or the circular trim points.</p>
         </div>
       </div>
     </Card>
