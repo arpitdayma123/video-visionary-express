@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
@@ -37,6 +37,23 @@ const GenerateVideo = ({
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingProgress, setProcessingProgress] = useState(0);
   const [networkError, setNetworkError] = useState(false);
+  const [hasTrimmerActive, setHasTrimmerActive] = useState(false);
+
+  useEffect(() => {
+    // Check for active trimmer on mount and when component updates
+    const checkForActiveTrimmer = () => {
+      const hasActiveTrimmer = document.querySelector('[data-active-trimmer="true"]') !== null;
+      setHasTrimmerActive(hasActiveTrimmer);
+    };
+    
+    checkForActiveTrimmer();
+    
+    // Set up a mutation observer to detect when the trimmer appears or disappears
+    const observer = new MutationObserver(checkForActiveTrimmer);
+    observer.observe(document.body, { childList: true, subtree: true });
+    
+    return () => observer.disconnect();
+  }, []);
 
   const getMissingSteps = () => {
     const steps = [];
@@ -76,10 +93,14 @@ const GenerateVideo = ({
     e.preventDefault();
     e.stopPropagation();
     
-    // Check if there's an active trimmer in the document, and if so, don't proceed
-    const hasActiveTrimmer = document.querySelector('[data-active-trimmer="true"]');
-    if (hasActiveTrimmer) {
+    // If there's an active trimmer, don't proceed
+    if (hasTrimmerActive) {
       console.log('Audio trimming is in progress, canceling video generation');
+      toast({
+        title: "Trimming in Progress",
+        description: "Please complete or cancel audio trimming before generating video.",
+        variant: "destructive"
+      });
       return;
     }
     
@@ -183,6 +204,12 @@ const GenerateVideo = ({
               Network connection issues detected.
             </div>
           )}
+          
+          {hasTrimmerActive && (
+            <div className="mt-2 text-sm font-medium text-amber-600 dark:text-amber-400">
+              Please complete audio trimming before generating a video.
+            </div>
+          )}
         </div>
         
         {isProcessing ? (
@@ -210,7 +237,7 @@ const GenerateVideo = ({
             )}
             <Button 
               type="button" 
-              disabled={!isFormComplete || userCredits < 1 || userStatus === 'Processing'} 
+              disabled={!isFormComplete || userCredits < 1 || userStatus === 'Processing' || hasTrimmerActive} 
               className="w-full sm:w-auto"
               onClick={handleGenerateClick}
             >

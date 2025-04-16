@@ -9,8 +9,10 @@ import {
   X, 
   SkipBack, 
   SkipForward,
-  AudioWaveform
+  Loader
 } from 'lucide-react';
+import WaveSurfer from 'wavesurfer.js';
+import RegionsPlugin from 'wavesurfer.js/dist/plugins/regions.js';
 
 interface AudioTrimmerProps {
   audioFile: File;
@@ -24,7 +26,11 @@ const AudioTrimmer: React.FC<AudioTrimmerProps> = ({ audioFile, onSave, onCancel
   const [duration, setDuration] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
   const [trimRange, setTrimRange] = useState<[number, number]>([0, 100]);
+  const [isWaveformReady, setIsWaveformReady] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const waveformRef = useRef<HTMLDivElement | null>(null);
+  const wavesurfer = useRef<WaveSurfer | null>(null);
+  const regionRef = useRef<any>(null);
   const audioContext = useRef<AudioContext | null>(null);
   const audioBuffer = useRef<AudioBuffer | null>(null);
 
@@ -34,6 +40,84 @@ const AudioTrimmer: React.FC<AudioTrimmerProps> = ({ audioFile, onSave, onCancel
     setAudioUrl(url);
     return () => URL.revokeObjectURL(url);
   }, [audioFile]);
+
+  // Initialize WaveSurfer
+  useEffect(() => {
+    if (waveformRef.current && audioUrl) {
+      // Clear previous instance
+      if (wavesurfer.current) {
+        wavesurfer.current.destroy();
+      }
+      
+      // Create new instance
+      const ws = WaveSurfer.create({
+        container: waveformRef.current,
+        waveColor: 'rgba(var(--primary), 0.3)',
+        progressColor: 'rgb(var(--primary))',
+        cursorColor: 'rgb(var(--primary))',
+        height: 80,
+        barWidth: 2,
+        barGap: 1,
+        barRadius: 2,
+        normalize: true,
+        plugins: [
+          RegionsPlugin.create({
+            regionsMinLength: 0.1,
+            dragSelection: false,
+            regions: [],
+          }),
+        ],
+      });
+      
+      wavesurfer.current = ws;
+      
+      // Load audio
+      ws.load(audioUrl);
+      
+      // Set up events
+      ws.on('ready', () => {
+        setDuration(ws.getDuration());
+        setIsWaveformReady(true);
+        
+        // Initialize region to full duration
+        const initialRegion = ws.plugins[0].addRegion({
+          start: 0,
+          end: ws.getDuration(),
+          color: 'rgba(var(--primary), 0.2)',
+          drag: false,
+          resize: true,
+        });
+        regionRef.current = initialRegion;
+        
+        // Set initial trim range
+        setTrimRange([0, ws.getDuration() * 1000]);
+      });
+      
+      ws.on('timeupdate', (time) => {
+        setCurrentTime(time);
+        if (regionRef.current && time >= regionRef.current.end) {
+          ws.pause();
+          ws.seekTo(regionRef.current.start / ws.getDuration());
+        }
+      });
+      
+      ws.on('play', () => setIsPlaying(true));
+      ws.on('pause', () => setIsPlaying(false));
+      
+      // Handle region updates
+      ws.on('region-update-end', (region) => {
+        const start = Math.max(0, region.start * 1000);
+        const end = Math.min(ws.getDuration() * 1000, region.end * 1000);
+        setTrimRange([start, end]);
+      });
+    }
+    
+    return () => {
+      if (wavesurfer.current) {
+        wavesurfer.current.destroy();
+      }
+    };
+  }, [audioUrl]);
 
   // Load audio file into AudioContext for trimming
   useEffect(() => {
@@ -45,11 +129,6 @@ const AudioTrimmer: React.FC<AudioTrimmerProps> = ({ audioFile, onSave, onCancel
         const arrayBuffer = await audioFile.arrayBuffer();
         const buffer = await context.decodeAudioData(arrayBuffer);
         audioBuffer.current = buffer;
-        
-        // Set the duration
-        setDuration(buffer.duration);
-        // Initial trim range is full audio
-        setTrimRange([0, buffer.duration * 1000]);
       } catch (error) {
         console.error('Error loading audio:', error);
       }
@@ -64,12 +143,22 @@ const AudioTrimmer: React.FC<AudioTrimmerProps> = ({ audioFile, onSave, onCancel
     };
   }, [audioFile]);
 
-  // Handle time update for audio playback
-  const handleTimeUpdate = () => {
-    if (audioRef.current) {
-      setCurrentTime(audioRef.current.currentTime);
+  // Update waveform position when trim range changes from slider
+  useEffect(() => {
+    if (wavesurfer.current && regionRef.current && isWaveformReady) {
+      // Only update if change didn't come from waveform itself
+      const region = regionRef.current;
+      const currentStartMs = region.start * 1000;
+      const currentEndMs = region.end * 1000;
+      
+      if (Math.abs(currentStartMs - trimRange[0]) > 10 || Math.abs(currentEndMs - trimRange[1]) > 10) {
+        region.update({
+          start: trimRange[0] / 1000,
+          end: trimRange[1] / 1000
+        });
+      }
     }
-  };
+  }, [trimRange, isWaveformReady]);
 
   // Toggle play/pause
   const togglePlayPause = (e: React.MouseEvent<HTMLButtonElement>) => {
@@ -77,37 +166,20 @@ const AudioTrimmer: React.FC<AudioTrimmerProps> = ({ audioFile, onSave, onCancel
     e.preventDefault();
     e.stopPropagation();
 
-    if (audioRef.current) {
+    if (wavesurfer.current) {
       if (isPlaying) {
-        audioRef.current.pause();
+        wavesurfer.current.pause();
       } else {
-        // If playing past trim end, reset to trim start
-        if (currentTime * 1000 > trimRange[1]) {
-          audioRef.current.currentTime = trimRange[0] / 1000;
+        // Set the playback to start of trim region
+        if (regionRef.current) {
+          wavesurfer.current.seekTo(regionRef.current.start / duration);
         }
-        
-        // If not within trim range, set to trim start
-        if (currentTime * 1000 < trimRange[0]) {
-          audioRef.current.currentTime = trimRange[0] / 1000;
-        }
-        
-        audioRef.current.play();
+        wavesurfer.current.play();
       }
-      setIsPlaying(!isPlaying);
     }
   };
 
-  // Change audio position to match trim position
-  useEffect(() => {
-    if (audioRef.current && isPlaying) {
-      // If playing past trim end, reset to trim start
-      if (currentTime * 1000 > trimRange[1]) {
-        audioRef.current.currentTime = trimRange[0] / 1000;
-      }
-    }
-  }, [currentTime, trimRange, isPlaying]);
-
-  // Handle trim range change
+  // Handle trim range change from slider
   const handleTrimChange = (values: number[]) => {
     setTrimRange([values[0], values[1]]);
   };
@@ -188,11 +260,12 @@ const AudioTrimmer: React.FC<AudioTrimmerProps> = ({ audioFile, onSave, onCancel
     e.preventDefault();
     e.stopPropagation();
 
-    if (audioRef.current) {
-      audioRef.current.currentTime = Math.min(
-        audioRef.current.duration,
-        audioRef.current.currentTime + 5
+    if (wavesurfer.current) {
+      const newTime = Math.min(
+        duration,
+        currentTime + 5
       );
+      wavesurfer.current.seekTo(newTime / duration);
     }
   };
 
@@ -201,11 +274,12 @@ const AudioTrimmer: React.FC<AudioTrimmerProps> = ({ audioFile, onSave, onCancel
     e.preventDefault();
     e.stopPropagation();
 
-    if (audioRef.current) {
-      audioRef.current.currentTime = Math.max(
+    if (wavesurfer.current) {
+      const newTime = Math.max(
         0,
-        audioRef.current.currentTime - 5
+        currentTime - 5
       );
+      wavesurfer.current.seekTo(newTime / duration);
     }
   };
 
@@ -301,10 +375,6 @@ const AudioTrimmer: React.FC<AudioTrimmerProps> = ({ audioFile, onSave, onCancel
           <audio 
             ref={audioRef} 
             src={audioUrl} 
-            onTimeUpdate={handleTimeUpdate}
-            onEnded={() => setIsPlaying(false)}
-            onPause={() => setIsPlaying(false)}
-            onPlay={() => setIsPlaying(true)}
             className="hidden"
           />
           
@@ -326,22 +396,13 @@ const AudioTrimmer: React.FC<AudioTrimmerProps> = ({ audioFile, onSave, onCancel
             <span>{formatTime(trimRange[1] / 1000)}</span>
           </div>
           
-          <div className="h-20 mb-4 bg-muted rounded-md flex items-center justify-center relative overflow-hidden">
-            <AudioWaveform className="h-10 w-full absolute opacity-20" />
-            <div 
-              className="absolute left-0 top-0 h-full bg-primary/20" 
-              style={{ 
-                left: `${(trimRange[0] / (duration * 1000)) * 100}%`,
-                width: `${((trimRange[1] - trimRange[0]) / (duration * 1000)) * 100}%`
-              }}
-            />
-            <div 
-              className="absolute top-0 h-full w-1 bg-primary"
-              style={{ 
-                left: `${(currentTime / duration) * 100}%`,
-                display: currentTime > 0 ? 'block' : 'none'
-              }}
-            />
+          <div className="mb-4 relative overflow-hidden rounded-md">
+            {!isWaveformReady && (
+              <div className="absolute inset-0 flex items-center justify-center bg-secondary z-10">
+                <Loader className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            )}
+            <div ref={waveformRef} className="h-20 w-full"></div>
           </div>
 
           <div className="mb-6">
@@ -407,7 +468,7 @@ const AudioTrimmer: React.FC<AudioTrimmerProps> = ({ audioFile, onSave, onCancel
         </div>
 
         <div className="text-sm text-muted-foreground">
-          <p>Trim your audio to between 8 and 40 seconds by dragging the slider handles.</p>
+          <p>Trim your audio to between 8 and 40 seconds by dragging the edges of the highlighted region or using the slider below.</p>
         </div>
       </div>
     </Card>

@@ -1,5 +1,6 @@
+
 import React, { useState, useRef, useEffect } from 'react';
-import { Upload, Trash2, Check, Mic, FileAudio, AlertTriangle, Scissors } from 'lucide-react';
+import { Upload, Trash2, Check, Mic, FileAudio, AlertTriangle, Scissors, Loader } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -45,6 +46,7 @@ const VoiceUpload = ({
   const [recordingStatus, setRecordingStatus] = useState<RecordingStatus>('inactive');
   const [recordingTime, setRecordingTime] = useState(0);
   const [isLiveRecording, setIsLiveRecording] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const recorderRef = useRef<AudioRecorder | null>(null);
   const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -226,6 +228,8 @@ const VoiceUpload = ({
     if (!selectedFile || !userId) return;
     
     try {
+      setIsUploading(true);
+      
       // Create a filename for the trimmed audio
       const originalName = selectedFile.name;
       const fileExt = originalName.split('.').pop() || 'wav';
@@ -297,6 +301,7 @@ const VoiceUpload = ({
           delete updated[uploadId];
           return updated;
         });
+        setIsUploading(false);
       }, 1000);
 
       // Update success message to include duration
@@ -337,6 +342,7 @@ const VoiceUpload = ({
         description: `Failed to upload the trimmed voice file.`,
         variant: "destructive"
       });
+      setIsUploading(false);
     }
   };
 
@@ -446,6 +452,25 @@ const VoiceUpload = ({
 
   return (
     <section className="animate-fade-in" onClick={e => e.stopPropagation()}>
+      {isUploading && (
+        <div className="fixed inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-50" onClick={e => e.stopPropagation()}>
+          <div className="bg-card rounded-lg p-6 shadow-lg flex flex-col items-center">
+            <Loader className="h-10 w-10 animate-spin text-primary mb-4" />
+            <h3 className="font-medium text-lg mb-2">Uploading Voice File</h3>
+            <p className="text-sm text-muted-foreground mb-4">Please wait while we process your audio...</p>
+            {Object.keys(uploadingVoices).length > 0 && Object.keys(uploadingVoices).map(key => (
+              <div key={key} className="w-full max-w-md">
+                <div className="flex justify-between text-xs text-muted-foreground mb-1">
+                  <span>Uploading audio</span>
+                  <span>{uploadingVoices[key]}%</span>
+                </div>
+                <Progress value={uploadingVoices[key]} className="h-2" />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      
       {showTrimmer && selectedFile ? (
         <AudioTrimmer 
           audioFile={selectedFile} 
