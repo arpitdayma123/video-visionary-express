@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -20,6 +21,15 @@ interface AudioTrimmerProps {
   onCancel: () => void;
 }
 
+interface Region {
+  start: number;
+  end: number;
+  id: string;
+  color: string;
+  resize: boolean;
+  drag: boolean;
+}
+
 const AudioTrimmer: React.FC<AudioTrimmerProps> = ({ audioFile, onSave, onCancel }) => {
   const [audioUrl, setAudioUrl] = useState<string>('');
   const [isPlaying, setIsPlaying] = useState(false);
@@ -30,7 +40,7 @@ const AudioTrimmer: React.FC<AudioTrimmerProps> = ({ audioFile, onSave, onCancel
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const waveformRef = useRef<HTMLDivElement | null>(null);
   const wavesurfer = useRef<WaveSurfer | null>(null);
-  const regionRef = useRef<any>(null);
+  const regionRef = useRef<Region | null>(null);
   const audioContext = useRef<AudioContext | null>(null);
   const audioBuffer = useRef<AudioBuffer | null>(null);
 
@@ -49,6 +59,9 @@ const AudioTrimmer: React.FC<AudioTrimmerProps> = ({ audioFile, onSave, onCancel
         wavesurfer.current.destroy();
       }
       
+      // Create regions plugin
+      const regionsPlugin = RegionsPlugin.create();
+      
       // Create new instance
       const ws = WaveSurfer.create({
         container: waveformRef.current,
@@ -60,13 +73,7 @@ const AudioTrimmer: React.FC<AudioTrimmerProps> = ({ audioFile, onSave, onCancel
         barGap: 1,
         barRadius: 2,
         normalize: true,
-        plugins: [
-          RegionsPlugin.create({
-            regionsMinLength: 0.1,
-            dragSelection: false,
-            regions: [],
-          }),
-        ],
+        plugins: [regionsPlugin],
       });
       
       wavesurfer.current = ws;
@@ -80,14 +87,16 @@ const AudioTrimmer: React.FC<AudioTrimmerProps> = ({ audioFile, onSave, onCancel
         setIsWaveformReady(true);
         
         // Initialize region to full duration
-        const initialRegion = ws.plugins[0].addRegion({
+        const initialRegion = regionsPlugin.addRegion({
           start: 0,
           end: ws.getDuration(),
           color: 'rgba(var(--primary), 0.2)',
           drag: false,
           resize: true,
         });
-        regionRef.current = initialRegion;
+        
+        // Store region reference
+        regionRef.current = initialRegion as unknown as Region;
         
         // Set initial trim range
         setTrimRange([0, ws.getDuration() * 1000]);
@@ -105,9 +114,10 @@ const AudioTrimmer: React.FC<AudioTrimmerProps> = ({ audioFile, onSave, onCancel
       ws.on('pause', () => setIsPlaying(false));
       
       // Handle region updates
-      ws.on('region-update-end', (region) => {
-        const start = Math.max(0, region.start * 1000);
-        const end = Math.min(ws.getDuration() * 1000, region.end * 1000);
+      regionsPlugin.on('region-updated', (region) => {
+        const regionObj = region as unknown as Region;
+        const start = Math.max(0, regionObj.start * 1000);
+        const end = Math.min(ws.getDuration() * 1000, regionObj.end * 1000);
         setTrimRange([start, end]);
       });
     }
