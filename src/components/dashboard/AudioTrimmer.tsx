@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,8 +10,9 @@ import {
   X, 
   SkipBack, 
   SkipForward,
-  GripHorizontal
+  CircleDot
 } from 'lucide-react';
+import LoadingOverlay from './audio/LoadingOverlay';
 
 interface AudioTrimmerProps {
   audioFile: File;
@@ -25,6 +27,7 @@ const AudioTrimmer: React.FC<AudioTrimmerProps> = ({ audioFile, onSave, onCancel
   const [currentTime, setCurrentTime] = useState(0);
   const [trimRange, setTrimRange] = useState<[number, number]>([0, 100]);
   const [waveformData, setWaveformData] = useState<number[]>([]);
+  const [isSaving, setIsSaving] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioContext = useRef<AudioContext | null>(null);
   const audioBuffer = useRef<AudioBuffer | null>(null);
@@ -191,6 +194,8 @@ const AudioTrimmer: React.FC<AudioTrimmerProps> = ({ audioFile, onSave, onCancel
     if (!audioBuffer.current || !audioContext.current) return;
     
     try {
+      setIsSaving(true);
+      
       // Calculate start and end in seconds
       const startSec = trimRange[0] / 1000;
       const endSec = trimRange[1] / 1000;
@@ -353,6 +358,10 @@ const AudioTrimmer: React.FC<AudioTrimmerProps> = ({ audioFile, onSave, onCancel
       onClick={handleFormClick}
       data-active-trimmer="true" // Add this data attribute to indicate active trimming
     >
+      {isSaving && (
+        <LoadingOverlay message="Processing audio..." />
+      )}
+      
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <h3 className="text-lg font-medium">Trim Audio</h3>
@@ -405,18 +414,22 @@ const AudioTrimmer: React.FC<AudioTrimmerProps> = ({ audioFile, onSave, onCancel
               className="w-full h-full bg-muted rounded-md"
             />
             
-            {/* Trim handles */}
+            {/* Trim handles - now both with circular design */}
             <div 
-              className="absolute top-0 h-full w-2 bg-primary opacity-80 cursor-ew-resize flex items-center justify-center"
-              style={{ left: `${(trimRange[0] / (duration * 1000)) * 100}%` }}
+              className="absolute top-0 h-full w-6 flex items-center justify-center cursor-ew-resize"
+              style={{ left: `calc(${(trimRange[0] / (duration * 1000)) * 100}% - 12px)` }}
             >
-              <GripHorizontal className="h-4 w-4 text-white" />
+              <div className="h-6 w-6 bg-primary rounded-full flex items-center justify-center">
+                <CircleDot className="h-4 w-4 text-white" />
+              </div>
             </div>
             <div 
-              className="absolute top-0 h-full w-2 bg-primary opacity-80 cursor-ew-resize flex items-center justify-center"
-              style={{ left: `${(trimRange[1] / (duration * 1000)) * 100}%` }}
+              className="absolute top-0 h-full w-6 flex items-center justify-center cursor-ew-resize"
+              style={{ left: `calc(${(trimRange[1] / (duration * 1000)) * 100}% - 12px)` }}
             >
-              <GripHorizontal className="h-4 w-4 text-white" />
+              <div className="h-6 w-6 bg-primary rounded-full flex items-center justify-center">
+                <CircleDot className="h-4 w-4 text-white" />
+              </div>
             </div>
           </div>
 
@@ -473,12 +486,12 @@ const AudioTrimmer: React.FC<AudioTrimmerProps> = ({ audioFile, onSave, onCancel
           </Button>
           <Button 
             onClick={handleSaveTrim}
-            disabled={trimDuration < 8 || trimDuration > 40}
+            disabled={trimDuration < 8 || trimDuration > 40 || isSaving}
             className="gap-1"
             type="button"
           >
             <Save className="h-4 w-4" />
-            Save Trimmed Audio
+            {isSaving ? 'Processing...' : 'Save Trimmed Audio'}
           </Button>
         </div>
 
