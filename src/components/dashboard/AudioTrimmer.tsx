@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,8 +10,9 @@ import {
   X, 
   SkipBack, 
   SkipForward,
-  AudioWaveform
+  GripHorizontal
 } from 'lucide-react';
+import LoadingOverlay from './audio/LoadingOverlay';
 
 interface AudioTrimmerProps {
   audioFile: File;
@@ -24,9 +26,13 @@ const AudioTrimmer: React.FC<AudioTrimmerProps> = ({ audioFile, onSave, onCancel
   const [duration, setDuration] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
   const [trimRange, setTrimRange] = useState<[number, number]>([0, 100]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [waveformData, setWaveformData] = useState<number[]>([]);
+  const [isProcessing, setIsProcessing] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioContext = useRef<AudioContext | null>(null);
   const audioBuffer = useRef<AudioBuffer | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   // Create audio URL for preview
   useEffect(() => {
@@ -35,9 +41,10 @@ const AudioTrimmer: React.FC<AudioTrimmerProps> = ({ audioFile, onSave, onCancel
     return () => URL.revokeObjectURL(url);
   }, [audioFile]);
 
-  // Load audio file into AudioContext for trimming
+  // Generate waveform data
   useEffect(() => {
-    const loadAudio = async () => {
+    const generateWaveform = async () => {
+      setIsLoading(true);
       try {
         const context = new AudioContext();
         audioContext.current = context;
@@ -50,12 +57,35 @@ const AudioTrimmer: React.FC<AudioTrimmerProps> = ({ audioFile, onSave, onCancel
         setDuration(buffer.duration);
         // Initial trim range is full audio
         setTrimRange([0, buffer.duration * 1000]);
+        
+        // Generate waveform data
+        const channelData = buffer.getChannelData(0);
+        const samples = 200; // Number of samples to take
+        const blockSize = Math.floor(channelData.length / samples);
+        const waveform: number[] = [];
+        
+        for (let i = 0; i < samples; i++) {
+          let blockStart = blockSize * i;
+          let sum = 0;
+          for (let j = 0; j < blockSize; j++) {
+            sum += Math.abs(channelData[blockStart + j] || 0);
+          }
+          waveform.push(sum / blockSize);
+        }
+        
+        // Normalize waveform data
+        const multiplier = Math.pow(Math.max(...waveform), -1);
+        const normalizedWaveform = waveform.map(n => n * multiplier);
+        
+        setWaveformData(normalizedWaveform);
       } catch (error) {
         console.error('Error loading audio:', error);
+      } finally {
+        setIsLoading(false);
       }
     };
     
-    loadAudio();
+    generateWaveform();
     
     return () => {
       if (audioContext.current) {
@@ -63,6 +93,53 @@ const AudioTrimmer: React.FC<AudioTrimmerProps> = ({ audioFile, onSave, onCancel
       }
     };
   }, [audioFile]);
+
+  // Draw waveform visualization on canvas
+  useEffect(() => {
+    if (canvasRef.current && waveformData.length > 0) {
+      const canvas = canvasRef.current;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      
+      // Clear canvas
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      
+      const width = canvas.width;
+      const height = canvas.height;
+      const barWidth = width / waveformData.length;
+      const barGap = 1;
+      
+      // Draw the waveform
+      ctx.fillStyle = 'rgba(var(--primary), 0.5)';
+      
+      waveformData.forEach((value, index) => {
+        const barHeight = value * height * 0.8;
+        const x = index * barWidth;
+        const y = (height - barHeight) / 2;
+        ctx.fillRect(x, y, barWidth - barGap, barHeight);
+      });
+      
+      // Draw trim area overlay
+      const startPixel = (trimRange[0] / (duration * 1000)) * width;
+      const endPixel = (trimRange[1] / (duration * 1000)) * width;
+      
+      // Outside trim area (semi-transparent overlay)
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+      ctx.fillRect(0, 0, startPixel, height);
+      ctx.fillRect(endPixel, 0, width - endPixel, height);
+      
+      // Playhead position
+      if (currentTime > 0) {
+        const playheadX = (currentTime / duration) * width;
+        ctx.strokeStyle = 'rgb(var(--primary))';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(playheadX, 0);
+        ctx.lineTo(playheadX, height);
+        ctx.stroke();
+      }
+    }
+  }, [waveformData, trimRange, currentTime, duration]);
 
   // Handle time update for audio playback
   const handleTimeUpdate = () => {
@@ -121,6 +198,8 @@ const AudioTrimmer: React.FC<AudioTrimmerProps> = ({ audioFile, onSave, onCancel
     if (!audioBuffer.current || !audioContext.current) return;
     
     try {
+      setIsProcessing(true);
+      
       // Calculate start and end in seconds
       const startSec = trimRange[0] / 1000;
       const endSec = trimRange[1] / 1000;
@@ -170,6 +249,8 @@ const AudioTrimmer: React.FC<AudioTrimmerProps> = ({ audioFile, onSave, onCancel
       onSave(wavBlob, trimmedDuration);
     } catch (error) {
       console.error('Error saving trimmed audio:', error);
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -279,10 +360,14 @@ const AudioTrimmer: React.FC<AudioTrimmerProps> = ({ audioFile, onSave, onCancel
 
   return (
     <Card 
-      className="p-6 animate-fade-in" 
+      className="p-6 animate-fade-in relative" 
       onClick={handleFormClick}
       data-active-trimmer="true" // Add this data attribute to indicate active trimming
     >
+      {(isLoading || isProcessing) && (
+        <LoadingOverlay message={isLoading ? "Analyzing audio..." : "Processing trim..."} />
+      )}
+      
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <h3 className="text-lg font-medium">Trim Audio</h3>
@@ -326,22 +411,28 @@ const AudioTrimmer: React.FC<AudioTrimmerProps> = ({ audioFile, onSave, onCancel
             <span>{formatTime(trimRange[1] / 1000)}</span>
           </div>
           
-          <div className="h-20 mb-4 bg-muted rounded-md flex items-center justify-center relative overflow-hidden">
-            <AudioWaveform className="h-10 w-full absolute opacity-20" />
-            <div 
-              className="absolute left-0 top-0 h-full bg-primary/20" 
-              style={{ 
-                left: `${(trimRange[0] / (duration * 1000)) * 100}%`,
-                width: `${((trimRange[1] - trimRange[0]) / (duration * 1000)) * 100}%`
-              }}
+          {/* Waveform visualization */}
+          <div className="h-32 mb-4 relative">
+            <canvas 
+              ref={canvasRef} 
+              width={600} 
+              height={120} 
+              className="w-full h-full bg-muted rounded-md"
             />
+            
+            {/* Trim handles */}
             <div 
-              className="absolute top-0 h-full w-1 bg-primary"
-              style={{ 
-                left: `${(currentTime / duration) * 100}%`,
-                display: currentTime > 0 ? 'block' : 'none'
-              }}
-            />
+              className="absolute top-0 h-full w-2 bg-primary opacity-80 cursor-ew-resize flex items-center justify-center"
+              style={{ left: `${(trimRange[0] / (duration * 1000)) * 100}%` }}
+            >
+              <GripHorizontal className="h-4 w-4 text-white" />
+            </div>
+            <div 
+              className="absolute top-0 h-full w-2 bg-primary opacity-80 cursor-ew-resize flex items-center justify-center"
+              style={{ left: `${(trimRange[1] / (duration * 1000)) * 100}%` }}
+            >
+              <GripHorizontal className="h-4 w-4 text-white" />
+            </div>
           </div>
 
           <div className="mb-6">
@@ -397,7 +488,7 @@ const AudioTrimmer: React.FC<AudioTrimmerProps> = ({ audioFile, onSave, onCancel
           </Button>
           <Button 
             onClick={handleSaveTrim}
-            disabled={trimDuration < 8 || trimDuration > 40}
+            disabled={trimDuration < 8 || trimDuration > 40 || isProcessing}
             className="gap-1"
             type="button"
           >
