@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -37,7 +38,7 @@ const AudioTrimmer: React.FC<AudioTrimmerProps> = ({
   const [trimRange, setTrimRange] = useState<[number, number]>([0, 100]);
   const [waveformData, setWaveformData] = useState<number[]>([]);
   const [isSaving, setIsSaving] = useState(false);
-  const [isDragging, setIsDragging<'start' | 'end' | null>(null);
+  const [isDragging, setIsDragging] = useState<'start' | 'end' | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioContext = useRef<AudioContext | null>(null);
   const audioBuffer = useRef<AudioBuffer | null>(null);
