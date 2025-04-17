@@ -38,7 +38,7 @@ const AudioTrimmer: React.FC<AudioTrimmerProps> = ({
   const [trimRange, setTrimRange] = useState<[number, number]>([0, 100]);
   const [waveformData, setWaveformData] = useState<number[]>([]);
   const [isSaving, setIsSaving] = useState(false);
-  const [isDragging, setIsDragging<'start' | 'end' | null>>(null);
+  const [isDragging, setIsDragging] = useState<'start' | 'end' | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioContext = useRef<AudioContext | null>(null);
   const audioBuffer = useRef<AudioBuffer | null>(null);
@@ -47,12 +47,12 @@ const AudioTrimmer: React.FC<AudioTrimmerProps> = ({
   const isMobile = useIsMobile();
   
   const [isAnalyzing, setIsAnalyzing] = useState(autoDetectSilence);
-  const [volumeInfo, setVolumeInfo<{
+  const [volumeInfo, setVolumeInfo] = useState<{
     average: number;
     isTooQuiet: boolean;
   } | null>(null);
   const [silenceDetected, setSilenceDetected] = useState(false);
-  const [silenceInfo, setSilenceInfo<{
+  const [silenceInfo, setSilenceInfo] = useState<{
     start: number;
     end: number;
     duration: number;
