@@ -452,6 +452,7 @@ const VoiceUpload = ({
           audioFile={selectedFile} 
           onSave={handleSaveTrimmedAudio}
           onCancel={handleCancelTrim}
+          autoDetectSilence={true}
         />
       ) : (
         <>

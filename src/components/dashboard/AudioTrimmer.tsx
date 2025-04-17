@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -10,18 +9,27 @@ import {
   X, 
   SkipBack, 
   SkipForward,
-  CircleDot
+  CircleDot,
+  Info
 } from 'lucide-react';
 import LoadingOverlay from './audio/LoadingOverlay';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { detectSilence, needsTrimming, getAverageVolume } from '@/utils/audioProcessor';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface AudioTrimmerProps {
   audioFile: File;
   onSave: (trimmedBlob: Blob, duration: number) => void;
   onCancel: () => void;
+  autoDetectSilence?: boolean;
 }
 
-const AudioTrimmer: React.FC<AudioTrimmerProps> = ({ audioFile, onSave, onCancel }) => {
+const AudioTrimmer: React.FC<AudioTrimmerProps> = ({ 
+  audioFile, 
+  onSave, 
+  onCancel,
+  autoDetectSilence = true
+}) => {
   const [audioUrl, setAudioUrl] = useState<string>('');
   const [isPlaying, setIsPlaying] = useState(false);
   const [duration, setDuration] = useState(0);
@@ -29,13 +37,25 @@ const AudioTrimmer: React.FC<AudioTrimmerProps> = ({ audioFile, onSave, onCancel
   const [trimRange, setTrimRange] = useState<[number, number]>([0, 100]);
   const [waveformData, setWaveformData] = useState<number[]>([]);
   const [isSaving, setIsSaving] = useState(false);
-  const [isDragging, setIsDragging] = useState<'start' | 'end' | null>(null);
+  const [isDragging, setIsDragging<'start' | 'end' | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioContext = useRef<AudioContext | null>(null);
   const audioBuffer = useRef<AudioBuffer | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const isMobile = useIsMobile();
+  
+  const [isAnalyzing, setIsAnalyzing] = useState(autoDetectSilence);
+  const [volumeInfo, setVolumeInfo] = useState<{
+    average: number;
+    isTooQuiet: boolean;
+  } | null>(null);
+  const [silenceDetected, setSilenceDetected] = useState(false);
+  const [silenceInfo, setSilenceInfo] = useState<{
+    start: number;
+    end: number;
+    duration: number;
+  } | null>(null);
 
   // Create audio URL for preview
   useEffect(() => {
@@ -57,8 +77,44 @@ const AudioTrimmer: React.FC<AudioTrimmerProps> = ({ audioFile, onSave, onCancel
         
         // Set the duration
         setDuration(buffer.duration);
-        // Initial trim range is full audio
-        setTrimRange([0, buffer.duration * 1000]);
+        
+        // Auto-detect silence if enabled
+        if (autoDetectSilence) {
+          setIsAnalyzing(true);
+          
+          // Check average volume
+          const avgVolume = getAverageVolume(buffer);
+          const isTooQuiet = avgVolume < 0.005; // Very quiet recording threshold
+          
+          setVolumeInfo({
+            average: avgVolume,
+            isTooQuiet
+          });
+          
+          // Detect silence at beginning and end
+          const { startTime, endTime } = detectSilence(buffer, 0.01);
+          
+          // If significant silence was detected, automatically set trim points
+          if (needsTrimming(startTime, endTime, buffer.duration)) {
+            setSilenceDetected(true);
+            setSilenceInfo({
+              start: startTime * 1000,
+              end: endTime * 1000,
+              duration: buffer.duration * 1000
+            });
+            
+            // Auto-set the trim range
+            setTrimRange([startTime * 1000, endTime * 1000]);
+          } else {
+            // Initial trim range is full audio
+            setTrimRange([0, buffer.duration * 1000]);
+          }
+          
+          setIsAnalyzing(false);
+        } else {
+          // Initial trim range is full audio
+          setTrimRange([0, buffer.duration * 1000]);
+        }
         
         // Generate waveform data
         const channelData = buffer.getChannelData(0);
@@ -82,6 +138,7 @@ const AudioTrimmer: React.FC<AudioTrimmerProps> = ({ audioFile, onSave, onCancel
         setWaveformData(normalizedWaveform);
       } catch (error) {
         console.error('Error loading audio:', error);
+        setIsAnalyzing(false);
       }
     };
     
@@ -92,7 +149,7 @@ const AudioTrimmer: React.FC<AudioTrimmerProps> = ({ audioFile, onSave, onCancel
         audioContext.current.close();
       }
     };
-  }, [audioFile]);
+  }, [audioFile, autoDetectSilence]);
 
   // Draw waveform visualization on canvas
   useEffect(() => {
@@ -445,8 +502,8 @@ const AudioTrimmer: React.FC<AudioTrimmerProps> = ({ audioFile, onSave, onCancel
       onClick={handleFormClick}
       data-active-trimmer="true" // Add this data attribute to indicate active trimming
     >
-      {isSaving && (
-        <LoadingOverlay message="Processing audio..." />
+      {(isSaving || isAnalyzing) && (
+        <LoadingOverlay message={isAnalyzing ? "Analyzing audio..." : "Processing audio..."} />
       )}
       
       <div className="space-y-6">
@@ -462,6 +519,25 @@ const AudioTrimmer: React.FC<AudioTrimmerProps> = ({ audioFile, onSave, onCancel
             <X className="h-4 w-4" />
           </Button>
         </div>
+
+        {silenceDetected && (
+          <Alert className="bg-primary/10 border-primary">
+            <Info className="h-4 w-4 text-primary" />
+            <AlertDescription className="text-sm">
+              Silent parts at the beginning and/or end were automatically detected and trimmed.
+              You can adjust the trim points as needed.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {volumeInfo?.isTooQuiet && (
+          <Alert variant="destructive" className="bg-destructive/10">
+            <Info className="h-4 w-4" />
+            <AlertDescription className="text-sm">
+              This audio has very low volume. You might want to record again with increased microphone volume.
+            </AlertDescription>
+          </Alert>
+        )}
 
         <div className="bg-secondary rounded-md p-4">
           <audio 
