@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -11,6 +10,7 @@ import {
   SkipBack, 
   SkipForward,
   CircleDot,
+  VolumeX,
   Info
 } from 'lucide-react';
 import LoadingOverlay from './audio/LoadingOverlay';
@@ -38,7 +38,7 @@ const AudioTrimmer: React.FC<AudioTrimmerProps> = ({
   const [trimRange, setTrimRange] = useState<[number, number]>([0, 100]);
   const [waveformData, setWaveformData] = useState<number[]>([]);
   const [isSaving, setIsSaving] = useState(false);
-  const [isDragging, setIsDragging] = useState<'start' | 'end' | null>(null);
+  const [isDragging, setIsDragging<'start' | 'end' | null>>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioContext = useRef<AudioContext | null>(null);
   const audioBuffer = useRef<AudioBuffer | null>(null);
@@ -47,12 +47,12 @@ const AudioTrimmer: React.FC<AudioTrimmerProps> = ({
   const isMobile = useIsMobile();
   
   const [isAnalyzing, setIsAnalyzing] = useState(autoDetectSilence);
-  const [volumeInfo, setVolumeInfo] = useState<{
+  const [volumeInfo, setVolumeInfo<{
     average: number;
     isTooQuiet: boolean;
   } | null>(null);
   const [silenceDetected, setSilenceDetected] = useState(false);
-  const [silenceInfo, setSilenceInfo] = useState<{
+  const [silenceInfo, setSilenceInfo<{
     start: number;
     end: number;
     duration: number;
@@ -523,19 +523,22 @@ const AudioTrimmer: React.FC<AudioTrimmerProps> = ({
 
         {silenceDetected && (
           <Alert className="bg-primary/10 border-primary">
-            <Info className="h-4 w-4 text-primary" />
+            <VolumeX className="h-4 w-4 text-primary" />
             <AlertDescription className="text-sm">
-              Silent parts at the beginning and/or end were automatically detected and trimmed.
-              You can adjust the trim points as needed.
+              Silent parts detected at the beginning and/or end of your audio. 
+              We recommend trimming these low-volume sections to improve your audio quality.
             </AlertDescription>
           </Alert>
         )}
 
         {volumeInfo?.isTooQuiet && (
-          <Alert variant="destructive" className="bg-destructive/10">
-            <Info className="h-4 w-4" />
+          <Alert variant="warning" className="bg-amber-500/10">
+            <VolumeX className="h-4 w-4 text-amber-500" />
             <AlertDescription className="text-sm">
-              This audio has very low volume. You might want to record again with increased microphone volume.
+              Your audio seems very quiet. Consider:
+              • Adjusting microphone volume
+              • Speaking closer to the microphone
+              • Reducing background noise
             </AlertDescription>
           </Alert>
         )}
