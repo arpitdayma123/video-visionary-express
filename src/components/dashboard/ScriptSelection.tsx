@@ -1,9 +1,10 @@
+
 import React, { useState, useEffect } from 'react';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { AlertTriangle, Instagram, Link } from 'lucide-react';
+import { AlertTriangle, Instagram } from 'lucide-react';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
@@ -32,6 +33,7 @@ const ScriptSelection = ({
   const { toast } = useToast();
   const MAX_WORDS = 200;
   const MIN_WORDS = 30;
+  const [saveUrlTimeout, setSaveUrlTimeout] = useState<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     // Calculate word count whenever customScript changes
@@ -60,7 +62,41 @@ const ScriptSelection = ({
   const handleReelUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const url = e.target.value;
     setReelUrl(url);
-    setIsValidReelUrl(url === '' || validateInstagramReelUrl(url));
+    const isValid = url === '' || validateInstagramReelUrl(url);
+    setIsValidReelUrl(isValid);
+    
+    // Clear any existing timeout
+    if (saveUrlTimeout) {
+      clearTimeout(saveUrlTimeout);
+    }
+    
+    // Only auto-save if URL is valid and not empty
+    if (url && isValid) {
+      // Set a new timeout to save after 500ms of no typing
+      const timeout = setTimeout(async () => {
+        try {
+          setIsSaving(true);
+          await updateProfile({ reel_url: url });
+          setIsSaving(false);
+          
+          toast({
+            title: "URL saved",
+            description: "Instagram reel URL has been saved automatically.",
+          });
+        } catch (error) {
+          console.error('Error saving reel URL:', error);
+          setIsSaving(false);
+          
+          toast({
+            title: "Save failed",
+            description: "There was an error saving your reel URL.",
+            variant: "destructive"
+          });
+        }
+      }, 500);
+      
+      setSaveUrlTimeout(timeout);
+    }
   };
 
   const handleSaveScript = async () => {
@@ -80,38 +116,6 @@ const ScriptSelection = ({
       toast({
         title: "Save failed",
         description: "There was an error saving your script.",
-        variant: "destructive"
-      });
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const handleSaveReelUrl = async () => {
-    if (!reelUrl || !isValidReelUrl) {
-      setIsValidReelUrl(false);
-      toast({
-        title: "Invalid URL",
-        description: "Please enter a valid Instagram reel URL.",
-        variant: "destructive"
-      });
-      return;
-    }
-    
-    setIsSaving(true);
-    try {
-      // Save the Instagram reel URL to the database
-      await updateProfile({ reel_url: reelUrl });
-      
-      toast({
-        title: "Instagram reel URL saved",
-        description: "Your reel URL has been saved successfully.",
-      });
-    } catch (error) {
-      console.error('Error saving reel URL:', error);
-      toast({
-        title: "Save failed",
-        description: "There was an error saving your reel URL.",
         variant: "destructive"
       });
     } finally {
@@ -213,6 +217,7 @@ const ScriptSelection = ({
           <div className="flex items-center mb-2">
             <Instagram className="h-5 w-5 mr-2 text-pink-500" />
             <Label htmlFor="reel-url" className="font-medium">Instagram Reel URL</Label>
+            {isSaving && <span className="ml-2 text-xs text-muted-foreground">Saving...</span>}
           </div>
           
           <div className="flex flex-col space-y-2">
@@ -234,17 +239,6 @@ const ScriptSelection = ({
                 </AlertDescription>
               </Alert>
             )}
-            
-            <div className="flex items-start">
-              <Button 
-                onClick={handleSaveReelUrl} 
-                className="mt-2"
-                disabled={!reelUrl || !isValidReelUrl || isSaving}
-              >
-                <Link className="h-4 w-4 mr-2" />
-                {isSaving ? 'Saving...' : 'Save Reel URL'}
-              </Button>
-            </div>
           </div>
         </div>
       )}
