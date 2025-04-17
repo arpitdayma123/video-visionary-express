@@ -13,6 +13,7 @@ import {
   CircleDot
 } from 'lucide-react';
 import LoadingOverlay from './audio/LoadingOverlay';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface AudioTrimmerProps {
   audioFile: File;
@@ -34,6 +35,7 @@ const AudioTrimmer: React.FC<AudioTrimmerProps> = ({ audioFile, onSave, onCancel
   const audioBuffer = useRef<AudioBuffer | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const isMobile = useIsMobile();
 
   // Create audio URL for preview
   useEffect(() => {
@@ -187,6 +189,37 @@ const AudioTrimmer: React.FC<AudioTrimmerProps> = ({ audioFile, onSave, onCancel
     setTrimRange([values[0], values[1]]);
   };
 
+  // Touch event handlers for mobile devices
+  const handleTouchStart = (position: 'start' | 'end') => (e: React.TouchEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(position);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isDragging || !containerRef.current) return;
+    
+    const rect = containerRef.current.getBoundingClientRect();
+    const touch = e.targetTouches[0];
+    const offsetX = touch.clientX - rect.left;
+    const percentage = offsetX / rect.width;
+    const newPosition = Math.max(0, Math.min(percentage * (duration * 1000), duration * 1000));
+    
+    if (isDragging === 'start') {
+      // Ensure start doesn't go beyond end point - 1 second minimum
+      const newStart = Math.min(newPosition, trimRange[1] - 1000);
+      setTrimRange([newStart, trimRange[1]]);
+    } else {
+      // Ensure end doesn't go below start point + 1 second minimum
+      const newEnd = Math.max(newPosition, trimRange[0] + 1000);
+      setTrimRange([trimRange[0], newEnd]);
+    }
+  };
+
+  const handleTouchEnd = () => {
+    setIsDragging(null);
+  };
+
   // Manual drag handlers for trim points
   const handleMouseDown = (position: 'start' | 'end') => (e: React.MouseEvent) => {
     e.preventDefault();
@@ -217,18 +250,24 @@ const AudioTrimmer: React.FC<AudioTrimmerProps> = ({ audioFile, onSave, onCancel
     setIsDragging(null);
   };
 
-  // Add mouse up event listener to window to handle when mouse is released outside component
+  // Add mouse up and touch end event listeners to window
   useEffect(() => {
     const handleGlobalMouseUp = () => {
       setIsDragging(null);
     };
     
+    const handleGlobalTouchEnd = () => {
+      setIsDragging(null);
+    };
+    
     if (isDragging) {
       window.addEventListener('mouseup', handleGlobalMouseUp);
+      window.addEventListener('touchend', handleGlobalTouchEnd);
     }
     
     return () => {
       window.removeEventListener('mouseup', handleGlobalMouseUp);
+      window.removeEventListener('touchend', handleGlobalTouchEnd);
     };
   }, [isDragging]);
 
@@ -453,13 +492,15 @@ const AudioTrimmer: React.FC<AudioTrimmerProps> = ({ audioFile, onSave, onCancel
             <span>{formatTime(trimRange[1] / 1000)}</span>
           </div>
           
-          {/* Waveform visualization */}
+          {/* Waveform visualization with touch support */}
           <div 
             ref={containerRef}
             className="h-32 mb-4 relative" 
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
             onMouseLeave={handleMouseUp}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
           >
             <canvas 
               ref={canvasRef} 
@@ -468,23 +509,27 @@ const AudioTrimmer: React.FC<AudioTrimmerProps> = ({ audioFile, onSave, onCancel
               className="w-full h-full bg-muted rounded-md"
             />
             
-            {/* Draggable circular trim handles */}
+            {/* Draggable circular trim handles with touch support */}
             <div 
-              className="absolute top-0 h-full w-6 flex items-center justify-center cursor-ew-resize"
-              style={{ left: `calc(${(trimRange[0] / (duration * 1000)) * 100}% - 12px)` }}
+              className={`absolute top-0 h-full ${isMobile ? 'w-10' : 'w-6'} flex items-center justify-center cursor-ew-resize`}
+              style={{ left: `calc(${(trimRange[0] / (duration * 1000)) * 100}% - ${isMobile ? '20px' : '12px'})` }}
               onMouseDown={handleMouseDown('start')}
+              onTouchStart={handleTouchStart('start')}
+              aria-label="Start trim handle"
             >
-              <div className="h-6 w-6 bg-primary rounded-full flex items-center justify-center">
-                <CircleDot className="h-4 w-4 text-white" />
+              <div className={`${isMobile ? 'h-8 w-8' : 'h-6 w-6'} bg-primary rounded-full flex items-center justify-center shadow-md`}>
+                <CircleDot className={`${isMobile ? 'h-5 w-5' : 'h-4 w-4'} text-white`} />
               </div>
             </div>
             <div 
-              className="absolute top-0 h-full w-6 flex items-center justify-center cursor-ew-resize"
-              style={{ left: `calc(${(trimRange[1] / (duration * 1000)) * 100}% - 12px)` }}
+              className={`absolute top-0 h-full ${isMobile ? 'w-10' : 'w-6'} flex items-center justify-center cursor-ew-resize`}
+              style={{ left: `calc(${(trimRange[1] / (duration * 1000)) * 100}% - ${isMobile ? '20px' : '12px'})` }}
               onMouseDown={handleMouseDown('end')}
+              onTouchStart={handleTouchStart('end')}
+              aria-label="End trim handle"
             >
-              <div className="h-6 w-6 bg-primary rounded-full flex items-center justify-center">
-                <CircleDot className="h-4 w-4 text-white" />
+              <div className={`${isMobile ? 'h-8 w-8' : 'h-6 w-6'} bg-primary rounded-full flex items-center justify-center shadow-md`}>
+                <CircleDot className={`${isMobile ? 'h-5 w-5' : 'h-4 w-4'} text-white`} />
               </div>
             </div>
           </div>
@@ -552,7 +597,8 @@ const AudioTrimmer: React.FC<AudioTrimmerProps> = ({ audioFile, onSave, onCancel
         </div>
 
         <div className="text-sm text-muted-foreground">
-          <p>Trim your audio to between 8 and 40 seconds by dragging the slider handles or the circular trim points.</p>
+          <p>Trim your audio to between 8 and 40 seconds by dragging the {isMobile ? "circular trim points" : "slider handles or the circular trim points"}.</p>
+          {isMobile && <p className="mt-2">Tap and drag the circular handles to adjust the trim points on your mobile device.</p>}
         </div>
       </div>
     </Card>
