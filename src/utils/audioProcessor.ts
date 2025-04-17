@@ -17,27 +17,82 @@ export const detectSilence = (
   const channelData = audioBuffer.getChannelData(0);
   const sampleRate = audioBuffer.sampleRate;
   
-  // Find the first non-silent sample from the beginning
+  // Use a window-based approach to better detect silence
+  const windowSize = Math.floor(sampleRate * 0.03); // 30ms window
+  const stepSize = Math.floor(sampleRate * 0.01); // 10ms step
+
+  // Lower the threshold for better sensitivity to low volume
+  const analysisThreshold = threshold * 0.8;
+  
+  // Find the first non-silent window from the beginning
   let startSample = 0;
-  for (let i = 0; i < channelData.length; i++) {
-    if (Math.abs(channelData[i]) > threshold) {
-      startSample = Math.max(0, i - Math.floor(sampleRate * 0.2)); // Keep 0.2s before non-silence
+  let foundStart = false;
+  
+  for (let i = 0; i < channelData.length - windowSize; i += stepSize) {
+    let windowEnergy = 0;
+    
+    // Calculate energy for this window
+    for (let j = 0; j < windowSize; j++) {
+      windowEnergy += Math.abs(channelData[i + j]);
+    }
+    
+    windowEnergy /= windowSize;
+    
+    if (windowEnergy > analysisThreshold) {
+      // Found non-silent section - include a bit of buffer before it
+      startSample = Math.max(0, i - Math.floor(sampleRate * 0.1)); // Keep 0.1s before non-silence
+      foundStart = true;
       break;
     }
   }
   
-  // Find the last non-silent sample from the end
+  // If we didn't find a start point with the window method, use the original approach
+  if (!foundStart) {
+    for (let i = 0; i < channelData.length; i++) {
+      if (Math.abs(channelData[i]) > threshold) {
+        startSample = Math.max(0, i - Math.floor(sampleRate * 0.1)); // Keep 0.1s before non-silence
+        break;
+      }
+    }
+  }
+  
+  // Find the last non-silent window from the end
   let endSample = channelData.length - 1;
-  for (let i = channelData.length - 1; i >= 0; i--) {
-    if (Math.abs(channelData[i]) > threshold) {
-      endSample = Math.min(channelData.length - 1, i + Math.floor(sampleRate * 0.2)); // Keep 0.2s after non-silence
+  let foundEnd = false;
+  
+  for (let i = channelData.length - windowSize; i >= 0; i -= stepSize) {
+    let windowEnergy = 0;
+    
+    // Calculate energy for this window
+    for (let j = 0; j < windowSize; j++) {
+      windowEnergy += Math.abs(channelData[i + j]);
+    }
+    
+    windowEnergy /= windowSize;
+    
+    if (windowEnergy > analysisThreshold) {
+      // Found non-silent section - include a bit of buffer after it
+      endSample = Math.min(channelData.length - 1, i + windowSize + Math.floor(sampleRate * 0.1)); // Keep 0.1s after non-silence
+      foundEnd = true;
       break;
+    }
+  }
+  
+  // If we didn't find an end point with the window method, use the original approach
+  if (!foundEnd) {
+    for (let i = channelData.length - 1; i >= 0; i--) {
+      if (Math.abs(channelData[i]) > threshold) {
+        endSample = Math.min(channelData.length - 1, i + Math.floor(sampleRate * 0.1)); // Keep 0.1s after non-silence
+        break;
+      }
     }
   }
   
   // Convert samples to seconds
   const startTime = startSample / sampleRate;
   const endTime = endSample / sampleRate;
+  
+  console.log(`Silence detection - Start: ${startTime.toFixed(2)}s, End: ${endTime.toFixed(2)}s, Duration: ${audioBuffer.duration.toFixed(2)}s`);
   
   // Return a valid range (even if no silence was detected)
   return {
@@ -71,7 +126,8 @@ export const needsTrimming = (
   endTime: number,
   duration: number
 ): boolean => {
-  // If at least 0.5 seconds total would be trimmed, it's worth trimming
+  // If at least 0.3 seconds total would be trimmed, it's worth trimming
+  // Lowered from 0.5 to 0.3 to be more aggressive with silence removal
   const trimAmount = (startTime) + (duration - endTime);
-  return trimAmount > 0.5;
+  return trimAmount > 0.3;
 };
