@@ -24,6 +24,7 @@ const TrimmerActions: React.FC<TrimmerActionsProps> = ({
         variant="outline" 
         onClick={onCancel}
         type="button"
+        disabled={isSaving}
       >
         Cancel
       </Button>
