@@ -15,19 +15,20 @@ export function bufferToWave(abuffer: AudioBuffer, len: number): Blob {
   setUint32(16); // length = 16
   setUint16(1); // PCM (uncompressed)
   setUint16(numOfChan);
-  setUint32(abuffer.sampleRate);
-  setUint32(abuffer.sampleRate * 2 * numOfChan); // avg. bytes/sec
+  setUint32(abuffer.sampleRate); // Preserve original sample rate
+  setUint32(abuffer.sampleRate * 2 * numOfChan); // avg. bytes/sec (properly calculated based on sample rate)
   setUint16(numOfChan * 2); // block-align
   setUint16(16); // 16-bit
   setUint32(0x61746164); // "data" chunk
   setUint32(length - pos - 4); // chunk length
   
   // Write interleaved data
-  for (let i = 0; i < abuffer.numberOfChannels; i++) {
+  for (let i = 0; i < numOfChan; i++) {
     const channel = abuffer.getChannelData(i);
-    if (i === 0) {
-      // Only write audio data once (mono output regardless of input channels)
-      for (let j = 0; j < len; j++) {
+    
+    // Process each channel separately and maintain all channels
+    for (let j = 0; j < len; j++) {
+      if (j < channel.length) {
         const sample = Math.max(-1, Math.min(1, channel[j]));
         let value = sample < 0 ? sample * 0x8000 : sample * 0x7fff;
         value = Math.floor(value);

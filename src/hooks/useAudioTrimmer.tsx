@@ -270,7 +270,7 @@ export function useAudioTrimmer({ audioFile, autoDetectSilence = true }: UseAudi
       const trimmedBuffer = audioContext.current.createBuffer(
         channelCount,
         frameCount,
-        sampleRate
+        sampleRate // Keep original sample rate
       );
       
       // Copy the section of audio we want to keep
@@ -281,26 +281,14 @@ export function useAudioTrimmer({ audioFile, autoDetectSilence = true }: UseAudi
         const startFrame = Math.floor(startSec * sampleRate);
         
         for (let i = 0; i < frameCount; i++) {
-          trimmedData[i] = sourceData[startFrame + i];
+          if (startFrame + i < sourceData.length) {
+            trimmedData[i] = sourceData[startFrame + i];
+          }
         }
       }
       
-      // Convert buffer to WAV blob
-      const offlineContext = new OfflineAudioContext(
-        channelCount,
-        frameCount,
-        sampleRate
-      );
-      
-      const source = offlineContext.createBufferSource();
-      source.buffer = trimmedBuffer;
-      source.connect(offlineContext.destination);
-      source.start();
-      
-      const renderedBuffer = await offlineContext.startRendering();
-      
-      // Convert to WAV
-      const wavBlob = bufferToWave(renderedBuffer, frameCount);
+      // Convert buffer to WAV blob using the improved bufferToWave function
+      const wavBlob = bufferToWave(trimmedBuffer, frameCount);
       
       setIsSaving(false);
       return { blob: wavBlob, duration: trimmedDuration };
