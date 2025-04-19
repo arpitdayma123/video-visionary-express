@@ -1,7 +1,6 @@
-
 import React from 'react';
 import { Button } from '@/components/ui/button';
-import { Save } from 'lucide-react';
+import { Save, Loader } from 'lucide-react';
 
 interface TrimmerActionsProps {
   onSave: (e: React.MouseEvent<HTMLButtonElement>) => void;
@@ -31,11 +30,20 @@ const TrimmerActions: React.FC<TrimmerActionsProps> = ({
       <Button 
         onClick={onSave}
         disabled={!isValidDuration || isSaving}
-        className="gap-1"
+        className="gap-2"
         type="button"
       >
-        <Save className="h-4 w-4" />
-        {isSaving ? 'Processing...' : 'Save Trimmed Audio'}
+        {isSaving ? (
+          <>
+            <Loader className="h-4 w-4 animate-spin" />
+            Processing...
+          </>
+        ) : (
+          <>
+            <Save className="h-4 w-4" />
+            Save Trimmed Audio
+          </>
+        )}
       </Button>
     </div>
   );

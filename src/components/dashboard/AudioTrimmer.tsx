@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Card } from '@/components/ui/card';
-import { Info } from 'lucide-react';
+import { Info, Loader } from 'lucide-react';
 import LoadingOverlay from './audio/LoadingOverlay';
 import TrimmerHeader from './audio/TrimmerHeader';
 import TrimmerAlerts from './audio/TrimmerAlerts';
@@ -77,7 +77,7 @@ const AudioTrimmer: React.FC<AudioTrimmerProps> = ({
     <Card 
       className="p-6 animate-fade-in relative" 
       onClick={handleFormClick}
-      data-active-trimmer="true" // Add this data attribute to indicate active trimming
+      data-active-trimmer="true"
     >
       {(isSaving || isAnalyzing) && (
         <LoadingOverlay message={isAnalyzing ? "Analyzing audio..." : "Processing audio..."} />
