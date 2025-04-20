@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { User } from '@supabase/supabase-js';
@@ -10,6 +10,8 @@ export const useScriptPreview = (user: User | null, onScriptGenerated: (script: 
   const [wordCount, setWordCount] = useState(0);
   const [isPreviewVisible, setIsPreviewVisible] = useState(false);
   const [pollingInterval, setPollingInterval] = useState<NodeJS.Timeout | null>(null);
+  const [hasLoadedScript, setHasLoadedScript] = useState(false);
+  const [isEdited, setIsEdited] = useState(false);
   const { toast } = useToast();
 
   // Calculate word count whenever script changes
@@ -22,10 +24,11 @@ export const useScriptPreview = (user: User | null, onScriptGenerated: (script: 
     const newScript = e.target.value;
     setScript(newScript);
     updateWordCount(newScript);
+    setIsEdited(true); // Mark as edited when user changes the script
   };
 
   const checkPreviewStatus = async () => {
-    if (!user) return;
+    if (!user || isEdited) return; // Skip checking if user has made edits
     
     try {
       const { data: profile, error } = await supabase
@@ -50,10 +53,14 @@ export const useScriptPreview = (user: User | null, onScriptGenerated: (script: 
           });
         }
         
-        // Update the script and word count
-        setIsLoading(false);
-        setScript(profile.previewscript);
-        updateWordCount(profile.previewscript);
+        // Only update if the script hasn't been edited by the user
+        if (!hasLoadedScript) {
+          // Update the script and word count
+          setIsLoading(false);
+          setScript(profile.previewscript);
+          updateWordCount(profile.previewscript);
+          setHasLoadedScript(true); // Mark as loaded
+        }
       }
     } catch (error) {
       console.error('Error checking preview status:', error);
@@ -69,6 +76,8 @@ export const useScriptPreview = (user: User | null, onScriptGenerated: (script: 
     if (!user) return;
     
     setIsLoading(true);
+    setIsEdited(false); // Reset edited state when generating a new preview
+    setHasLoadedScript(false); // Reset loaded state
     
     try {
       const { error: updateError } = await supabase
@@ -120,6 +129,9 @@ export const useScriptPreview = (user: User | null, onScriptGenerated: (script: 
     if (!user) return;
     
     setIsLoading(true);
+    setIsEdited(false); // Reset edited state when regenerating
+    setHasLoadedScript(false); // Reset loaded state
+    
     try {
       const { error } = await supabase
         .from('profiles')
