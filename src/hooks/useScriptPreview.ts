@@ -28,8 +28,16 @@ export const useScriptPreview = (user: User | null, onScriptGenerated: (script: 
   };
 
   const checkPreviewStatus = async () => {
-    // Don't check if the user is missing, if the script has been loaded already, or if the user has edited the script
-    if (!user || hasLoadedScript || isEdited) return;
+    // Don't check if the user is missing, if we've already loaded a script, or if user has edited
+    if (!user || hasLoadedScript || isEdited) {
+      if (pollingInterval) {
+        // Always clear polling if script is loaded or edited
+        clearInterval(pollingInterval);
+        setPollingInterval(null);
+        console.log('Polling stopped: script loaded or edited');
+      }
+      return;
+    }
     
     try {
       const { data: profile, error } = await supabase
@@ -42,10 +50,11 @@ export const useScriptPreview = (user: User | null, onScriptGenerated: (script: 
 
       // If preview is generated, stop polling and update the script
       if (profile.preview === 'generated' && profile.previewscript) {
-        // Stop polling
+        // Stop polling immediately
         if (pollingInterval) {
           clearInterval(pollingInterval);
           setPollingInterval(null);
+          console.log('Polling stopped: script generated');
           
           // Show toast notification only once when polling stops
           toast({
@@ -54,13 +63,10 @@ export const useScriptPreview = (user: User | null, onScriptGenerated: (script: 
           });
         }
         
-        // Only update if the script hasn't been marked as edited by the user
-        if (!isEdited) {
-          setIsLoading(false);
-          setScript(profile.previewscript);
-          updateWordCount(profile.previewscript);
-          setHasLoadedScript(true); // Mark as loaded
-        }
+        setIsLoading(false);
+        setScript(profile.previewscript);
+        updateWordCount(profile.previewscript);
+        setHasLoadedScript(true); // Mark as loaded
       }
     } catch (error) {
       console.error('Error checking preview status:', error);
@@ -164,14 +170,24 @@ export const useScriptPreview = (user: User | null, onScriptGenerated: (script: 
     }
   };
 
-  // Cleanup polling interval on unmount
+  // Add useEffect to stop polling when component unmounts or when script is loaded/edited
   useEffect(() => {
+    // Check if we should stop polling because script is loaded or edited
+    if (hasLoadedScript || isEdited) {
+      if (pollingInterval) {
+        clearInterval(pollingInterval);
+        setPollingInterval(null);
+        console.log('Polling stopped due to script loaded or edited state change');
+      }
+    }
+    
+    // Cleanup polling interval on unmount
     return () => {
       if (pollingInterval) {
         clearInterval(pollingInterval);
       }
     };
-  }, [pollingInterval]);
+  }, [pollingInterval, hasLoadedScript, isEdited]);
 
   return {
     isLoading,
