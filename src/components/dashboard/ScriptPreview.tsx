@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -78,7 +77,8 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
     setIsLoading(true);
     
     try {
-      const { error } = await supabase
+      // First update the profile status
+      const { error: updateError } = await supabase
         .from('profiles')
         .update({
           preview: 'generating',
@@ -86,7 +86,20 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
         })
         .eq('id', user.id);
 
-      if (error) throw error;
+      if (updateError) throw updateError;
+
+      // Make the webhook call
+      const webhookResponse = await fetch('https://primary-production-ce25.up.railway.app/webhook/scriptfind', {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'Cache-Control': 'no-cache'
+        }
+      });
+
+      if (!webhookResponse.ok) {
+        throw new Error(`Webhook failed with status ${webhookResponse.status}`);
+      }
       
       setIsPreviewVisible(true);
     } catch (error) {
