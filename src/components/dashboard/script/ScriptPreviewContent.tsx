@@ -22,6 +22,20 @@ const ScriptPreviewContent: React.FC<ScriptPreviewContentProps> = ({
   onUseScript,
   onRegenerateScript
 }) => {
+  // Add this handler to prevent event propagation
+  const handleUseScriptClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation(); // Stop the event from bubbling up to the form
+    onUseScript(script);
+  };
+
+  // Similarly, prevent propagation for regenerate button
+  const handleRegenerateClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onRegenerateScript();
+  };
+
   return (
     <Card className="mt-6 p-6 animate-fade-in">
       <h3 className="text-lg font-medium mb-4">Script Preview</h3>
@@ -47,16 +61,18 @@ const ScriptPreviewContent: React.FC<ScriptPreviewContentProps> = ({
 
         <div className="flex flex-wrap gap-3">
           <Button
-            onClick={() => onUseScript(script)}
+            onClick={handleUseScriptClick}
             disabled={!script.trim() || isLoading}
+            type="button" // Explicitly set type to button to prevent form submission
           >
             Use This Script
           </Button>
           
           <Button
             variant="outline"
-            onClick={onRegenerateScript}
+            onClick={handleRegenerateClick}
             disabled={isLoading}
+            type="button" // Explicitly set type to button
           >
             {isLoading ? (
               <>

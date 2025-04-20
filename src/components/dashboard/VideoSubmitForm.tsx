@@ -63,6 +63,13 @@ const VideoSubmitForm = ({
   const { toast } = useToast();
   
   const handleSubmit = async (e: React.FormEvent) => {
+    // Check if this is a direct form submission or a button that's not Generate Video
+    const targetElement = e.target as HTMLElement;
+    if (targetElement.tagName === 'BUTTON' && 
+        !targetElement.textContent?.includes('Generate Video')) {
+      return; // Don't handle the event for other buttons
+    }
+    
     e.preventDefault();
     
     if (videos.length === 0 || voiceFiles.length === 0 || selectedNiches.length === 0 || competitors.length === 0 || !selectedVideo || !selectedVoice) {
@@ -203,7 +210,18 @@ const VideoSubmitForm = ({
   );
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-12">
+    <form 
+      onSubmit={handleSubmit} 
+      className="space-y-12"
+      // Add onClick handler at the form level to prevent event bubbling from child buttons
+      onClick={(e) => {
+        const target = e.target as HTMLElement;
+        // If the click is on a button that's not the Generate Video button, stop propagation
+        if (target.tagName === 'BUTTON' && !target.textContent?.includes('Generate Video')) {
+          e.stopPropagation();
+        }
+      }}
+    >
       {/* Video Upload Section */}
       <VideoUpload 
         videos={videos} 

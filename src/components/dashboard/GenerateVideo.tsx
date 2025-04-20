@@ -73,6 +73,15 @@ const GenerateVideo = ({
   };
 
   const handleGenerateClick = async (e: React.FormEvent) => {
+    // Explicitly check if this is a direct button click and not a bubbled event
+    if (e.target !== e.currentTarget && e.currentTarget instanceof HTMLElement) {
+      const clickedButton = e.target as HTMLElement;
+      if (!clickedButton.closest('button')?.textContent?.includes('Generate Video')) {
+        // This is not a click on the Generate Video button, so don't proceed
+        return;
+      }
+    }
+    
     e.preventDefault();
     e.stopPropagation();
     
