@@ -1,9 +1,12 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Loader } from 'lucide-react';
 import { Card } from '@/components/ui/card';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
 
 interface ScriptPreviewProps {
   scriptOption: string;
@@ -14,6 +17,8 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
   scriptOption,
   onUseScript
 }) => {
+  const { user } = useAuth();
+  const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [script, setScript] = useState('');
   const [wordCount, setWordCount] = useState(0);
@@ -31,38 +36,93 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
     updateWordCount(newScript);
   };
 
+  useEffect(() => {
+    if (!user) return;
+
+    // Subscribe to realtime updates for the user's profile
+    const channel = supabase.channel('profile-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'profiles',
+          filter: `id=eq.${user.id}`
+        },
+        async (payload: any) => {
+          const { preview, previewscript } = payload.new;
+          
+          if (preview === 'generated' && previewscript) {
+            setIsLoading(false);
+            setScript(previewscript);
+            updateWordCount(previewscript);
+            setIsPreviewVisible(true);
+            
+            toast({
+              title: "Script Preview Ready",
+              description: "Your script preview has been generated.",
+            });
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, toast]);
+
   const handleGeneratePreview = async () => {
+    if (!user) return;
+    
     setIsLoading(true);
-    // Simulate API call for now - replace with actual implementation
-    setTimeout(() => {
-      const demoScript = "This is a sample script generated based on your selection. You can edit this text or regenerate a new script using the buttons below.";
-      setScript(demoScript);
-      updateWordCount(demoScript);
-      setIsLoading(false);
+    
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          preview: 'generating',
+          previewscript: null
+        })
+        .eq('id', user.id);
+
+      if (error) throw error;
+      
       setIsPreviewVisible(true);
-    }, 1500);
+    } catch (error) {
+      console.error('Error starting preview generation:', error);
+      setIsLoading(false);
+      toast({
+        title: "Error",
+        description: "Failed to start preview generation. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
 
-  const handleRegenerateScript = () => {
+  const handleRegenerateScript = async () => {
+    if (!user) return;
+    
     setIsLoading(true);
-    // Simulate regeneration - replace with actual implementation
-    setTimeout(() => {
-      const newScript = "This is a regenerated script with slight variations. You can continue editing or try generating another version.";
-      setScript(newScript);
-      updateWordCount(newScript);
-      setIsLoading(false);
-    }, 1500);
-  };
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          preview: 'generating',
+          previewscript: null
+        })
+        .eq('id', user.id);
 
-  const handleNewScript = () => {
-    setIsLoading(true);
-    // Simulate new script generation - replace with actual implementation
-    setTimeout(() => {
-      const freshScript = "This is a completely new script with a different approach. Feel free to edit or generate another one.";
-      setScript(freshScript);
-      updateWordCount(freshScript);
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error regenerating script:', error);
       setIsLoading(false);
-    }, 1500);
+      toast({
+        title: "Error",
+        description: "Failed to regenerate script. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
 
   if (!isPreviewVisible) {
@@ -92,12 +152,18 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
       
       <div className="space-y-4">
         <div className="relative">
-          <Textarea
-            value={script}
-            onChange={handleScriptChange}
-            placeholder="Your script will appear here..."
-            className="min-h-[200px] resize-y font-mono text-sm"
-          />
+          {isLoading ? (
+            <div className="min-h-[200px] flex items-center justify-center bg-muted rounded-md">
+              <Loader className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : (
+            <Textarea
+              value={script}
+              onChange={handleScriptChange}
+              placeholder="Your script will appear here..."
+              className="min-h-[200px] resize-y font-mono text-sm"
+            />
+          )}
           <div className="absolute bottom-2 right-2 text-xs text-muted-foreground">
             {wordCount} words
           </div>
@@ -125,23 +191,6 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
               'Regenerate Script'
             )}
           </Button>
-
-          {scriptOption === 'ai_find' && (
-            <Button
-              variant="outline"
-              onClick={handleNewScript}
-              disabled={isLoading}
-            >
-              {isLoading ? (
-                <>
-                  <Loader className="mr-2 h-4 w-4 animate-spin" />
-                  Generating New...
-                </>
-              ) : (
-                'New Script'
-              )}
-            </Button>
-          )}
         </div>
       </div>
     </Card>

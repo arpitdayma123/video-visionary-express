@@ -88,6 +88,8 @@ export type Database = {
           has_seen_tutorial: boolean | null
           id: string
           message: string | null
+          preview: string | null
+          previewscript: string | null
           reel_url: string | null
           result: Json | null
           script_option: string | null
@@ -109,6 +111,8 @@ export type Database = {
           has_seen_tutorial?: boolean | null
           id: string
           message?: string | null
+          preview?: string | null
+          previewscript?: string | null
           reel_url?: string | null
           result?: Json | null
           script_option?: string | null
@@ -130,6 +134,8 @@ export type Database = {
           has_seen_tutorial?: boolean | null
           id?: string
           message?: string | null
+          preview?: string | null
+          previewscript?: string | null
           reel_url?: string | null
           result?: Json | null
           script_option?: string | null
