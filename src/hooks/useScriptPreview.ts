@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -90,7 +89,8 @@ export const useScriptPreview = (user: User | null, onScriptGenerated: (script: 
         .from('profiles')
         .update({
           preview: 'generating',
-          previewscript: null
+          previewscript: null,
+          finalscript: null // Reset finalscript when generating new preview
         })
         .eq('id', user.id);
 
@@ -143,7 +143,8 @@ export const useScriptPreview = (user: User | null, onScriptGenerated: (script: 
         .from('profiles')
         .update({
           preview: 'generating',
-          previewscript: null
+          previewscript: null,
+          finalscript: null // Reset finalscript when regenerating
         })
         .eq('id', user.id);
 
@@ -165,6 +166,36 @@ export const useScriptPreview = (user: User | null, onScriptGenerated: (script: 
       toast({
         title: "Error",
         description: "Failed to regenerate script. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Add function to save final script
+  const handleUseScript = async (scriptToUse: string) => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          finalscript: scriptToUse
+        })
+        .eq('id', user.id);
+
+      if (error) throw error;
+
+      onScriptGenerated(scriptToUse);
+      
+      toast({
+        title: "Success",
+        description: "Script has been saved successfully.",
+      });
+    } catch (error) {
+      console.error('Error saving final script:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save the script. Please try again.",
         variant: "destructive"
       });
     }
@@ -196,6 +227,7 @@ export const useScriptPreview = (user: User | null, onScriptGenerated: (script: 
     isPreviewVisible,
     handleScriptChange,
     handleGeneratePreview,
-    handleRegenerateScript
+    handleRegenerateScript,
+    handleUseScript // Add the new function to the return object
   };
 };

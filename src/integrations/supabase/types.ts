@@ -85,6 +85,7 @@ export type Database = {
           credit: number
           custom_script: string | null
           email: string | null
+          finalscript: string | null
           has_seen_tutorial: boolean | null
           id: string
           message: string | null
@@ -108,6 +109,7 @@ export type Database = {
           credit?: number
           custom_script?: string | null
           email?: string | null
+          finalscript?: string | null
           has_seen_tutorial?: boolean | null
           id: string
           message?: string | null
@@ -131,6 +133,7 @@ export type Database = {
           credit?: number
           custom_script?: string | null
           email?: string | null
+          finalscript?: string | null
           has_seen_tutorial?: boolean | null
           id?: string
           message?: string | null
