@@ -1,12 +1,9 @@
+
 import React, { useState, useEffect } from 'react';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Button } from '@/components/ui/button';
-import { AlertTriangle, Instagram } from 'lucide-react';
-import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
-import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
+import ScriptOptions from './script/ScriptOptions';
+import CustomScriptEditor from './script/CustomScriptEditor';
+import InstagramReelInput from './script/InstagramReelInput';
 import ScriptPreview from './ScriptPreview';
 
 interface ScriptSelectionProps {
@@ -17,13 +14,13 @@ interface ScriptSelectionProps {
   updateProfile: (updates: any) => Promise<void>;
 }
 
-const ScriptSelection = ({
+const ScriptSelection: React.FC<ScriptSelectionProps> = ({
   scriptOption,
   customScript,
   setScriptOption,
   setCustomScript,
   updateProfile
-}: ScriptSelectionProps) => {
+}) => {
   const [wordCount, setWordCount] = useState(0);
   const [isExceedingLimit, setIsExceedingLimit] = useState(false);
   const [isUnderMinimumLimit, setIsUnderMinimumLimit] = useState(false);
@@ -31,15 +28,13 @@ const ScriptSelection = ({
   const [reelUrl, setReelUrl] = useState('');
   const [isValidReelUrl, setIsValidReelUrl] = useState(true);
   const { toast } = useToast();
-  const MAX_WORDS = 200;
   const MIN_WORDS = 30;
   const [saveUrlTimeout, setSaveUrlTimeout] = useState<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    // Calculate word count whenever customScript changes
     const words = customScript.trim() ? customScript.trim().split(/\s+/).length : 0;
     setWordCount(words);
-    setIsExceedingLimit(words > MAX_WORDS);
+    setIsExceedingLimit(words > 200);
     setIsUnderMinimumLimit(words > 0 && words < MIN_WORDS);
   }, [customScript]);
 
@@ -50,11 +45,9 @@ const ScriptSelection = ({
 
   const handleCustomScriptChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setCustomScript(e.target.value);
-    // Don't update profile on every keystroke to avoid excessive database calls
   };
 
   const validateInstagramReelUrl = (url: string) => {
-    // Basic validation for Instagram reel URLs
     const instagramPattern = /^https?:\/\/(?:www\.)?instagram\.com\/(?:reel|p)\/([A-Za-z0-9_-]+)/i;
     return instagramPattern.test(url);
   };
@@ -65,14 +58,11 @@ const ScriptSelection = ({
     const isValid = url === '' || validateInstagramReelUrl(url);
     setIsValidReelUrl(isValid);
     
-    // Clear any existing timeout
     if (saveUrlTimeout) {
       clearTimeout(saveUrlTimeout);
     }
     
-    // Only auto-save if URL is valid and not empty
     if (url && isValid) {
-      // Set a new timeout to save after 500ms of no typing
       const timeout = setTimeout(async () => {
         try {
           setIsSaving(true);
@@ -104,7 +94,6 @@ const ScriptSelection = ({
     
     setIsSaving(true);
     try {
-      // Only update the script in the database, without triggering any webhook
       await updateProfile({ custom_script: customScript });
       
       toast({
@@ -132,123 +121,32 @@ const ScriptSelection = ({
     <section className="animate-fade-in border-b border-border pb-8 mb-8">
       <h2 className="text-xl font-medium mb-4">Script Selection</h2>
       
-      <RadioGroup 
-        value={scriptOption} 
-        onValueChange={handleScriptOptionChange}
-        className="space-y-4"
-      >
-        <div className="flex items-start space-x-2">
-          <RadioGroupItem value="ai_find" id="ai_find" />
-          <div className="grid gap-1.5">
-            <Label htmlFor="ai_find" className="font-medium">Let our AI find viral script</Label>
-            <p className="text-sm text-muted-foreground">Our AI will analyze trending content and create a viral script for you</p>
-          </div>
-        </div>
-        
-        <div className="flex items-start space-x-2">
-          <RadioGroupItem value="custom" id="custom" />
-          <div className="grid gap-1.5">
-            <Label htmlFor="custom" className="font-medium">Use your own script</Label>
-            <p className="text-sm text-muted-foreground">Write your own script for the video (limit: 200 words)</p>
-          </div>
-        </div>
-        
-        <div className="flex items-start space-x-2">
-          <RadioGroupItem value="ai_remake" id="ai_remake" />
-          <div className="grid gap-1.5">
-            <Label htmlFor="ai_remake" className="font-medium">Let our AI remake your script</Label>
-            <p className="text-sm text-muted-foreground">Provide a script and our AI will enhance it for better engagement</p>
-          </div>
-        </div>
-
-        <div className="flex items-start space-x-2">
-          <RadioGroupItem value="ig_reel" id="ig_reel" />
-          <div className="grid gap-1.5">
-            <Label htmlFor="ig_reel" className="font-medium">Recreate Instagram Reel</Label>
-            <p className="text-sm text-muted-foreground">Provide an Instagram reel URL to recreate its content</p>
-          </div>
-        </div>
-      </RadioGroup>
+      <ScriptOptions
+        scriptOption={scriptOption}
+        onScriptOptionChange={handleScriptOptionChange}
+      />
       
       {(scriptOption === 'custom' || scriptOption === 'ai_remake') && (
-        <div className="mt-6 animate-fade-in">
-          <div className="flex justify-between items-center mb-2">
-            <Label htmlFor="custom-script" className="font-medium">Your Script</Label>
-            <span className={`text-xs ${isExceedingLimit || isUnderMinimumLimit ? 'text-destructive' : 'text-muted-foreground'}`}>
-              {wordCount}/{MAX_WORDS} words
-            </span>
-          </div>
-          
-          <Textarea
-            id="custom-script"
-            placeholder="Enter your script here..."
-            value={customScript}
-            onChange={handleCustomScriptChange}
-            className={`h-32 ${isExceedingLimit || isUnderMinimumLimit ? 'border-destructive' : ''}`}
-          />
-          
-          {isExceedingLimit && (
-            <Alert variant="destructive" className="mt-2">
-              <AlertTriangle className="h-4 w-4" />
-              <AlertTitle>Word limit exceeded</AlertTitle>
-              <AlertDescription>
-                Please reduce your script to 200 words or fewer.
-              </AlertDescription>
-            </Alert>
-          )}
-
-          {isUnderMinimumLimit && (
-            <Alert variant="destructive" className="mt-2">
-              <AlertTriangle className="h-4 w-4" />
-              <AlertTitle>Minimum word limit</AlertTitle>
-              <AlertDescription>
-                Your script must be at least 30 words long.
-              </AlertDescription>
-            </Alert>
-          )}
-          
-          <Button 
-            onClick={handleSaveScript} 
-            className="mt-4"
-            disabled={isExceedingLimit || isUnderMinimumLimit || !customScript.trim() || isSaving}
-          >
-            {isSaving ? 'Saving...' : 'Save Script'}
-          </Button>
-        </div>
+        <CustomScriptEditor
+          customScript={customScript}
+          wordCount={wordCount}
+          isExceedingLimit={isExceedingLimit}
+          isUnderMinimumLimit={isUnderMinimumLimit}
+          isSaving={isSaving}
+          onCustomScriptChange={handleCustomScriptChange}
+          onSaveScript={handleSaveScript}
+        />
       )}
 
       {scriptOption === 'ig_reel' && (
-        <div className="mt-6 animate-fade-in">
-          <div className="flex items-center mb-2">
-            <Instagram className="h-5 w-5 mr-2 text-pink-500" />
-            <Label htmlFor="reel-url" className="font-medium">Instagram Reel URL</Label>
-            {isSaving && <span className="ml-2 text-xs text-muted-foreground">Saving...</span>}
-          </div>
-          
-          <div className="flex flex-col space-y-2">
-            <Input
-              id="reel-url"
-              placeholder="https://www.instagram.com/reel/..."
-              value={reelUrl}
-              onChange={handleReelUrlChange}
-              className={`${!isValidReelUrl ? 'border-destructive' : ''}`}
-              type="url"
-            />
-            
-            {!isValidReelUrl && reelUrl && (
-              <Alert variant="destructive" className="mt-2">
-                <AlertTriangle className="h-4 w-4" />
-                <AlertTitle>Invalid Instagram URL</AlertTitle>
-                <AlertDescription>
-                  Please paste a valid Instagram reel URL (e.g., https://www.instagram.com/reel/ABC123).
-                </AlertDescription>
-              </Alert>
-            )}
-          </div>
-        </div>
+        <InstagramReelInput
+          reelUrl={reelUrl}
+          isValidReelUrl={isValidReelUrl}
+          isSaving={isSaving}
+          onReelUrlChange={handleReelUrlChange}
+        />
       )}
 
-      {/* Add Script Preview section */}
       {scriptOption && (
         <ScriptPreview
           scriptOption={scriptOption}
