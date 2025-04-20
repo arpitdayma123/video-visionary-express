@@ -41,16 +41,16 @@ export const useScriptPreview = (user: User | null, onScriptGenerated: (script: 
         setScript(profile.previewscript);
         updateWordCount(profile.previewscript);
         
-        // Clear the polling interval
+        // Show toast only once when script is first loaded
         if (pollingInterval) {
           clearInterval(pollingInterval);
           setPollingInterval(null);
+          
+          toast({
+            title: "Script Preview Ready",
+            description: "Your script preview has been generated.",
+          });
         }
-
-        toast({
-          title: "Script Preview Ready",
-          description: "Your script preview has been generated.",
-        });
       }
     } catch (error) {
       console.error('Error checking preview status:', error);
@@ -87,6 +87,11 @@ export const useScriptPreview = (user: User | null, onScriptGenerated: (script: 
       
       setIsPreviewVisible(true);
 
+      // Clear any existing polling interval before setting a new one
+      if (pollingInterval) {
+        clearInterval(pollingInterval);
+      }
+
       // Start polling every 2 seconds
       const interval = setInterval(checkPreviewStatus, 2000);
       setPollingInterval(interval);
@@ -116,6 +121,11 @@ export const useScriptPreview = (user: User | null, onScriptGenerated: (script: 
         .eq('id', user.id);
 
       if (error) throw error;
+
+      // Clear any existing polling interval before setting a new one
+      if (pollingInterval) {
+        clearInterval(pollingInterval);
+      }
 
       // Start polling when regenerating
       const interval = setInterval(checkPreviewStatus, 2000);
