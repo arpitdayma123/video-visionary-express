@@ -6,12 +6,17 @@ import { Loader } from 'lucide-react';
 interface GeneratePreviewButtonProps {
   isLoading: boolean;
   onGenerate: () => void;
+  scriptOption: string;
 }
 
 const GeneratePreviewButton: React.FC<GeneratePreviewButtonProps> = ({
   isLoading,
-  onGenerate
+  onGenerate,
+  scriptOption
 }) => {
+  // Don't render the button if script option is "custom"
+  if (scriptOption === 'custom') return null;
+
   return (
     <div className="mt-6">
       <Button

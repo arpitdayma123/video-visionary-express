@@ -1,10 +1,13 @@
-
 import { useState, useEffect, useRef } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { User } from '@supabase/supabase-js';
 
-export const useScriptPreview = (user: User | null, onScriptGenerated: (script: string) => void) => {
+export const useScriptPreview = (
+  user: User | null, 
+  onScriptGenerated: (script: string) => void,
+  scriptOption: string
+) => {
   const [isLoading, setIsLoading] = useState(false);
   const [script, setScript] = useState('');
   const [wordCount, setWordCount] = useState(0);
@@ -202,6 +205,34 @@ export const useScriptPreview = (user: User | null, onScriptGenerated: (script: 
     }
   };
 
+  // Add new function to handle saving custom scripts
+  const handleSaveCustomScript = async (scriptToSave: string) => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          finalscript: scriptToSave
+        })
+        .eq('id', user.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Your script has been saved successfully.",
+      });
+    } catch (error) {
+      console.error('Error saving custom script:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save the script. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
   // Add useEffect to stop polling when component unmounts or when script is loaded/edited
   useEffect(() => {
     // Check if we should stop polling because script is loaded or edited
@@ -229,6 +260,7 @@ export const useScriptPreview = (user: User | null, onScriptGenerated: (script: 
     handleScriptChange,
     handleGeneratePreview,
     handleRegenerateScript,
-    handleUseScript
+    handleUseScript,
+    handleSaveCustomScript
   };
 };

@@ -23,14 +23,16 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
     handleScriptChange,
     handleGeneratePreview,
     handleRegenerateScript,
-    handleUseScript
-  } = useScriptPreview(user, onUseScript);
+    handleUseScript,
+    handleSaveCustomScript
+  } = useScriptPreview(user, onUseScript, scriptOption);
 
   if (!isPreviewVisible) {
     return (
       <GeneratePreviewButton
         isLoading={isLoading}
         onGenerate={handleGeneratePreview}
+        scriptOption={scriptOption}
       />
     );
   }
@@ -41,8 +43,9 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
       script={script}
       wordCount={wordCount}
       onScriptChange={handleScriptChange}
-      onUseScript={handleUseScript}
+      onUseScript={scriptOption === 'custom' ? handleSaveCustomScript : handleUseScript}
       onRegenerateScript={handleRegenerateScript}
+      buttonText={scriptOption === 'custom' ? 'Save Script' : 'Use This Script'}
     />
   );
 };
