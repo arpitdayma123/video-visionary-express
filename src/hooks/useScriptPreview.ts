@@ -9,7 +9,7 @@ export const useScriptPreview = (user: User | null, onScriptGenerated: (script: 
   const [script, setScript] = useState('');
   const [wordCount, setWordCount] = useState(0);
   const [isPreviewVisible, setIsPreviewVisible] = useState(false);
-  const [pollingInterval, setPollingInterval] = useState<number | null>(null);
+  const [pollingInterval, setPollingInterval] = useState<NodeJS.Timeout | null>(null);
   const { toast } = useToast();
 
   // Calculate word count whenever script changes
