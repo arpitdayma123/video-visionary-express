@@ -22,7 +22,8 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
     isPreviewVisible,
     handleScriptChange,
     handleGeneratePreview,
-    handleRegenerateScript
+    handleRegenerateScript,
+    handleUseScript
   } = useScriptPreview(user, onUseScript);
 
   if (!isPreviewVisible) {
@@ -40,7 +41,7 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
       script={script}
       wordCount={wordCount}
       onScriptChange={handleScriptChange}
-      onUseScript={onUseScript}
+      onUseScript={handleUseScript}
       onRegenerateScript={handleRegenerateScript}
     />
   );
