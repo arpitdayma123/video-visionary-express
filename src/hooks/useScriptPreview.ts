@@ -9,6 +9,7 @@ export const useScriptPreview = (user: User | null, onScriptGenerated: (script: 
   const [script, setScript] = useState('');
   const [wordCount, setWordCount] = useState(0);
   const [isPreviewVisible, setIsPreviewVisible] = useState(false);
+  const [pollingInterval, setPollingInterval] = useState<number | null>(null);
   const { toast } = useToast();
 
   // Calculate word count whenever script changes
@@ -21,6 +22,39 @@ export const useScriptPreview = (user: User | null, onScriptGenerated: (script: 
     const newScript = e.target.value;
     setScript(newScript);
     updateWordCount(newScript);
+  };
+
+  const checkPreviewStatus = async () => {
+    if (!user) return;
+    
+    try {
+      const { data: profile, error } = await supabase
+        .from('profiles')
+        .select('preview, previewscript')
+        .eq('id', user.id)
+        .single();
+
+      if (error) throw error;
+
+      if (profile.preview === 'generated' && profile.previewscript) {
+        setIsLoading(false);
+        setScript(profile.previewscript);
+        updateWordCount(profile.previewscript);
+        
+        // Clear the polling interval
+        if (pollingInterval) {
+          clearInterval(pollingInterval);
+          setPollingInterval(null);
+        }
+
+        toast({
+          title: "Script Preview Ready",
+          description: "Your script preview has been generated.",
+        });
+      }
+    } catch (error) {
+      console.error('Error checking preview status:', error);
+    }
   };
 
   const handleGeneratePreview = async () => {
@@ -52,6 +86,11 @@ export const useScriptPreview = (user: User | null, onScriptGenerated: (script: 
       }
       
       setIsPreviewVisible(true);
+
+      // Start polling every 2 seconds
+      const interval = setInterval(checkPreviewStatus, 2000);
+      setPollingInterval(interval);
+
     } catch (error) {
       console.error('Error starting preview generation:', error);
       setIsLoading(false);
@@ -77,6 +116,11 @@ export const useScriptPreview = (user: User | null, onScriptGenerated: (script: 
         .eq('id', user.id);
 
       if (error) throw error;
+
+      // Start polling when regenerating
+      const interval = setInterval(checkPreviewStatus, 2000);
+      setPollingInterval(interval);
+
     } catch (error) {
       console.error('Error regenerating script:', error);
       setIsLoading(false);
@@ -88,41 +132,14 @@ export const useScriptPreview = (user: User | null, onScriptGenerated: (script: 
     }
   };
 
-  // Subscribe to realtime updates
+  // Cleanup polling interval on unmount
   useEffect(() => {
-    if (!user) return;
-
-    const channel = supabase.channel('profile-updates')
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'profiles',
-          filter: `id=eq.${user.id}`
-        },
-        async (payload: any) => {
-          const { preview, previewscript } = payload.new;
-          
-          if (preview === 'generated' && previewscript) {
-            setIsLoading(false);
-            setScript(previewscript);
-            updateWordCount(previewscript);
-            setIsPreviewVisible(true);
-            
-            toast({
-              title: "Script Preview Ready",
-              description: "Your script preview has been generated.",
-            });
-          }
-        }
-      )
-      .subscribe();
-
     return () => {
-      supabase.removeChannel(channel);
+      if (pollingInterval) {
+        clearInterval(pollingInterval);
+      }
     };
-  }, [user, toast]);
+  }, [pollingInterval]);
 
   return {
     isLoading,
