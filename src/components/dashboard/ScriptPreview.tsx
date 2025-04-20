@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -88,8 +89,8 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
 
       if (updateError) throw updateError;
 
-      // Make the webhook call
-      const webhookResponse = await fetch('https://primary-production-ce25.up.railway.app/webhook/scriptfind', {
+      // Make the webhook call with userId parameter
+      const webhookResponse = await fetch(`https://primary-production-ce25.up.railway.app/webhook/scriptfind?userId=${user.id}`, {
         method: 'GET',
         headers: {
           'Accept': 'application/json',
