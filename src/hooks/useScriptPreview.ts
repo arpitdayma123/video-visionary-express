@@ -28,7 +28,8 @@ export const useScriptPreview = (user: User | null, onScriptGenerated: (script: 
   };
 
   const checkPreviewStatus = async () => {
-    if (!user || isEdited) return; // Skip checking if user has made edits
+    // Don't check if the user is missing, if the script has been loaded already, or if the user has edited the script
+    if (!user || hasLoadedScript || isEdited) return;
     
     try {
       const { data: profile, error } = await supabase
@@ -41,7 +42,7 @@ export const useScriptPreview = (user: User | null, onScriptGenerated: (script: 
 
       // If preview is generated, stop polling and update the script
       if (profile.preview === 'generated' && profile.previewscript) {
-        // Stop polling first
+        // Stop polling
         if (pollingInterval) {
           clearInterval(pollingInterval);
           setPollingInterval(null);
@@ -53,9 +54,8 @@ export const useScriptPreview = (user: User | null, onScriptGenerated: (script: 
           });
         }
         
-        // Only update if the script hasn't been edited by the user
-        if (!hasLoadedScript) {
-          // Update the script and word count
+        // Only update if the script hasn't been marked as edited by the user
+        if (!isEdited) {
           setIsLoading(false);
           setScript(profile.previewscript);
           updateWordCount(profile.previewscript);
