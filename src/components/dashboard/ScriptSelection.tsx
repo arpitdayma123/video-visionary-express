@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
@@ -8,6 +7,7 @@ import { AlertTriangle, Instagram } from 'lucide-react';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
+import ScriptPreview from './ScriptPreview';
 
 interface ScriptSelectionProps {
   scriptOption: string;
@@ -121,6 +121,11 @@ const ScriptSelection = ({
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const handleUseScript = (generatedScript: string) => {
+    setCustomScript(generatedScript);
+    handleSaveScript();
   };
 
   return (
@@ -241,6 +246,14 @@ const ScriptSelection = ({
             )}
           </div>
         </div>
+      )}
+
+      {/* Add Script Preview section */}
+      {scriptOption && (
+        <ScriptPreview
+          scriptOption={scriptOption}
+          onUseScript={handleUseScript}
+        />
       )}
     </section>
   );
