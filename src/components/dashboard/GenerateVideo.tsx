@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -72,16 +71,18 @@ const GenerateVideo = ({
     return navigator.onLine;
   };
 
-  const handleGenerateClick = async (e: React.FormEvent) => {
-    // Explicitly check if this is a direct button click and not a bubbled event
-    if (e.target !== e.currentTarget && e.currentTarget instanceof HTMLElement) {
-      const clickedButton = e.target as HTMLElement;
-      if (!clickedButton.closest('button')?.textContent?.includes('Generate Video')) {
-        // This is not a click on the Generate Video button, so don't proceed
+  const handleGenerateClick = async (e: React.MouseEvent<HTMLButtonElement>) => {
+    // Ensure this is a direct click on the Generate Video button
+    if (e.currentTarget !== e.target) {
+      const targetElement = e.target as HTMLElement;
+      if (!targetElement.closest('button')?.textContent?.includes('Generate Video')) {
+        e.preventDefault();
+        e.stopPropagation();
         return;
       }
     }
     
+    // Make sure to stop propagation completely
     e.preventDefault();
     e.stopPropagation();
     

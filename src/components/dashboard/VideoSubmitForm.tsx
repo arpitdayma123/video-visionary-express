@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
@@ -67,6 +68,8 @@ const VideoSubmitForm = ({
     const targetElement = e.target as HTMLElement;
     if (targetElement.tagName === 'BUTTON' && 
         !targetElement.textContent?.includes('Generate Video')) {
+      e.preventDefault();
+      e.stopPropagation();
       return; // Don't handle the event for other buttons
     }
     
@@ -213,11 +216,13 @@ const VideoSubmitForm = ({
     <form 
       onSubmit={handleSubmit} 
       className="space-y-12"
-      // Add onClick handler at the form level to prevent event bubbling from child buttons
+      // Updated onClick handler - improved event handling
       onClick={(e) => {
         const target = e.target as HTMLElement;
-        // If the click is on a button that's not the Generate Video button, stop propagation
-        if (target.tagName === 'BUTTON' && !target.textContent?.includes('Generate Video')) {
+        // If the click is not directly on the form element or if it's on a button 
+        // that's not the Generate Video button, stop propagation
+        if (e.currentTarget !== e.target || 
+            (target.tagName === 'BUTTON' && !target.textContent?.includes('Generate Video'))) {
           e.stopPropagation();
         }
       }}

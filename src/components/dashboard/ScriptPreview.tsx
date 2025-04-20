@@ -27,26 +27,42 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
     handleSaveCustomScript
   } = useScriptPreview(user, onUseScript, scriptOption);
 
+  // Add this wrapper to prevent event propagation
+  const useScriptHandler = (scriptText: string) => {
+    // Call the appropriate handler based on the script option
+    if (scriptOption === 'custom') {
+      handleSaveCustomScript(scriptText);
+    } else {
+      handleUseScript(scriptText);
+    }
+  };
+
   if (!isPreviewVisible) {
     return (
-      <GeneratePreviewButton
-        isLoading={isLoading}
-        onGenerate={handleGeneratePreview}
-        scriptOption={scriptOption}
-      />
+      // Added onClick handler to prevent event bubbling
+      <div onClick={(e) => e.stopPropagation()}>
+        <GeneratePreviewButton
+          isLoading={isLoading}
+          onGenerate={handleGeneratePreview}
+          scriptOption={scriptOption}
+        />
+      </div>
     );
   }
 
   return (
-    <ScriptPreviewContent
-      isLoading={isLoading}
-      script={script}
-      wordCount={wordCount}
-      onScriptChange={handleScriptChange}
-      onUseScript={scriptOption === 'custom' ? handleSaveCustomScript : handleUseScript}
-      onRegenerateScript={handleRegenerateScript}
-      buttonText={scriptOption === 'custom' ? 'Save Script' : 'Use This Script'}
-    />
+    // Added onClick handler to prevent event bubbling
+    <div onClick={(e) => e.stopPropagation()}>
+      <ScriptPreviewContent
+        isLoading={isLoading}
+        script={script}
+        wordCount={wordCount}
+        onScriptChange={handleScriptChange}
+        onUseScript={useScriptHandler}
+        onRegenerateScript={handleRegenerateScript}
+        buttonText={scriptOption === 'custom' ? 'Save Script' : 'Use This Script'}
+      />
+    </div>
   );
 };
 

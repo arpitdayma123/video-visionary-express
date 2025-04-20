@@ -16,13 +16,21 @@ const GeneratePreviewButton: React.FC<GeneratePreviewButtonProps> = ({
 }) => {
   // Don't render the button if script option is "custom"
   if (scriptOption === 'custom') return null;
+  
+  // Handler to stop event propagation
+  const handleClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onGenerate();
+  };
 
   return (
-    <div className="mt-6">
+    <div className="mt-6" onClick={(e) => e.stopPropagation()}>
       <Button
-        onClick={onGenerate}
+        onClick={handleClick}
         disabled={isLoading}
         className="w-full sm:w-auto"
+        type="button" // Explicitly set type to button
       >
         {isLoading ? (
           <>

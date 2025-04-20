@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -21,6 +22,20 @@ const ScriptPreviewContent: React.FC<ScriptPreviewContentProps> = ({
   onRegenerateScript,
   buttonText = 'Use This Script'
 }) => {
+  // Add a handler to explicitly stop propagation
+  const handleUseScript = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onUseScript(script);
+  };
+
+  // Add a handler to explicitly stop regenerate propagation
+  const handleRegenerateScript = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onRegenerateScript();
+  };
+
   return (
     <div className="mt-6 space-y-4">
       <div>
@@ -38,17 +53,19 @@ const ScriptPreviewContent: React.FC<ScriptPreviewContentProps> = ({
           disabled={isLoading}
         />
       </div>
-      <div className="flex flex-wrap gap-4">
+      <div className="flex flex-wrap gap-4" onClick={(e) => e.stopPropagation()}>
         <Button 
-          onClick={() => onUseScript(script)}
+          onClick={handleUseScript}
           disabled={isLoading}
+          type="button" // Add type button to prevent form submission
         >
           {buttonText}
         </Button>
         <Button
           variant="outline"
-          onClick={onRegenerateScript}
+          onClick={handleRegenerateScript}
           disabled={isLoading}
+          type="button" // Add type button to prevent form submission
         >
           Regenerate Script
         </Button>
