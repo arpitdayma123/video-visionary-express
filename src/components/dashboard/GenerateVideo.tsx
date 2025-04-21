@@ -57,7 +57,7 @@ const GenerateVideo: React.FC<GenerateVideoProps> = ({
         
         <div className="flex flex-col sm:flex-row gap-4 items-center justify-between p-4 bg-muted rounded-md">
           <div>
-            <CreditDisplay credits={userCredits} />
+            <CreditDisplay userCredits={userCredits} userStatus={userStatus} />
             {userCredits < 1 && (
               <p className="text-sm text-red-500 mt-1">You need at least 1 credit to generate a video.</p>
             )}
