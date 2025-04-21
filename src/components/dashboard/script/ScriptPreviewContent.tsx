@@ -8,7 +8,10 @@ interface ScriptPreviewContentProps {
   script: string;
   wordCount: number;
   onScriptChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
+  onUseScript: (script: string) => void;
   onRegenerateScript: () => void;
+  buttonText?: string;
+  scriptUsed?: boolean;
 }
 
 const ScriptPreviewContent: React.FC<ScriptPreviewContentProps> = ({
@@ -16,8 +19,19 @@ const ScriptPreviewContent: React.FC<ScriptPreviewContentProps> = ({
   script,
   wordCount,
   onScriptChange,
+  onUseScript,
   onRegenerateScript,
+  buttonText = 'Use This Script',
+  scriptUsed = false
 }) => {
+  // Add a handler to explicitly stop propagation and use the current script value
+  const handleUseScript = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    console.log("Using script:", script);
+    onUseScript(script);
+  };
+
   // Add a handler to explicitly stop regenerate propagation
   const handleRegenerateScript = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -43,6 +57,14 @@ const ScriptPreviewContent: React.FC<ScriptPreviewContentProps> = ({
         />
       </div>
       <div className="flex flex-wrap gap-4" onClick={(e) => e.stopPropagation()}>
+        <Button 
+          onClick={handleUseScript}
+          disabled={isLoading}
+          type="button"
+          variant={scriptUsed ? "secondary" : "default"}
+        >
+          {scriptUsed ? "Update Script" : buttonText}
+        </Button>
         <Button
           variant="outline"
           onClick={handleRegenerateScript}
@@ -57,4 +79,3 @@ const ScriptPreviewContent: React.FC<ScriptPreviewContentProps> = ({
 };
 
 export default ScriptPreviewContent;
-

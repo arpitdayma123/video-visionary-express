@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -23,39 +24,11 @@ export const useScriptPreview = (
     setWordCount(words);
   };
 
-  const handleScriptChange = async (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+  const handleScriptChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newScript = e.target.value;
     setScript(newScript);
     updateWordCount(newScript);
-    setIsEdited(true);
-
-    // Update finalscript in real-time
-    if (user) {
-      try {
-        console.log("Real-time update of finalscript:", newScript);
-        
-        const { error } = await supabase
-          .from('profiles')
-          .update({
-            finalscript: newScript
-          })
-          .eq('id', user.id);
-
-        if (error) {
-          console.error('Error updating finalscript:', error);
-          toast({
-            title: "Error",
-            description: "Failed to save your changes. Please try again.",
-            variant: "destructive"
-          });
-        } else {
-          // Call the callback to inform parent component
-          onScriptGenerated(newScript);
-        }
-      } catch (error) {
-        console.error('Error saving script changes:', error);
-      }
-    }
+    setIsEdited(true); // Mark as edited when user changes the script
   };
 
   const checkPreviewStatus = async () => {
@@ -212,6 +185,75 @@ export const useScriptPreview = (
     }
   };
 
+  // Add function to save final script
+  const handleUseScript = async (scriptToUse: string) => {
+    if (!user) return;
+
+    try {
+      console.log("Saving finalscript:", scriptToUse);
+      
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          finalscript: scriptToUse
+        })
+        .eq('id', user.id);
+
+      if (error) {
+        console.error('Database error:', error);
+        throw error;
+      }
+
+      // Callback to parent component
+      onScriptGenerated(scriptToUse);
+      
+      toast({
+        title: "Success",
+        description: "Script has been saved successfully.",
+      });
+    } catch (error) {
+      console.error('Error saving final script:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save the script. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Add new function to handle saving custom scripts
+  const handleSaveCustomScript = async (scriptToSave: string) => {
+    if (!user) return;
+
+    try {
+      console.log("Saving custom script as finalscript:", scriptToSave);
+      
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          finalscript: scriptToSave
+        })
+        .eq('id', user.id);
+
+      if (error) {
+        console.error('Database error when saving custom script:', error);
+        throw error;
+      }
+
+      toast({
+        title: "Success",
+        description: "Your script has been saved successfully.",
+      });
+    } catch (error) {
+      console.error('Error saving custom script:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save the script. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
   // Add useEffect to stop polling when component unmounts or when script is loaded/edited
   useEffect(() => {
     // Check if we should stop polling because script is loaded or edited
@@ -238,6 +280,8 @@ export const useScriptPreview = (
     isPreviewVisible,
     handleScriptChange,
     handleGeneratePreview,
-    handleRegenerateScript
+    handleRegenerateScript,
+    handleUseScript,
+    handleSaveCustomScript
   };
 };
