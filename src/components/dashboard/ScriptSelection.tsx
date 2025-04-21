@@ -12,6 +12,7 @@ interface ScriptSelectionProps {
   setScriptOption: (option: string) => void;
   setCustomScript: (script: string) => void;
   updateProfile: (updates: any) => Promise<void>;
+  onScriptConfirmed?: (script: string) => void;
 }
 
 const ScriptSelection: React.FC<ScriptSelectionProps> = ({
@@ -19,7 +20,8 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
   customScript,
   setScriptOption,
   setCustomScript,
-  updateProfile
+  updateProfile,
+  onScriptConfirmed
 }) => {
   const [wordCount, setWordCount] = useState(0);
   const [isExceedingLimit, setIsExceedingLimit] = useState(false);
@@ -96,6 +98,14 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
     try {
       await updateProfile({ custom_script: customScript });
       
+      // Also mark as finalscript to be consistent with other script options
+      await updateProfile({ finalscript: customScript });
+      
+      // Notify parent component that script has been confirmed
+      if (onScriptConfirmed) {
+        onScriptConfirmed(customScript);
+      }
+      
       toast({
         title: "Script saved",
         description: "Your script has been saved successfully.",
@@ -114,6 +124,12 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
 
   const handleUseScript = (generatedScript: string) => {
     setCustomScript(generatedScript);
+    
+    // Notify parent component that script has been confirmed
+    if (onScriptConfirmed) {
+      onScriptConfirmed(generatedScript);
+    }
+    
     handleSaveScript();
   };
 

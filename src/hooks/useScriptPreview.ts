@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -70,6 +71,7 @@ export const useScriptPreview = (
         setScript(profile.previewscript);
         updateWordCount(profile.previewscript);
         setHasLoadedScript(true); // Mark as loaded
+        setIsPreviewVisible(true); // Make sure preview is visible when script is ready
       }
     } catch (error) {
       console.error('Error checking preview status:', error);
@@ -100,7 +102,7 @@ export const useScriptPreview = (
 
       if (updateError) throw updateError;
 
-      const webhookResponse = await fetch(`https://primary-production-ce25.up.railway.app/webhook/scriptfind?userId=${user.id}`, {
+      const webhookResponse = await fetch(`https://primary-production-ce25.up.railway.app/webhook/scriptfind?userId=${user.id}&regenerate=false`, {
         method: 'GET',
         headers: {
           'Accept': 'application/json',
@@ -153,6 +155,19 @@ export const useScriptPreview = (
         .eq('id', user.id);
 
       if (error) throw error;
+
+      // Use the same webhook URL, but add regenerate=true parameter
+      const webhookResponse = await fetch(`https://primary-production-ce25.up.railway.app/webhook/scriptfind?userId=${user.id}&regenerate=true`, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'Cache-Control': 'no-cache'
+        }
+      });
+
+      if (!webhookResponse.ok) {
+        throw new Error(`Webhook failed with status ${webhookResponse.status}`);
+      }
 
       // Clear any existing polling interval before setting a new one
       if (pollingInterval) {

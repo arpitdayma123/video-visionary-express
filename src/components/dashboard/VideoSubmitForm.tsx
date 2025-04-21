@@ -1,5 +1,4 @@
-
-import React from 'react';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import VideoUpload from './VideoUpload';
@@ -62,6 +61,7 @@ const VideoSubmitForm = ({
   updateProfile
 }: VideoSubmitFormProps) => {
   const { toast } = useToast();
+  const [isScriptSelected, setIsScriptSelected] = useState(false);
   
   const handleSubmit = async (e: React.FormEvent) => {
     // Check if this is a direct form submission or a button that's not Generate Video
@@ -79,6 +79,16 @@ const VideoSubmitForm = ({
       toast({
         title: "Incomplete form",
         description: "Please fill in all required fields and select a target video and voice file before submitting.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    // Check if script has been selected
+    if (!isScriptSelected) {
+      toast({
+        title: "Script not confirmed",
+        description: "Please select and confirm a script by clicking 'Use This Script' first.",
         variant: "destructive"
       });
       return;
@@ -201,6 +211,12 @@ const VideoSubmitForm = ({
     }
   };
 
+  // Handler for when a script is used/confirmed
+  const handleScriptConfirmed = (scriptText: string) => {
+    setIsScriptSelected(true);
+    setCustomScript(scriptText);
+  };
+
   // Fix the type issue by ensuring isFormComplete is always a boolean
   const isFormComplete = Boolean(
     videos.length > 0 && 
@@ -209,6 +225,7 @@ const VideoSubmitForm = ({
     competitors.length > 0 && 
     selectedVideo !== null && 
     selectedVoice !== null && 
+    isScriptSelected && // Add script selected condition
     (scriptOption !== 'ig_reel' || (scriptOption === 'ig_reel' && reelUrl))
   );
 
@@ -261,13 +278,14 @@ const VideoSubmitForm = ({
         updateProfile={updateProfile} 
       />
       
-      {/* Script Selection Section */}
+      {/* Script Selection Section with updated onUseScript handler */}
       <ScriptSelection
         scriptOption={scriptOption}
         customScript={customScript}
         setScriptOption={setScriptOption}
         setCustomScript={setCustomScript}
         updateProfile={updateProfile}
+        onScriptConfirmed={handleScriptConfirmed}
       />
 
       {/* Submit Section */}
@@ -283,6 +301,7 @@ const VideoSubmitForm = ({
         selectedVoice={selectedVoice}
         selectedNiches={selectedNiches}
         competitors={competitors}
+        isScriptSelected={isScriptSelected}
       />
     </form>
   );

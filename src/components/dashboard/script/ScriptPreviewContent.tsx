@@ -11,6 +11,7 @@ interface ScriptPreviewContentProps {
   onUseScript: (script: string) => void;
   onRegenerateScript: () => void;
   buttonText?: string;
+  scriptUsed?: boolean;
 }
 
 const ScriptPreviewContent: React.FC<ScriptPreviewContentProps> = ({
@@ -20,7 +21,8 @@ const ScriptPreviewContent: React.FC<ScriptPreviewContentProps> = ({
   onScriptChange,
   onUseScript,
   onRegenerateScript,
-  buttonText = 'Use This Script'
+  buttonText = 'Use This Script',
+  scriptUsed = false
 }) => {
   // Add a handler to explicitly stop propagation
   const handleUseScript = (e: React.MouseEvent) => {
@@ -50,13 +52,13 @@ const ScriptPreviewContent: React.FC<ScriptPreviewContentProps> = ({
           value={script}
           onChange={onScriptChange}
           className="h-48 resize-none"
-          disabled={isLoading}
+          disabled={isLoading || scriptUsed}
         />
       </div>
       <div className="flex flex-wrap gap-4" onClick={(e) => e.stopPropagation()}>
         <Button 
           onClick={handleUseScript}
-          disabled={isLoading}
+          disabled={isLoading || scriptUsed}
           type="button" // Add type button to prevent form submission
         >
           {buttonText}
