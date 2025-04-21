@@ -75,6 +75,31 @@ const VideoSubmitForm = ({
     
     e.preventDefault();
     
+    // Save the current script as finalscript before generating video
+    if (userId) {
+      try {
+        console.log("Saving current script as finalscript before video generation");
+        const { error: saveError } = await supabase
+          .from('profiles')
+          .update({
+            finalscript: customScript
+          })
+          .eq('id', userId);
+
+        if (saveError) {
+          console.error('Error saving final script:', saveError);
+          toast({
+            title: "Error",
+            description: "Failed to save your script. Please try again.",
+            variant: "destructive"
+          });
+          return;
+        }
+      } catch (error) {
+        console.error('Error saving script before video generation:', error);
+      }
+    }
+    
     if (videos.length === 0 || voiceFiles.length === 0 || selectedNiches.length === 0 || competitors.length === 0 || !selectedVideo || !selectedVoice) {
       toast({
         title: "Incomplete form",

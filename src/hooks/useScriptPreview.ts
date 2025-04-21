@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -133,6 +132,29 @@ export const useScriptPreview = (
 
   const handleRegenerateScript = async () => {
     if (!user) return;
+    
+    // Save current edited script as finalscript before regenerating
+    try {
+      console.log("Saving current script as finalscript before regenerating");
+      const { error: saveError } = await supabase
+        .from('profiles')
+        .update({
+          finalscript: script
+        })
+        .eq('id', user.id);
+
+      if (saveError) {
+        console.error('Error saving final script:', saveError);
+        toast({
+          title: "Error",
+          description: "Failed to save your current script. Please try again.",
+          variant: "destructive"
+        });
+        return;
+      }
+    } catch (error) {
+      console.error('Error saving script before regeneration:', error);
+    }
     
     setIsLoading(true);
     setIsEdited(false);
