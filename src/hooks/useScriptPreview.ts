@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -28,6 +29,32 @@ export const useScriptPreview = (
     setScript(newScript);
     updateWordCount(newScript);
     setIsEdited(true); // Mark as edited when user changes the script
+    
+    // Save script to finalscript in real-time as user edits
+    if (user) {
+      saveFinalScript(newScript);
+    }
+  };
+
+  // Helper function to save script to finalscript column
+  const saveFinalScript = async (scriptToSave: string) => {
+    if (!user) return;
+    
+    try {
+      console.log("Saving script to finalscript column:", scriptToSave);
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          finalscript: scriptToSave
+        })
+        .eq('id', user.id);
+
+      if (error) {
+        console.error('Error saving finalscript:', error);
+      }
+    } catch (error) {
+      console.error('Error saving script to finalscript:', error);
+    }
   };
 
   const checkPreviewStatus = async () => {
@@ -66,6 +93,9 @@ export const useScriptPreview = (
         updateWordCount(profile.previewscript);
         setHasLoadedScript(true);
         setIsPreviewVisible(true);
+        
+        // Save the newly generated script to finalscript
+        saveFinalScript(profile.previewscript);
       }
     } catch (error) {
       console.error('Error checking preview status:', error);
@@ -84,12 +114,16 @@ export const useScriptPreview = (
     setHasLoadedScript(false); // Reset loaded state
     
     try {
+      // First, save current script to finalscript if there is one
+      if (script) {
+        await saveFinalScript(script);
+      }
+      
       const { error: updateError } = await supabase
         .from('profiles')
         .update({
           preview: 'generating',
-          previewscript: null,
-          finalscript: null // Reset finalscript when generating new preview
+          // Don't clear previewscript and finalscript
         })
         .eq('id', user.id);
 
@@ -133,27 +167,9 @@ export const useScriptPreview = (
   const handleRegenerateScript = async () => {
     if (!user) return;
     
-    // Save current edited script as finalscript before regenerating
-    try {
-      console.log("Saving current script as finalscript before regenerating");
-      const { error: saveError } = await supabase
-        .from('profiles')
-        .update({
-          finalscript: script
-        })
-        .eq('id', user.id);
-
-      if (saveError) {
-        console.error('Error saving final script:', saveError);
-        toast({
-          title: "Error",
-          description: "Failed to save your current script. Please try again.",
-          variant: "destructive"
-        });
-        return;
-      }
-    } catch (error) {
-      console.error('Error saving script before regeneration:', error);
+    // Save current script to finalscript before regenerating
+    if (script) {
+      await saveFinalScript(script);
     }
     
     setIsLoading(true);
@@ -165,8 +181,7 @@ export const useScriptPreview = (
         .from('profiles')
         .update({
           preview: 'generating',
-          previewscript: null,
-          finalscript: null // Reset finalscript when regenerating
+          // Don't clear previewscript and finalscript
         })
         .eq('id', user.id);
 
