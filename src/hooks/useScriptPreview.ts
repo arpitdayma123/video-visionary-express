@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -16,6 +17,19 @@ export const useScriptPreview = (
   const [hasLoadedScript, setHasLoadedScript] = useState(false);
   const [isEdited, setIsEdited] = useState(false);
   const { toast } = useToast();
+  
+  // Track if the component is mounted to prevent state updates after unmount
+  const isMounted = useRef(true);
+
+  // Set up cleanup on unmount
+  useEffect(() => {
+    return () => {
+      isMounted.current = false;
+      if (pollingInterval) {
+        clearInterval(pollingInterval);
+      }
+    };
+  }, []);
 
   // Calculate word count whenever script changes
   const updateWordCount = (text: string) => {
@@ -57,14 +71,9 @@ export const useScriptPreview = (
   };
 
   const checkPreviewStatus = async () => {
-    if (!user || hasLoadedScript || isEdited) {
-      if (pollingInterval) {
-        clearInterval(pollingInterval);
-        setPollingInterval(null);
-        console.log('Polling stopped: script loaded or edited');
-      }
-      return;
-    }
+    if (!user || !isMounted.current) return;
+    
+    console.log("Checking preview status, isLoading:", isLoading);
     
     try {
       const { data: profile, error } = await supabase
@@ -73,8 +82,13 @@ export const useScriptPreview = (
         .eq('id', user.id)
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching profile:', error);
+        return;
+      }
 
+      console.log("Profile preview status:", profile.preview, "previewscript length:", profile.previewscript?.length);
+      
       if (profile.preview === 'generated' && profile.previewscript) {
         if (pollingInterval) {
           clearInterval(pollingInterval);
@@ -87,20 +101,31 @@ export const useScriptPreview = (
           });
         }
         
-        setIsLoading(false);
-        setScript(profile.previewscript);
-        updateWordCount(profile.previewscript);
-        setHasLoadedScript(true);
-        setIsPreviewVisible(true);
-        
-        // Save the newly generated script to finalscript
-        saveFinalScript(profile.previewscript);
+        if (isMounted.current) {
+          setIsLoading(false);
+          setScript(profile.previewscript);
+          updateWordCount(profile.previewscript);
+          setHasLoadedScript(true);
+          setIsPreviewVisible(true);
+          
+          // Save the newly generated script to finalscript
+          saveFinalScript(profile.previewscript);
+        }
+      } else if (profile.preview === 'generating') {
+        console.log('Script still generating...');
       }
     } catch (error) {
       console.error('Error checking preview status:', error);
-      if (pollingInterval) {
+      if (pollingInterval && isMounted.current) {
         clearInterval(pollingInterval);
         setPollingInterval(null);
+        setIsLoading(false);
+        
+        toast({
+          title: "Error",
+          description: "Failed to check preview status. Please try again.",
+          variant: "destructive"
+        });
       }
     }
   };
@@ -176,6 +201,8 @@ export const useScriptPreview = (
     setHasLoadedScript(false);
     
     try {
+      console.log("Starting script regeneration...");
+      
       const { error } = await supabase
         .from('profiles')
         .update({
@@ -201,6 +228,8 @@ export const useScriptPreview = (
       if (!webhookResponse.ok) {
         throw new Error(`Webhook failed with status ${webhookResponse.status}`);
       }
+      
+      console.log("Regeneration webhook called successfully");
 
       if (pollingInterval) {
         clearInterval(pollingInterval);
@@ -289,6 +318,13 @@ export const useScriptPreview = (
       });
     }
   };
+
+  // Run initial check for preview status when component mounts
+  useEffect(() => {
+    if (user && isPreviewVisible && isLoading) {
+      checkPreviewStatus();
+    }
+  }, [user, isPreviewVisible]);
 
   // Add useEffect to stop polling when component unmounts or when script is loaded/edited
   useEffect(() => {

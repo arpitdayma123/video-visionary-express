@@ -15,7 +15,6 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
   onUseScript
 }) => {
   const { user } = useAuth();
-  const [scriptUsed, setScriptUsed] = useState(false);
   const [generationStartTime, setGenerationStartTime] = useState<number | null>(null);
   const [waitTimeExpired, setWaitTimeExpired] = useState(false);
   
@@ -30,11 +29,6 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
     handleUseScript,
     handleSaveCustomScript
   } = useScriptPreview(user, onUseScript, scriptOption);
-
-  // Reset scriptUsed when script option changes
-  React.useEffect(() => {
-    setScriptUsed(false);
-  }, [scriptOption]);
 
   // Handle regenerate with the same pattern as generate preview
   const handleRegenerate = () => {
