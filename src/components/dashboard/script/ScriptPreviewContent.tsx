@@ -24,10 +24,11 @@ const ScriptPreviewContent: React.FC<ScriptPreviewContentProps> = ({
   buttonText = 'Use This Script',
   scriptUsed = false
 }) => {
-  // Add a handler to explicitly stop propagation
+  // Add a handler to explicitly stop propagation and use the current script value
   const handleUseScript = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    console.log("Using script:", script);
     onUseScript(script);
   };
 

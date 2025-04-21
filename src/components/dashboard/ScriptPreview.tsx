@@ -38,11 +38,14 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
 
   // Handle script usage and editing
   const useScriptHandler = (scriptText: string) => {
+    console.log("ScriptPreview: useScriptHandler called with script:", scriptText);
+    
     if (scriptOption === 'custom') {
       handleSaveCustomScript(scriptText);
     } else {
       handleUseScript(scriptText);
     }
+    
     setScriptUsed(true); // Set script as used regardless of edits
   };
 

@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -143,7 +144,7 @@ export const useScriptPreview = (
         .update({
           preview: 'generating',
           previewscript: null,
-          finalscript: null
+          finalscript: null // Reset finalscript when regenerating
         })
         .eq('id', user.id);
 
@@ -189,6 +190,8 @@ export const useScriptPreview = (
     if (!user) return;
 
     try {
+      console.log("Saving finalscript:", scriptToUse);
+      
       const { error } = await supabase
         .from('profiles')
         .update({
@@ -196,8 +199,12 @@ export const useScriptPreview = (
         })
         .eq('id', user.id);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Database error:', error);
+        throw error;
+      }
 
+      // Callback to parent component
       onScriptGenerated(scriptToUse);
       
       toast({
@@ -219,6 +226,8 @@ export const useScriptPreview = (
     if (!user) return;
 
     try {
+      console.log("Saving custom script as finalscript:", scriptToSave);
+      
       const { error } = await supabase
         .from('profiles')
         .update({
@@ -226,7 +235,10 @@ export const useScriptPreview = (
         })
         .eq('id', user.id);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Database error when saving custom script:', error);
+        throw error;
+      }
 
       toast({
         title: "Success",
