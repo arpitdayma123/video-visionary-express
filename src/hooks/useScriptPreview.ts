@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -32,10 +31,8 @@ export const useScriptPreview = (
   };
 
   const checkPreviewStatus = async () => {
-    // Don't check if the user is missing, if we've already loaded a script, or if user has edited
     if (!user || hasLoadedScript || isEdited) {
       if (pollingInterval) {
-        // Always clear polling if script is loaded or edited
         clearInterval(pollingInterval);
         setPollingInterval(null);
         console.log('Polling stopped: script loaded or edited');
@@ -52,15 +49,12 @@ export const useScriptPreview = (
 
       if (error) throw error;
 
-      // If preview is generated, stop polling and update the script
       if (profile.preview === 'generated' && profile.previewscript) {
-        // Stop polling immediately
         if (pollingInterval) {
           clearInterval(pollingInterval);
           setPollingInterval(null);
           console.log('Polling stopped: script generated');
           
-          // Show toast notification only once when polling stops
           toast({
             title: "Script Preview Ready",
             description: "Your script preview has been generated.",
@@ -70,12 +64,11 @@ export const useScriptPreview = (
         setIsLoading(false);
         setScript(profile.previewscript);
         updateWordCount(profile.previewscript);
-        setHasLoadedScript(true); // Mark as loaded
-        setIsPreviewVisible(true); // Make sure preview is visible when script is ready
+        setHasLoadedScript(true);
+        setIsPreviewVisible(true);
       }
     } catch (error) {
       console.error('Error checking preview status:', error);
-      // If there's an error, stop polling to prevent continuous errors
       if (pollingInterval) {
         clearInterval(pollingInterval);
         setPollingInterval(null);
@@ -141,8 +134,8 @@ export const useScriptPreview = (
     if (!user) return;
     
     setIsLoading(true);
-    setIsEdited(false); // Reset edited state when regenerating
-    setHasLoadedScript(false); // Reset loaded state
+    setIsEdited(false);
+    setHasLoadedScript(false);
     
     try {
       const { error } = await supabase
@@ -150,32 +143,33 @@ export const useScriptPreview = (
         .update({
           preview: 'generating',
           previewscript: null,
-          finalscript: null // Reset finalscript when regenerating
+          finalscript: null
         })
         .eq('id', user.id);
 
       if (error) throw error;
 
-      // Use the same webhook URL, but add regenerate=true parameter
-      const webhookResponse = await fetch(`https://primary-production-ce25.up.railway.app/webhook/scriptfind?userId=${user.id}&regenerate=true`, {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json',
-          'Cache-Control': 'no-cache'
+      // Use the same webhook URL with regenerate=true parameter
+      const webhookResponse = await fetch(
+        `https://primary-production-ce25.up.railway.app/webhook/scriptfind?userId=${user.id}&regenerate=true`,
+        {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json',
+            'Cache-Control': 'no-cache'
+          }
         }
-      });
+      );
 
       if (!webhookResponse.ok) {
         throw new Error(`Webhook failed with status ${webhookResponse.status}`);
       }
 
-      // Clear any existing polling interval before setting a new one
       if (pollingInterval) {
         clearInterval(pollingInterval);
         setPollingInterval(null);
       }
 
-      // Start polling when regenerating
       const interval = setInterval(checkPreviewStatus, 2000);
       setPollingInterval(interval);
 

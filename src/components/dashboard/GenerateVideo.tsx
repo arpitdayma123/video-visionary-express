@@ -17,7 +17,7 @@ interface GenerateVideoProps {
   selectedVoice: UploadedFile | null;
   selectedNiches: string[];
   competitors: string[];
-  isScriptSelected?: boolean; // Add new prop
+  isScriptSelected?: boolean;
 }
 
 const GenerateVideo: React.FC<GenerateVideoProps> = ({
@@ -32,13 +32,15 @@ const GenerateVideo: React.FC<GenerateVideoProps> = ({
   selectedVoice,
   selectedNiches,
   competitors,
-  isScriptSelected = false // Default to false
+  isScriptSelected = false
 }) => {
   const isProcessing = userStatus === 'Processing';
   const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault(); // Prevent default form submission behavior
-    onSubmit(e); // Call the parent's onSubmit handler
+    e.preventDefault();
+    onSubmit(e);
   };
+
+  const isGenerateEnabled = isFormComplete && userCredits >= 1 && !isProcessing && isScriptSelected;
 
   return (
     <section className="animate-fade-in pb-8">
@@ -68,7 +70,7 @@ const GenerateVideo: React.FC<GenerateVideoProps> = ({
           
           <Button 
             type="submit"
-            disabled={!isFormComplete || userCredits < 1 || isProcessing || !isScriptSelected}
+            disabled={!isGenerateEnabled}
             className="w-full sm:w-auto"
             onClick={handleSubmit}
           >

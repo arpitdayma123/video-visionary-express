@@ -52,22 +52,23 @@ const ScriptPreviewContent: React.FC<ScriptPreviewContentProps> = ({
           value={script}
           onChange={onScriptChange}
           className="h-48 resize-none"
-          disabled={isLoading || scriptUsed}
+          disabled={isLoading}
         />
       </div>
       <div className="flex flex-wrap gap-4" onClick={(e) => e.stopPropagation()}>
         <Button 
           onClick={handleUseScript}
-          disabled={isLoading || scriptUsed}
-          type="button" // Add type button to prevent form submission
+          disabled={isLoading}
+          type="button"
+          variant={scriptUsed ? "secondary" : "default"}
         >
-          {buttonText}
+          {scriptUsed ? "Update Script" : buttonText}
         </Button>
         <Button
           variant="outline"
           onClick={handleRegenerateScript}
           disabled={isLoading}
-          type="button" // Add type button to prevent form submission
+          type="button"
         >
           Regenerate Script
         </Button>

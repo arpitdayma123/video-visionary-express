@@ -36,65 +36,32 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
     setScriptUsed(false);
   }, [scriptOption]);
 
-  // Check if wait time has expired based on script option
-  React.useEffect(() => {
-    if (!isLoading || !generationStartTime) {
-      setWaitTimeExpired(false);
-      return;
-    }
-
-    let waitTime = 180000; // Default 3 minutes in ms
-    if (scriptOption === 'ai_remake') {
-      waitTime = 30000; // 30 seconds for AI remake
-    } else if (scriptOption === 'ig_reel') {
-      waitTime = 60000; // 1 minute for Instagram reel
-    }
-
-    const checkTimeout = () => {
-      const now = Date.now();
-      const elapsed = now - generationStartTime;
-      
-      if (elapsed > waitTime) {
-        setWaitTimeExpired(true);
-        // Check again in 2 minutes (120000ms)
-        setTimeout(checkTimeout, 120000);
-      } else {
-        // Check again when the wait time expires
-        const remainingTime = waitTime - elapsed;
-        setTimeout(checkTimeout, remainingTime);
-      }
-    };
-
-    const timeoutId = setTimeout(checkTimeout, waitTime);
-    return () => clearTimeout(timeoutId);
-  }, [isLoading, generationStartTime, scriptOption]);
-
-  // Wrapper to track generation start time
-  const handleStartGeneration = () => {
-    setGenerationStartTime(Date.now());
-    handleGeneratePreview();
-  };
-
-  // Wrapper to track regeneration start time
-  const handleStartRegeneration = () => {
-    setGenerationStartTime(Date.now());
-    handleRegenerateScript();
-  };
-
-  // Add this wrapper to prevent event propagation
+  // Handle script usage and editing
   const useScriptHandler = (scriptText: string) => {
-    // Call the appropriate handler based on the script option
     if (scriptOption === 'custom') {
       handleSaveCustomScript(scriptText);
     } else {
       handleUseScript(scriptText);
-      setScriptUsed(true);
     }
+    setScriptUsed(true); // Set script as used regardless of edits
+  };
+
+  // Handle regenerate with the same pattern as generate preview
+  const handleRegenerate = () => {
+    setGenerationStartTime(Date.now());
+    setWaitTimeExpired(false);
+    handleRegenerateScript();
+  };
+
+  // Wrapper to track generation start time
+  const handleStartGeneration = () => {
+    setGenerationStartTime(Date.now());
+    setWaitTimeExpired(false);
+    handleGeneratePreview();
   };
 
   if (!isPreviewVisible) {
     return (
-      // Added onClick handler to prevent event bubbling
       <div onClick={(e) => e.stopPropagation()}>
         <GeneratePreviewButton
           isLoading={isLoading}
@@ -108,7 +75,6 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
   }
 
   return (
-    // Added onClick handler to prevent event bubbling
     <div onClick={(e) => e.stopPropagation()}>
       <ScriptPreviewContent
         isLoading={isLoading}
@@ -116,7 +82,7 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
         wordCount={wordCount}
         onScriptChange={handleScriptChange}
         onUseScript={useScriptHandler}
-        onRegenerateScript={handleStartRegeneration}
+        onRegenerateScript={handleRegenerate}
         buttonText={scriptOption === 'custom' ? 'Save Script' : 'Use This Script'}
         scriptUsed={scriptUsed}
       />
