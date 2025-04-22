@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import ScriptOptions from './script/ScriptOptions';
@@ -127,8 +128,9 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
       await updateProfile({ custom_script: customScript });
       await updateProfile({ finalscript: customScript });
       
-      if (onScriptConfirmed) {
-        onScriptConfirmed(customScript);
+      // Pass the script to the parent component instead of using onScriptConfirmed
+      if (onScriptLoaded) {
+        onScriptLoaded(customScript);
       }
       
       toast({
