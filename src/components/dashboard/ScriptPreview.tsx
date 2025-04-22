@@ -116,6 +116,7 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
         wordCount={wordCount}
         onScriptChange={handleScriptChange}
         onRegenerateScript={handleRegenerate}
+        scriptOption={scriptOption}
       />
     </div>
   );
