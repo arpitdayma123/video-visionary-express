@@ -207,7 +207,7 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
         onScriptOptionChange={handleScriptOptionChange}
       />
       
-      {(scriptOption === 'custom' || (scriptOption === 'ai_remake' && showCustomEditor)) && (
+      {scriptOption === 'custom' && (
         <CustomScriptEditor
           customScript={customScript}
           wordCount={wordCount}
