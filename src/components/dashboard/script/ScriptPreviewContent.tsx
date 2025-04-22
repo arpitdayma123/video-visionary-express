@@ -11,6 +11,7 @@ interface ScriptPreviewContentProps {
   wordCount: number;
   onScriptChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
   onRegenerateScript: () => void;
+  onUseScript: () => void;
 }
 
 const ScriptPreviewContent: React.FC<ScriptPreviewContentProps> = ({
@@ -19,12 +20,20 @@ const ScriptPreviewContent: React.FC<ScriptPreviewContentProps> = ({
   wordCount,
   onScriptChange,
   onRegenerateScript,
+  onUseScript,
 }) => {
-  // Add a handler to explicitly stop regenerate propagation
+  // Add a handler to explicitly stop propagation
   const handleRegenerateScript = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     onRegenerateScript();
+  };
+
+  // Add a handler to explicitly stop propagation for use script
+  const handleUseScript = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onUseScript();
   };
 
   return (
@@ -49,6 +58,7 @@ const ScriptPreviewContent: React.FC<ScriptPreviewContentProps> = ({
             value={script}
             onChange={onScriptChange}
             className="h-48 resize-none"
+            onClick={(e) => e.stopPropagation()}
           />
         )}
       </div>
@@ -67,6 +77,15 @@ const ScriptPreviewContent: React.FC<ScriptPreviewContentProps> = ({
           ) : (
             'Regenerate Script'
           )}
+        </Button>
+        
+        <Button
+          variant="default"
+          onClick={handleUseScript}
+          disabled={isLoading || !script}
+          type="button"
+        >
+          Use This Script
         </Button>
       </div>
     </div>

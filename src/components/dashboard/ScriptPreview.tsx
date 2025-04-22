@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useScriptPreview } from '@/hooks/useScriptPreview';
 import GeneratePreviewButton from './script/GeneratePreviewButton';
@@ -23,12 +23,21 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
     script,
     wordCount,
     isPreviewVisible,
+    setIsPreviewVisible,
     handleScriptChange,
     handleGeneratePreview,
     handleRegenerateScript,
     handleUseScript,
     handleSaveCustomScript
   } = useScriptPreview(user, onUseScript, scriptOption);
+
+  // Reset preview visibility when script option changes
+  useEffect(() => {
+    // Reset preview visibility when changing options
+    if (scriptOption !== 'custom') {
+      setIsPreviewVisible(false);
+    }
+  }, [scriptOption, setIsPreviewVisible]);
 
   // Handle regenerate with the same pattern as generate preview
   const handleRegenerate = () => {
@@ -44,9 +53,14 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
     handleGeneratePreview();
   };
 
+  // Prevent event bubbling for the entire component
+  const preventPropagation = (e: React.MouseEvent) => {
+    e.stopPropagation();
+  };
+
   if (!isPreviewVisible) {
     return (
-      <div onClick={(e) => e.stopPropagation()}>
+      <div onClick={preventPropagation}>
         <GeneratePreviewButton
           isLoading={isLoading}
           onGenerate={handleStartGeneration}
@@ -59,13 +73,14 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
   }
 
   return (
-    <div onClick={(e) => e.stopPropagation()}>
+    <div onClick={preventPropagation}>
       <ScriptPreviewContent
         isLoading={isLoading}
         script={script}
         wordCount={wordCount}
         onScriptChange={handleScriptChange}
         onRegenerateScript={handleRegenerate}
+        onUseScript={() => handleUseScript(script)}
       />
     </div>
   );

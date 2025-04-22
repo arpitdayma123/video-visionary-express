@@ -40,9 +40,20 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
     setIsUnderMinimumLimit(words > 0 && words < MIN_WORDS);
   }, [customScript]);
 
-  const handleScriptOptionChange = (value: string) => {
-    setScriptOption(value);
-    updateProfile({ script_option: value });
+  const handleScriptOptionChange = async (value: string) => {
+    try {
+      // First update the database to avoid state conflicts
+      await updateProfile({ script_option: value });
+      // Then update the local state
+      setScriptOption(value);
+    } catch (error) {
+      console.error('Error updating script option:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update script option. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
 
   const handleCustomScriptChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -122,7 +133,7 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
     }
   };
 
-  const handleUseScript = (generatedScript: string) => {
+  const handleUseScript = async (generatedScript: string) => {
     setCustomScript(generatedScript);
     
     // Notify parent component that script has been confirmed
@@ -130,7 +141,24 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
       onScriptConfirmed(generatedScript);
     }
     
-    handleSaveScript();
+    try {
+      await updateProfile({ 
+        finalscript: generatedScript,
+        custom_script: generatedScript 
+      });
+      
+      toast({
+        title: "Script saved",
+        description: "Your script has been saved successfully.",
+      });
+    } catch (error) {
+      console.error('Error saving script:', error);
+      toast({
+        title: "Save failed",
+        description: "There was an error saving your script.",
+        variant: "destructive"
+      });
+    }
   };
 
   return (

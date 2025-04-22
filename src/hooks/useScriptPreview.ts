@@ -31,6 +31,35 @@ export const useScriptPreview = (
     };
   }, []);
 
+  // When script option changes, fetch existing script
+  useEffect(() => {
+    const fetchExistingScript = async () => {
+      if (!user || scriptOption !== 'ai_remake') return;
+      
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('custom_script')
+          .eq('id', user.id)
+          .single();
+          
+        if (error) {
+          console.error('Error fetching custom script:', error);
+          return;
+        }
+        
+        if (data && data.custom_script) {
+          setScript(data.custom_script);
+          updateWordCount(data.custom_script);
+        }
+      } catch (error) {
+        console.error('Error in fetchExistingScript:', error);
+      }
+    };
+    
+    fetchExistingScript();
+  }, [user, scriptOption]);
+
   // Calculate word count whenever script changes
   const updateWordCount = (text: string) => {
     const words = text.trim() ? text.trim().split(/\s+/).length : 0;
@@ -110,6 +139,11 @@ export const useScriptPreview = (
           
           // Save the newly generated script to finalscript
           saveFinalScript(profile.previewscript);
+          
+          // For ai_remake option, also save to custom_script
+          if (scriptOption === 'ai_remake') {
+            saveCustomScript(profile.previewscript);
+          }
         }
       } else if (profile.preview === 'generating') {
         console.log('Script still generating...');
@@ -141,6 +175,11 @@ export const useScriptPreview = (
       // First, save current script to finalscript if there is one
       if (script) {
         await saveFinalScript(script);
+      }
+      
+      // For ai_remake, also save to custom_script
+      if (scriptOption === 'ai_remake' && script) {
+        await saveCustomScript(script);
       }
       
       const { error: updateError } = await supabase
@@ -194,6 +233,11 @@ export const useScriptPreview = (
     // Save current script to finalscript before regenerating
     if (script) {
       await saveFinalScript(script);
+      
+      // For ai_remake, also save to custom_script
+      if (scriptOption === 'ai_remake') {
+        await saveCustomScript(script);
+      }
     }
     
     setIsLoading(true);
@@ -250,18 +294,46 @@ export const useScriptPreview = (
     }
   };
 
-  // Add function to save final script
+  // Helper function to save to custom_script column
+  const saveCustomScript = async (scriptToSave: string) => {
+    if (!user) return;
+    
+    try {
+      console.log("Saving to custom_script column:", scriptToSave);
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          custom_script: scriptToSave
+        })
+        .eq('id', user.id);
+
+      if (error) {
+        console.error('Error saving custom_script:', error);
+      }
+    } catch (error) {
+      console.error('Error saving to custom_script:', error);
+    }
+  };
+
+  // Function to use and save script
   const handleUseScript = async (scriptToUse: string) => {
     if (!user) return;
 
     try {
       console.log("Saving finalscript:", scriptToUse);
       
+      const updates: { [key: string]: string } = {
+        finalscript: scriptToUse
+      };
+      
+      // For ai_remake, also save to custom_script
+      if (scriptOption === 'ai_remake') {
+        updates.custom_script = scriptToUse;
+      }
+      
       const { error } = await supabase
         .from('profiles')
-        .update({
-          finalscript: scriptToUse
-        })
+        .update(updates)
         .eq('id', user.id);
 
       if (error) {
@@ -293,11 +365,14 @@ export const useScriptPreview = (
     try {
       console.log("Saving custom script as finalscript:", scriptToSave);
       
+      const updates: { [key: string]: string } = {
+        finalscript: scriptToSave,
+        custom_script: scriptToSave
+      };
+      
       const { error } = await supabase
         .from('profiles')
-        .update({
-          finalscript: scriptToSave
-        })
+        .update(updates)
         .eq('id', user.id);
 
       if (error) {
@@ -350,6 +425,7 @@ export const useScriptPreview = (
     script,
     wordCount,
     isPreviewVisible,
+    setIsPreviewVisible,
     handleScriptChange,
     handleGeneratePreview,
     handleRegenerateScript,
