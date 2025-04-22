@@ -36,7 +36,7 @@ interface VideoSubmitFormProps {
   updateProfile: (updates: any) => Promise<void>;
 }
 
-const VideoSubmitForm: React.FC<VideoSubmitFormProps> = ({
+const VideoSubmitForm = ({
   videos,
   voiceFiles,
   selectedVideo,
@@ -62,10 +62,8 @@ const VideoSubmitForm: React.FC<VideoSubmitFormProps> = ({
   updateProfile
 }: VideoSubmitFormProps) => {
   const { toast } = useToast();
+  const [isScriptSelected, setIsScriptSelected] = useState(false);
   
-  // Add state for tracking if preview has been generated
-  const [hasGeneratedPreview, setHasGeneratedPreview] = useState(false);
-
   const handleSubmit = async (e: React.FormEvent) => {
     // Check if this is a direct form submission or a button that's not Generate Video
     const targetElement = e.target as HTMLElement;
@@ -73,10 +71,13 @@ const VideoSubmitForm: React.FC<VideoSubmitFormProps> = ({
         !targetElement.textContent?.includes('Generate Video')) {
       e.preventDefault();
       e.stopPropagation();
-      return;
+      return; // Don't handle the event for other buttons
     }
     
     e.preventDefault();
+    
+    // Mark script as selected since we're proceeding with generation
+    setIsScriptSelected(true);
     
     // Save the current script as finalscript before generating video
     if (userId) {
@@ -108,6 +109,16 @@ const VideoSubmitForm: React.FC<VideoSubmitFormProps> = ({
       toast({
         title: "Incomplete form",
         description: "Please fill in all required fields and select a target video and voice file before submitting.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    // Check if script has been selected
+    if (!isScriptSelected) {
+      toast({
+        title: "Script not confirmed",
+        description: "Please select and confirm a script by clicking 'Use This Script' first.",
         variant: "destructive"
       });
       return;
@@ -229,8 +240,10 @@ const VideoSubmitForm: React.FC<VideoSubmitFormProps> = ({
       });
     }
   };
+
+  // Remove handleScriptConfirmed as it's no longer needed
   
-  // Fix the type issue by ensuring isFormComplete considers script option and preview generation
+  // Fix the type issue by ensuring isFormComplete is always a boolean
   const isFormComplete = Boolean(
     videos.length > 0 && 
     voiceFiles.length > 0 && 
@@ -238,24 +251,26 @@ const VideoSubmitForm: React.FC<VideoSubmitFormProps> = ({
     competitors.length > 0 && 
     selectedVideo !== null && 
     selectedVoice !== null && 
-    customScript && 
-    (scriptOption !== 'ig_reel' || (scriptOption === 'ig_reel' && reelUrl)) &&
-    // Only require preview generation for ai_find and ig_reel options
-    ((scriptOption === 'ai_find' || scriptOption === 'ig_reel') ? hasGeneratedPreview : true)
+    customScript && // Check for script presence instead of isScriptSelected
+    (scriptOption !== 'ig_reel' || (scriptOption === 'ig_reel' && reelUrl))
   );
 
   return (
     <form 
       onSubmit={handleSubmit} 
       className="space-y-12"
+      // Updated onClick handler - improved event handling
       onClick={(e) => {
         const target = e.target as HTMLElement;
+        // If the click is not directly on the form element or if it's on a button 
+        // that's not the Generate Video button, stop propagation
         if (e.currentTarget !== e.target || 
             (target.tagName === 'BUTTON' && !target.textContent?.includes('Generate Video'))) {
           e.stopPropagation();
         }
       }}
     >
+      {/* Video Upload Section */}
       <VideoUpload 
         videos={videos} 
         setVideos={setVideos} 
@@ -265,6 +280,7 @@ const VideoSubmitForm: React.FC<VideoSubmitFormProps> = ({
         updateProfile={updateProfile} 
       />
 
+      {/* Voice Upload Section */}
       <VoiceUpload 
         voiceFiles={voiceFiles} 
         setVoiceFiles={setVoiceFiles} 
@@ -274,27 +290,31 @@ const VideoSubmitForm: React.FC<VideoSubmitFormProps> = ({
         updateProfile={updateProfile} 
       />
 
+      {/* Niche Selection Section */}
       <NicheSelection 
         selectedNiches={selectedNiches} 
         setSelectedNiches={setSelectedNiches} 
         updateProfile={updateProfile} 
       />
 
+      {/* Competitor Section */}
       <CompetitorInput 
         competitors={competitors} 
         setCompetitors={setCompetitors} 
         updateProfile={updateProfile} 
       />
       
+      {/* Script Selection Section with updated onUseScript handler */}
       <ScriptSelection
         scriptOption={scriptOption}
         customScript={customScript}
         setScriptOption={setScriptOption}
         setCustomScript={setCustomScript}
         updateProfile={updateProfile}
-        onScriptLoaded={() => setHasGeneratedPreview(true)}
+        onScriptConfirmed={() => setIsScriptSelected(true)}
       />
 
+      {/* Submit Section */}
       <GenerateVideo 
         isFormComplete={isFormComplete} 
         userCredits={userCredits} 
@@ -307,6 +327,7 @@ const VideoSubmitForm: React.FC<VideoSubmitFormProps> = ({
         selectedVoice={selectedVoice}
         selectedNiches={selectedNiches}
         competitors={competitors}
+        isScriptSelected={isScriptSelected}
       />
     </form>
   );

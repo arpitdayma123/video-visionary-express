@@ -37,14 +37,10 @@ export const useScriptPreview = (
     };
   }
 
-  // Add new state for tracking if preview has been generated
-  const [hasGeneratedPreview, setHasGeneratedPreview] = useState(false);
-
   function handleScriptGenerated(newScript: string) {
     setScript(newScript);
     setWordCount(updateWordCount(newScript));
     saveFinalScript(user, newScript);
-    setHasGeneratedPreview(true); // Set to true when script is generated
     onScriptGenerated(newScript);
   }
 
@@ -67,7 +63,7 @@ export const useScriptPreview = (
       const { error } = await supabase
         .from('profiles')
         .update({
-          status: 'generating'
+          preview: 'generating'
         })
         .eq('id', user.id);
 
@@ -108,11 +104,6 @@ export const useScriptPreview = (
     }
   };
 
-  const handleRegenerateScript = async () => {
-    // Similar implementation as in useAiRemake but for normal script preview
-    await handleGeneratePreview();
-  };
-
   return {
     isLoading,
     script,
@@ -121,7 +112,6 @@ export const useScriptPreview = (
     setIsPreviewVisible,
     handleScriptChange,
     handleGeneratePreview,
-    handleRegenerateScript,
-    hasGeneratedPreview
+    handleRegenerateScript: handleGeneratePreview
   };
 };

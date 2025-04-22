@@ -21,7 +21,7 @@ export const useScriptPolling = (
     try {
       const { data: profile, error } = await supabase
         .from('profiles')
-        .select('status, previewscript')
+        .select('preview, previewscript')
         .eq('id', user.id)
         .single();
 
@@ -30,7 +30,7 @@ export const useScriptPolling = (
         return;
       }
 
-      if (profile.status === 'generated' && profile.previewscript) {
+      if (profile.preview === 'generated' && profile.previewscript) {
         if (pollingInterval.current) {
           clearInterval(pollingInterval.current);
           pollingInterval.current = null;
