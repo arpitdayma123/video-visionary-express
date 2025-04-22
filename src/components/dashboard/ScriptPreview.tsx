@@ -5,6 +5,8 @@ import GeneratePreviewButton from './script/GeneratePreviewButton';
 import ScriptPreviewContent from './script/ScriptPreviewContent';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
 
 interface ScriptPreviewProps {
   scriptOption: string;
@@ -19,6 +21,7 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
   const { toast } = useToast();
   const [generationStartTime, setGenerationStartTime] = useState<number | null>(null);
   const [waitTimeExpired, setWaitTimeExpired] = useState(false);
+  const [initialScript, setInitialScript] = useState('');
   
   const {
     isLoading,
@@ -88,18 +91,66 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
     }
   };
 
-  // Prevent event bubbling for the entire component
+  // New handler for initial script input for ai_remake
+  const handleInitialScriptChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setInitialScript(e.target.value);
+  };
+
+  // Prevent event bubbling
   const preventPropagation = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
   };
 
-  if (!isPreviewVisible) {
+  // For ai_remake, show initial script input if preview is not visible
+  if (!isPreviewVisible && scriptOption === 'ai_remake') {
     return (
-      <div onClick={preventPropagation}>
+      <div onClick={preventPropagation} className="mt-6 space-y-4">
+        <div>
+          <div className="flex justify-between items-center mb-2">
+            <label htmlFor="initial-script" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed">
+              Enter Your Script
+            </label>
+            <span className="text-xs text-muted-foreground">
+              {initialScript.trim().split(/\s+/).filter(Boolean).length} words
+            </span>
+          </div>
+          <Textarea
+            id="initial-script"
+            value={initialScript}
+            onChange={handleInitialScriptChange}
+            placeholder="Enter your script here to let our AI remake it..."
+            className="h-48 resize-none"
+          />
+        </div>
         <GeneratePreviewButton
           isLoading={isLoading}
-          onGenerate={handleStartGeneration}
+          onGenerate={async (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            try {
+              // Save initial script to custom_script
+              if (user && initialScript.trim()) {
+                const { error } = await supabase
+                  .from('profiles')
+                  .update({ custom_script: initialScript })
+                  .eq('id', user.id);
+                
+                if (error) throw error;
+              }
+              
+              // Continue with normal generation
+              handleStartGeneration(e);
+            } catch (error) {
+              console.error('Error saving initial script:', error);
+              toast({
+                title: "Error",
+                description: "Failed to save your script. Please try again.",
+                variant: "destructive"
+              });
+            }
+          }}
           scriptOption={scriptOption}
           generationStartTime={generationStartTime}
           waitTimeExpired={waitTimeExpired}

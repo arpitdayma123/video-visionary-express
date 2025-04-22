@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import ScriptOptions from './script/ScriptOptions';
@@ -41,10 +42,13 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
 
   const handleScriptOptionChange = async (value: string) => {
     try {
-      // First update the database to avoid state conflicts
       await updateProfile({ script_option: value });
-      // Then update the local state
       setScriptOption(value);
+      
+      // Reset custom script when switching to ai_remake
+      if (value === 'ai_remake') {
+        setCustomScript('');
+      }
     } catch (error) {
       console.error('Error updating script option:', error);
       toast({
@@ -194,7 +198,8 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
         onScriptOptionChange={handleScriptOptionChange}
       />
       
-      {(scriptOption === 'custom' || scriptOption === 'ai_remake') && (
+      {/* Only show CustomScriptEditor for custom option */}
+      {scriptOption === 'custom' && (
         <CustomScriptEditor
           customScript={customScript}
           wordCount={wordCount}
