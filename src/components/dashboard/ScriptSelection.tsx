@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import ScriptOptions from './script/ScriptOptions';
@@ -31,7 +32,6 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
   const { toast } = useToast();
   const MIN_WORDS = 30;
   const [saveUrlTimeout, setSaveUrlTimeout] = useState<NodeJS.Timeout | null>(null);
-  const [userId, setUserId] = useState<string | null>(null);
 
   useEffect(() => {
     const words = customScript.trim() ? customScript.trim().split(/\s+/).length : 0;
@@ -96,49 +96,20 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
     
     setIsSaving(true);
     try {
-      if (scriptOption === 'ai_remake') {
-        // For AI remake, we'll follow the preview generation pattern
-        await updateProfile({ preview: 'generating' });
-        
-        const params = new URLSearchParams({
-          userId: userId || '',
-          scriptOption: 'ai_remake',
-          customScript: customScript
-        });
-        
-        const webhookResponse = await fetch(
-          `https://primary-production-ce25.up.railway.app/webhook/scriptfind?${params.toString()}`,
-          {
-            method: 'GET',
-            headers: {
-              'Accept': 'application/json',
-              'Cache-Control': 'no-cache'
-            }
-          }
-        );
-
-        if (!webhookResponse.ok) {
-          throw new Error(`Webhook failed with status ${webhookResponse.status}`);
-        }
-        
-        toast({
-          title: "Generating preview",
-          description: "Your script is being processed. Please wait...",
-        });
-      } else {
-        // For custom script, just save it
-        await updateProfile({ custom_script: customScript });
-        await updateProfile({ finalscript: customScript });
-        
-        if (onScriptConfirmed) {
-          onScriptConfirmed(customScript);
-        }
-        
-        toast({
-          title: "Script saved",
-          description: "Your script has been saved successfully.",
-        });
+      await updateProfile({ custom_script: customScript });
+      
+      // Also mark as finalscript to be consistent with other script options
+      await updateProfile({ finalscript: customScript });
+      
+      // Notify parent component that script has been confirmed
+      if (onScriptConfirmed) {
+        onScriptConfirmed(customScript);
       }
+      
+      toast({
+        title: "Script saved",
+        description: "Your script has been saved successfully.",
+      });
     } catch (error) {
       console.error('Error saving script:', error);
       toast({
@@ -180,7 +151,6 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
           isSaving={isSaving}
           onCustomScriptChange={handleCustomScriptChange}
           onSaveScript={handleSaveScript}
-          scriptOption={scriptOption}
         />
       )}
 
