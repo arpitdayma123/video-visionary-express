@@ -12,6 +12,7 @@ interface CustomScriptEditorProps {
   isExceedingLimit: boolean;
   isUnderMinimumLimit: boolean;
   isSaving: boolean;
+  scriptOption?: string;
   onCustomScriptChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
   onSaveScript: () => void;
 }
@@ -22,6 +23,7 @@ const CustomScriptEditor: React.FC<CustomScriptEditorProps> = ({
   isExceedingLimit,
   isUnderMinimumLimit,
   isSaving,
+  scriptOption,
   onCustomScriptChange,
   onSaveScript
 }) => {
@@ -64,13 +66,16 @@ const CustomScriptEditor: React.FC<CustomScriptEditorProps> = ({
         </Alert>
       )}
       
-      <Button 
-        onClick={onSaveScript} 
-        className="mt-4"
-        disabled={isExceedingLimit || isUnderMinimumLimit || !customScript.trim() || isSaving}
-      >
-        {isSaving ? 'Saving...' : 'Save Script'}
-      </Button>
+      {/* Only show save button if NOT in AI remake mode */}
+      {scriptOption !== 'ai_remake' && (
+        <Button 
+          onClick={onSaveScript} 
+          className="mt-4"
+          disabled={isExceedingLimit || isUnderMinimumLimit || !customScript.trim() || isSaving}
+        >
+          {isSaving ? 'Saving...' : 'Save Script'}
+        </Button>
+      )}
     </div>
   );
 };

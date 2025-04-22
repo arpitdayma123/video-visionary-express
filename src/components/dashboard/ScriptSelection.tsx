@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import ScriptOptions from './script/ScriptOptions';
@@ -122,6 +121,10 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
     }
   };
 
+  const handleCustomScriptChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setCustomScript(e.target.value);
+  };
+
   const handleUseScript = (generatedScript: string) => {
     setCustomScript(generatedScript);
     
@@ -131,6 +134,30 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
     }
     
     handleSaveScript();
+  };
+
+  // Modified to save script before generating preview for AI remake
+  const handleScriptConfirmed = async (script: string) => {
+    if (scriptOption === 'ai_remake') {
+      try {
+        setIsSaving(true);
+        await updateProfile({ custom_script: script });
+        await updateProfile({ finalscript: script });
+        
+        if (onScriptConfirmed) {
+          onScriptConfirmed(script);
+        }
+      } catch (error) {
+        console.error('Error saving script:', error);
+        toast({
+          title: "Save failed",
+          description: "There was an error saving your script.",
+          variant: "destructive"
+        });
+      } finally {
+        setIsSaving(false);
+      }
+    }
   };
 
   return (
@@ -149,6 +176,7 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
           isExceedingLimit={isExceedingLimit}
           isUnderMinimumLimit={isUnderMinimumLimit}
           isSaving={isSaving}
+          scriptOption={scriptOption}
           onCustomScriptChange={handleCustomScriptChange}
           onSaveScript={handleSaveScript}
         />
@@ -167,6 +195,7 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
         <ScriptPreview
           scriptOption={scriptOption}
           onUseScript={handleUseScript}
+          onScriptConfirmed={handleScriptConfirmed}
         />
       )}
     </section>
