@@ -1,5 +1,7 @@
+
 import React, { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext'; // Add this import to get user
 import ScriptOptions from './script/ScriptOptions';
 import CustomScriptEditor from './script/CustomScriptEditor';
 import InstagramReelInput from './script/InstagramReelInput';
@@ -29,6 +31,7 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
   const [reelUrl, setReelUrl] = useState('');
   const [isValidReelUrl, setIsValidReelUrl] = useState(true);
   const { toast } = useToast();
+  const { user } = useAuth(); // Get the current user
   const MIN_WORDS = 30;
   const [saveUrlTimeout, setSaveUrlTimeout] = useState<NodeJS.Timeout | null>(null);
 
@@ -133,13 +136,29 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
   };
 
   const handleGeneratePreview = async () => {
+    if (!user) {
+      console.error('No user found');
+      toast({
+        title: "Error",
+        description: "You must be logged in to generate a preview.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     if (isExceedingLimit || isUnderMinimumLimit) return;
     
     setIsSaving(true);
     try {
       // First, save the script if we're in ai_remake mode
       if (scriptOption === 'ai_remake') {
+        console.log('Saving custom script in ai_remake mode before generating preview:', customScript);
         await updateProfile({ custom_script: customScript });
+        
+        toast({
+          title: "Script saved",
+          description: "Your script has been saved successfully.",
+        });
       }
       
       const webhookResponse = await fetch(

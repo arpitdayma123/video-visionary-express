@@ -66,6 +66,7 @@ const CustomScriptEditor: React.FC<CustomScriptEditorProps> = ({
         </Alert>
       )}
       
+      {/* Only show Save Script button for custom mode, not for ai_remake mode */}
       {scriptOption === 'custom' && (
         <Button 
           onClick={onSaveScript} 
