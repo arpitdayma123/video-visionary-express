@@ -94,9 +94,9 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
     e.stopPropagation();
   };
 
-  return (
-    <div onClick={preventPropagation}>
-      {!isPreviewVisible ? (
+  if (!isPreviewVisible) {
+    return (
+      <div onClick={preventPropagation}>
         <GeneratePreviewButton
           isLoading={isLoading}
           onGenerate={handleStartGeneration}
@@ -104,16 +104,19 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
           generationStartTime={generationStartTime}
           waitTimeExpired={waitTimeExpired}
         />
-      ) : (
-        <ScriptPreviewContent
-          isLoading={isLoading}
-          script={script}
-          wordCount={wordCount}
-          onScriptChange={handleScriptChange}
-          onRegenerateScript={handleRegenerate}
-          scriptOption={scriptOption}
-        />
-      )}
+      </div>
+    );
+  }
+
+  return (
+    <div onClick={preventPropagation}>
+      <ScriptPreviewContent
+        isLoading={isLoading}
+        script={script}
+        wordCount={wordCount}
+        onScriptChange={handleScriptChange}
+        onRegenerateScript={handleRegenerate}
+      />
     </div>
   );
 };
