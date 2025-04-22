@@ -172,15 +172,30 @@ export const useScriptPreview = (
     setHasLoadedScript(false); // Reset loaded state
     
     try {
-      // First, save current script to finalscript if there is one
-      if (script) {
-        await saveFinalScript(script);
+      // First, save current script to custom_script if in ai_remake mode
+      if (scriptOption === 'ai_remake') {
+        console.log("AI Remake mode - saving current script to custom_script before generation");
+        const { error } = await supabase
+          .from('profiles')
+          .update({
+            custom_script: script
+          })
+          .eq('id', user.id);
+        
+        if (error) {
+          console.error('Error saving to custom_script before generation:', error);
+          toast({
+            title: "Warning",
+            description: "Could not save your script before generating. Please try again.",
+            variant: "destructive"
+          });
+          setIsLoading(false);
+          return;
+        }
       }
       
-      // For ai_remake, also save to custom_script
-      if (scriptOption === 'ai_remake' && script) {
-        await saveCustomScript(script);
-      }
+      // Then, save to finalscript as well
+      await saveFinalScript(script);
       
       const { error: updateError } = await supabase
         .from('profiles')
@@ -230,14 +245,15 @@ export const useScriptPreview = (
   const handleRegenerateScript = async () => {
     if (!user) return;
     
-    // Save current script to finalscript before regenerating
+    // Save current script to custom_script before regenerating if in ai_remake mode
+    if (scriptOption === 'ai_remake' && script) {
+      console.log("AI Remake mode - saving current script to custom_script before regeneration");
+      await saveCustomScript(script);
+    }
+    
+    // Also save to finalscript
     if (script) {
       await saveFinalScript(script);
-      
-      // For ai_remake, also save to custom_script
-      if (scriptOption === 'ai_remake') {
-        await saveCustomScript(script);
-      }
     }
     
     setIsLoading(true);
