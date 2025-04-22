@@ -6,6 +6,7 @@ import ScriptOptions from './script/ScriptOptions';
 import CustomScriptEditor from './script/CustomScriptEditor';
 import InstagramReelInput from './script/InstagramReelInput';
 import ScriptPreview from './ScriptPreview';
+import { supabase } from '@/integrations/supabase/client';
 
 interface ScriptSelectionProps {
   scriptOption: string;
@@ -59,6 +60,7 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
   };
 
   const handleCustomScriptChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    e.stopPropagation();
     setCustomScript(e.target.value);
   };
 
@@ -164,11 +166,19 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
       // First, save the script if we're in ai_remake mode
       if (scriptOption === 'ai_remake') {
         console.log('Saving custom script in ai_remake mode before generating preview:', customScript);
-        await updateProfile({ custom_script: customScript });
+        // Directly use supabase to ensure updating without race conditions
+        const { error } = await supabase
+          .from('profiles')
+          .update({ custom_script: customScript })
+          .eq('id', user.id);
+          
+        if (error) {
+          throw error;
+        }
         
         toast({
           title: "Script saved",
-          description: "Your script has been saved successfully.",
+          description: "Your script has been saved for AI to remake.",
         });
       }
       
@@ -204,8 +214,13 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
     }
   };
 
+  // Safe click handler to prevent event propagation issues
+  const handleSectionClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+  };
+
   return (
-    <section className="animate-fade-in border-b border-border pb-8 mb-8" onClick={(e) => e.stopPropagation()}>
+    <section className="animate-fade-in border-b border-border pb-8 mb-8" onClick={handleSectionClick}>
       <h2 className="text-xl font-medium mb-4">Script Selection</h2>
       
       <ScriptOptions
@@ -239,6 +254,8 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
         <ScriptPreview
           scriptOption={scriptOption}
           onUseScript={handleUseScript}
+          onGeneratePreview={scriptOption === 'ai_remake' ? handleGeneratePreview : undefined}
+          customScript={customScript}
         />
       )}
     </section>

@@ -9,6 +9,7 @@ interface GeneratePreviewButtonProps {
   scriptOption: string;
   generationStartTime: number | null;
   waitTimeExpired: boolean;
+  customScript?: string;
 }
 
 const GeneratePreviewButton: React.FC<GeneratePreviewButtonProps> = ({
@@ -16,13 +17,17 @@ const GeneratePreviewButton: React.FC<GeneratePreviewButtonProps> = ({
   onGenerate,
   scriptOption,
   generationStartTime,
-  waitTimeExpired
+  waitTimeExpired,
+  customScript
 }) => {
   const [countdown, setCountdown] = useState<number | null>(null);
   const [extendedTime, setExtendedTime] = useState(0);
 
   // Don't render the button if script option is "custom"
   if (scriptOption === 'custom') return null;
+  
+  // For ai_remake, validate that there's text entered
+  const isScriptEmpty = scriptOption === 'ai_remake' && (!customScript || customScript.trim() === '');
   
   // Handler to stop event propagation
   const handleClick = (e: React.MouseEvent) => {
@@ -76,7 +81,7 @@ const GeneratePreviewButton: React.FC<GeneratePreviewButtonProps> = ({
     <div className="mt-6" onClick={(e) => e.stopPropagation()}>
       <Button
         onClick={handleClick}
-        disabled={isLoading}
+        disabled={isLoading || isScriptEmpty}
         className="w-full sm:w-auto"
         type="button" // Explicitly set type to button
       >
@@ -89,9 +94,15 @@ const GeneratePreviewButton: React.FC<GeneratePreviewButtonProps> = ({
             }
           </>
         ) : (
-          'Generate Script Preview'
+          scriptOption === 'ai_remake' ? 'Generate AI Remake' : 'Generate Script Preview'
         )}
       </Button>
+      
+      {isScriptEmpty && (
+        <p className="text-sm text-red-500 mt-2">
+          Please enter a script for AI to remake.
+        </p>
+      )}
     </div>
   );
 };

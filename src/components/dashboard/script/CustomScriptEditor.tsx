@@ -36,14 +36,24 @@ const CustomScriptEditor: React.FC<CustomScriptEditorProps> = ({
   };
   
   const handleSaveClick = (e: React.MouseEvent) => {
+    e.preventDefault();
     e.stopPropagation();
     onSaveScript();
   };
   
+  // Safe click handler to prevent event propagation issues
+  const handleContainerClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+  };
+  
   return (
-    <div className="mt-6 animate-fade-in">
+    <div className="mt-6 animate-fade-in" onClick={handleContainerClick}>
       <div className="flex justify-between items-center mb-2">
-        <Label htmlFor="custom-script" className="font-medium">Your Script</Label>
+        <Label htmlFor="custom-script" className="font-medium">
+          {scriptOption === 'ai_remake' 
+            ? 'Enter Script for AI to Remake' 
+            : 'Your Script'}
+        </Label>
         <span className={`text-xs ${isExceedingLimit || isUnderMinimumLimit ? 'text-destructive' : 'text-muted-foreground'}`}>
           {wordCount}/{MAX_WORDS} words
         </span>
@@ -51,7 +61,9 @@ const CustomScriptEditor: React.FC<CustomScriptEditorProps> = ({
       
       <Textarea
         id="custom-script"
-        placeholder="Enter your script here..."
+        placeholder={scriptOption === 'ai_remake' 
+          ? "Enter your script for AI to enhance..." 
+          : "Enter your script here..."}
         value={customScript}
         onChange={handleTextareaChange}
         className={`h-32 ${isExceedingLimit || isUnderMinimumLimit ? 'border-destructive' : ''}`}

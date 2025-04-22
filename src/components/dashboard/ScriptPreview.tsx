@@ -8,11 +8,15 @@ import ScriptPreviewContent from './script/ScriptPreviewContent';
 interface ScriptPreviewProps {
   scriptOption: string;
   onUseScript: (script: string) => void;
+  onGeneratePreview?: () => Promise<void>;
+  customScript?: string;
 }
 
 const ScriptPreview: React.FC<ScriptPreviewProps> = ({
   scriptOption,
-  onUseScript
+  onUseScript,
+  onGeneratePreview,
+  customScript
 }) => {
   const { user } = useAuth();
   const [generationStartTime, setGenerationStartTime] = useState<number | null>(null);
@@ -24,7 +28,7 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
     wordCount,
     isPreviewVisible,
     handleScriptChange,
-    handleGeneratePreview,
+    handleGeneratePreview: internalHandleGeneratePreview,
     handleRegenerateScript,
     handleUseScript,
     handleSaveCustomScript
@@ -45,7 +49,13 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
     e.stopPropagation();
     setGenerationStartTime(Date.now());
     setWaitTimeExpired(false);
-    handleGeneratePreview();
+    
+    // Use the parent component's generate preview function for ai_remake
+    if (scriptOption === 'ai_remake' && onGeneratePreview) {
+      onGeneratePreview();
+    } else {
+      internalHandleGeneratePreview();
+    }
   };
 
   if (!isPreviewVisible) {
@@ -57,6 +67,7 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
           scriptOption={scriptOption}
           generationStartTime={generationStartTime}
           waitTimeExpired={waitTimeExpired}
+          customScript={customScript}
         />
       </div>
     );
