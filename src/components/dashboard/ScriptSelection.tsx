@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import ScriptOptions from './script/ScriptOptions';
@@ -15,7 +14,6 @@ interface ScriptSelectionProps {
   setCustomScript: (script: string) => void;
   updateProfile: (updates: any) => Promise<void>;
   onScriptConfirmed?: (script: string) => void;
-  onScriptLoaded?: () => void;
 }
 
 const ScriptSelection: React.FC<ScriptSelectionProps> = ({
@@ -24,8 +22,7 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
   setScriptOption,
   setCustomScript,
   updateProfile,
-  onScriptConfirmed,
-  onScriptLoaded
+  onScriptConfirmed
 }) => {
   const [wordCount, setWordCount] = useState(0);
   const [isExceedingLimit, setIsExceedingLimit] = useState(false);
@@ -190,7 +187,7 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
         <ScriptPreview
           scriptOption={scriptOption}
           onUseScript={onScriptConfirmed || (() => {})}
-          onScriptLoaded={onScriptLoaded}
+          onScriptLoaded={() => setShowCustomEditor(false)}
         />
       )}
     </ScriptSelectionWrapper>

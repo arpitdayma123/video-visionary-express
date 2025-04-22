@@ -10,8 +10,7 @@ import { useAiRemake } from './script/useAiRemake';
 export const useScriptPreview = (
   user: User | null, 
   onScriptGenerated: (script: string) => void,
-  scriptOption: string,
-  onScriptLoaded?: () => void
+  scriptOption: string
 ) => {
   const [isLoading, setIsLoading] = useState(false);
   const [script, setScript] = useState('');
@@ -24,12 +23,11 @@ export const useScriptPreview = (
     isLoading,
     handleScriptGenerated,
     scriptOption,
-    setIsLoading,
-    onScriptLoaded
+    setIsLoading
   );
 
   // Use AI Remake hook if that option is selected
-  const aiRemake = useAiRemake(user, onScriptGenerated, onScriptLoaded);
+  const aiRemake = useAiRemake(user, onScriptGenerated);
   if (scriptOption === 'ai_remake') {
     return {
       ...aiRemake,
@@ -44,9 +42,6 @@ export const useScriptPreview = (
     setWordCount(updateWordCount(newScript));
     saveFinalScript(user, newScript);
     onScriptGenerated(newScript);
-    if (onScriptLoaded) {
-      onScriptLoaded();
-    }
   }
 
   const handleScriptChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
