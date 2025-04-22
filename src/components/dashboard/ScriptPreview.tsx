@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useScriptPreview } from '@/hooks/useScriptPreview';
@@ -29,9 +28,7 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
     setIsPreviewVisible,
     handleScriptChange,
     handleGeneratePreview,
-    handleRegenerateScript,
-    handleUseScript,
-    handleSaveCustomScript
+    handleRegenerateScript
   } = useScriptPreview(user, onUseScript, scriptOption);
 
   // Reset preview visibility when script option changes
@@ -97,10 +94,6 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
     e.stopPropagation();
   };
 
-  const handleUseScriptClick = () => {
-    handleUseScript(script);
-  };
-
   if (!isPreviewVisible) {
     return (
       <div onClick={preventPropagation}>
@@ -123,7 +116,6 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
         wordCount={wordCount}
         onScriptChange={handleScriptChange}
         onRegenerateScript={handleRegenerate}
-        onUseScript={handleUseScriptClick}
       />
     </div>
   );

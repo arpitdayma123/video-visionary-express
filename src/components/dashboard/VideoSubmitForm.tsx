@@ -76,6 +76,9 @@ const VideoSubmitForm = ({
     
     e.preventDefault();
     
+    // Mark script as selected since we're proceeding with generation
+    setIsScriptSelected(true);
+    
     // Save the current script as finalscript before generating video
     if (userId) {
       try {
@@ -98,6 +101,7 @@ const VideoSubmitForm = ({
         }
       } catch (error) {
         console.error('Error saving script before video generation:', error);
+        return;
       }
     }
     
@@ -237,12 +241,8 @@ const VideoSubmitForm = ({
     }
   };
 
-  // Handler for when a script is used/confirmed
-  const handleScriptConfirmed = (scriptText: string) => {
-    setIsScriptSelected(true);
-    setCustomScript(scriptText);
-  };
-
+  // Remove handleScriptConfirmed as it's no longer needed
+  
   // Fix the type issue by ensuring isFormComplete is always a boolean
   const isFormComplete = Boolean(
     videos.length > 0 && 
@@ -251,7 +251,7 @@ const VideoSubmitForm = ({
     competitors.length > 0 && 
     selectedVideo !== null && 
     selectedVoice !== null && 
-    isScriptSelected && // Add script selected condition
+    customScript && // Check for script presence instead of isScriptSelected
     (scriptOption !== 'ig_reel' || (scriptOption === 'ig_reel' && reelUrl))
   );
 
@@ -311,7 +311,7 @@ const VideoSubmitForm = ({
         setScriptOption={setScriptOption}
         setCustomScript={setCustomScript}
         updateProfile={updateProfile}
-        onScriptConfirmed={handleScriptConfirmed}
+        onScriptConfirmed={() => setIsScriptSelected(true)}
       />
 
       {/* Submit Section */}

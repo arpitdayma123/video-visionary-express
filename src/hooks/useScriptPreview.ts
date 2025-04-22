@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -245,15 +244,35 @@ export const useScriptPreview = (
   const handleRegenerateScript = async () => {
     if (!user) return;
     
-    // Save current script to custom_script before regenerating if in ai_remake mode
-    if (scriptOption === 'ai_remake' && script) {
-      console.log("AI Remake mode - saving current script to custom_script before regeneration");
-      await saveCustomScript(script);
-    }
-    
-    // Also save to finalscript
-    if (script) {
-      await saveFinalScript(script);
+    try {
+      // First save the current script to finalscript
+      if (script) {
+        console.log("Saving current script to finalscript before regeneration");
+        const { error } = await supabase
+          .from('profiles')
+          .update({
+            finalscript: script
+          })
+          .eq('id', user.id);
+          
+        if (error) {
+          console.error('Error saving finalscript before regeneration:', error);
+          toast({
+            title: "Error",
+            description: "Failed to save your script. Please try again.",
+            variant: "destructive"
+          });
+          return;
+        }
+      }
+      
+      // For ai_remake, also save to custom_script
+      if (scriptOption === 'ai_remake' && script) {
+        await saveCustomScript(script);
+      }
+    } catch (error) {
+      console.error('Error saving script before regeneration:', error);
+      return;
     }
     
     setIsLoading(true);
