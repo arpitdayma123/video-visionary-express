@@ -31,6 +31,7 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
   const { toast } = useToast();
   const MIN_WORDS = 30;
   const [saveUrlTimeout, setSaveUrlTimeout] = useState<NodeJS.Timeout | null>(null);
+  const [isPreviewVisible, setIsPreviewVisible] = useState(false);
 
   useEffect(() => {
     const words = customScript.trim() ? customScript.trim().split(/\s+/).length : 0;
@@ -45,6 +46,8 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
       await updateProfile({ script_option: value });
       // Then update the local state
       setScriptOption(value);
+      // Reset preview visibility when script option changes
+      setIsPreviewVisible(false);
     } catch (error) {
       console.error('Error updating script option:', error);
       toast({
@@ -71,6 +74,11 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
         });
       }
     }
+  };
+
+  // Handle preview visibility updates from ScriptPreview component
+  const handlePreviewVisibilityChange = (isVisible: boolean) => {
+    setIsPreviewVisible(isVisible);
   };
 
   const validateInstagramReelUrl = (url: string) => {
@@ -194,7 +202,8 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
         onScriptOptionChange={handleScriptOptionChange}
       />
       
-      {(scriptOption === 'custom' || scriptOption === 'ai_remake') && (
+      {/* Only show CustomScriptEditor if preview is not visible in ai_remake mode, or for custom mode always */}
+      {((scriptOption === 'ai_remake' && !isPreviewVisible) || scriptOption === 'custom') && (
         <CustomScriptEditor
           customScript={customScript}
           wordCount={wordCount}
@@ -220,6 +229,7 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
         <ScriptPreview
           scriptOption={scriptOption}
           onUseScript={handleUseScript}
+          onPreviewVisibilityChange={handlePreviewVisibilityChange}
         />
       )}
     </section>
