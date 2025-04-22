@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import ScriptOptions from './script/ScriptOptions';
@@ -56,8 +55,22 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
     }
   };
 
-  const handleCustomScriptChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+  const handleCustomScriptChange = async (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setCustomScript(e.target.value);
+    
+    // If in ai_remake mode, automatically save the script as it changes
+    if (scriptOption === 'ai_remake') {
+      try {
+        await updateProfile({ custom_script: e.target.value });
+      } catch (error) {
+        console.error('Error saving script:', error);
+        toast({
+          title: "Save failed",
+          description: "There was an error saving your script.",
+          variant: "destructive"
+        });
+      }
+    }
   };
 
   const validateInstagramReelUrl = (url: string) => {
@@ -188,6 +201,7 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
           isExceedingLimit={isExceedingLimit}
           isUnderMinimumLimit={isUnderMinimumLimit}
           isSaving={isSaving}
+          scriptOption={scriptOption}
           onCustomScriptChange={handleCustomScriptChange}
           onSaveScript={handleSaveScript}
         />
