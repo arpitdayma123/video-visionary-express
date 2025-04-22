@@ -66,15 +66,30 @@ const VideoSubmitForm = ({
 
   // Save script preview to finalscript column before generating video
   const saveScriptToFinalScript = async () => {
-    if (userId && customScript) {
+    if (userId) {
       try {
+        // Get the current script preview content directly from the database
+        const { data, error: fetchError } = await supabase
+          .from('profiles')
+          .select('previewscript')
+          .eq('id', userId)
+          .single();
+        
+        if (fetchError) throw fetchError;
+        
+        const currentScriptPreview = data?.previewscript || '';
+
+        // Save the preview script to finalscript column
         const { error: saveError } = await supabase
           .from('profiles')
           .update({
-            finalscript: customScript
+            finalscript: currentScriptPreview
           })
           .eq('id', userId);
+        
         if (saveError) throw saveError;
+        
+        console.log("Saved current preview script to finalscript:", currentScriptPreview);
       } catch (error) {
         console.error('Error saving script to finalscript before video generation:', error);
         toast({
