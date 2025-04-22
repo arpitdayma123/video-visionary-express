@@ -13,7 +13,7 @@ interface ScriptSelectionProps {
   setScriptOption: (option: string) => void;
   setCustomScript: (script: string) => void;
   updateProfile: (updates: any) => Promise<void>;
-  onScriptConfirmed?: (script: string) => void;
+  onScriptLoaded?: () => void;
 }
 
 const ScriptSelection: React.FC<ScriptSelectionProps> = ({
@@ -22,7 +22,7 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
   setScriptOption,
   setCustomScript,
   updateProfile,
-  onScriptConfirmed
+  onScriptLoaded
 }) => {
   const [wordCount, setWordCount] = useState(0);
   const [isExceedingLimit, setIsExceedingLimit] = useState(false);
@@ -111,7 +111,6 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
           toast({
             title: "Save failed",
             description: "There was an error saving your reel URL.",
-            variant: "destructive"
           });
         }
       }, 500);
@@ -187,7 +186,7 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
         <ScriptPreview
           scriptOption={scriptOption}
           onUseScript={onScriptConfirmed || (() => {})}
-          onScriptLoaded={() => setShowCustomEditor(false)}
+          onScriptLoaded={onScriptLoaded}
         />
       )}
     </ScriptSelectionWrapper>

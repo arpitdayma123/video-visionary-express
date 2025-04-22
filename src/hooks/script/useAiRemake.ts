@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { User } from '@supabase/supabase-js';
-import { useScriptUtils } from './useScriptUtils';
+import { useScriptUtils } from '@/hooks/script/useScriptUtils';
 import { useScriptPolling } from './useScriptPolling';
 
 export const useAiRemake = (
@@ -89,7 +89,7 @@ export const useAiRemake = (
       const { error } = await supabase
         .from('profiles')
         .update({
-          preview: 'generating'
+          preview_status: 'generating'
         })
         .eq('id', user.id);
 

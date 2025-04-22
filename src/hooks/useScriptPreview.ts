@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { User } from '@supabase/supabase-js';
 import { useToast } from '@/hooks/use-toast';
@@ -37,10 +36,14 @@ export const useScriptPreview = (
     };
   }
 
+  // Add new state for tracking if preview has been generated
+  const [hasGeneratedPreview, setHasGeneratedPreview] = useState(false);
+
   function handleScriptGenerated(newScript: string) {
     setScript(newScript);
     setWordCount(updateWordCount(newScript));
     saveFinalScript(user, newScript);
+    setHasGeneratedPreview(true); // Set to true when script is generated
     onScriptGenerated(newScript);
   }
 
@@ -63,7 +66,7 @@ export const useScriptPreview = (
       const { error } = await supabase
         .from('profiles')
         .update({
-          preview: 'generating'
+          preview_status: 'generating'
         })
         .eq('id', user.id);
 
@@ -112,6 +115,7 @@ export const useScriptPreview = (
     setIsPreviewVisible,
     handleScriptChange,
     handleGeneratePreview,
-    handleRegenerateScript: handleGeneratePreview
+    handleRegenerateScript,
+    hasGeneratedPreview // Add to return values
   };
 };

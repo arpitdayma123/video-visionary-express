@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -36,7 +36,7 @@ interface VideoSubmitFormProps {
   updateProfile: (updates: any) => Promise<void>;
 }
 
-const VideoSubmitForm = ({
+const VideoSubmitForm: React.FC<VideoSubmitFormProps> = ({
   videos,
   voiceFiles,
   selectedVideo,
@@ -63,6 +63,9 @@ const VideoSubmitForm = ({
 }: VideoSubmitFormProps) => {
   const { toast } = useToast();
   
+  // Add state for tracking if preview has been generated
+  const [hasGeneratedPreview, setHasGeneratedPreview] = useState(false);
+
   const handleSubmit = async (e: React.FormEvent) => {
     // Check if this is a direct form submission or a button that's not Generate Video
     const targetElement = e.target as HTMLElement;
@@ -227,7 +230,7 @@ const VideoSubmitForm = ({
     }
   };
   
-  // Fix the type issue by ensuring isFormComplete is always a boolean
+  // Fix the type issue by ensuring isFormComplete considers script option and preview generation
   const isFormComplete = Boolean(
     videos.length > 0 && 
     voiceFiles.length > 0 && 
@@ -235,8 +238,10 @@ const VideoSubmitForm = ({
     competitors.length > 0 && 
     selectedVideo !== null && 
     selectedVoice !== null && 
-    customScript && // Check for script presence instead of isScriptSelected
-    (scriptOption !== 'ig_reel' || (scriptOption === 'ig_reel' && reelUrl))
+    customScript && 
+    (scriptOption !== 'ig_reel' || (scriptOption === 'ig_reel' && reelUrl)) &&
+    // Only require preview generation for ai_find and ig_reel options
+    ((scriptOption === 'ai_find' || scriptOption === 'ig_reel') ? hasGeneratedPreview : true)
   );
 
   return (
@@ -287,6 +292,7 @@ const VideoSubmitForm = ({
         setScriptOption={setScriptOption}
         setCustomScript={setCustomScript}
         updateProfile={updateProfile}
+        onScriptLoaded={() => setHasGeneratedPreview(true)}
       />
 
       <GenerateVideo 
