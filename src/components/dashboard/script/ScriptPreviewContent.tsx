@@ -22,15 +22,24 @@ const ScriptPreviewContent: React.FC<ScriptPreviewContentProps> = ({
   onRegenerateScript,
   onUseScript,
 }) => {
-  // Add a handler to explicitly stop propagation for use script
+  // Add handlers to explicitly stop propagation
   const handleUseScript = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     onUseScript();
   };
 
+  const handleTextareaClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+  };
+
+  const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    e.stopPropagation();
+    onScriptChange(e);
+  };
+
   return (
-    <div className="mt-6 space-y-4">
+    <div className="mt-6 space-y-4" onClick={(e) => e.stopPropagation()}>
       <div>
         <div className="flex justify-between items-center mb-2">
           <label htmlFor="script-preview" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed">
@@ -49,9 +58,9 @@ const ScriptPreviewContent: React.FC<ScriptPreviewContentProps> = ({
             id="script-preview"
             placeholder="Your generated script will appear here..."
             value={script}
-            onChange={onScriptChange}
+            onChange={handleTextareaChange}
+            onClick={handleTextareaClick}
             className="h-48 resize-none"
-            onClick={(e) => e.stopPropagation()}
           />
         )}
       </div>

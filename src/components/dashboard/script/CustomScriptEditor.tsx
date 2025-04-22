@@ -33,8 +33,17 @@ const CustomScriptEditor: React.FC<CustomScriptEditorProps> = ({
     onSaveScript();
   };
   
+  const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    e.stopPropagation();
+    onCustomScriptChange(e);
+  };
+
+  const handleTextareaClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+  };
+  
   return (
-    <div className="mt-6 animate-fade-in">
+    <div className="mt-6 animate-fade-in" onClick={(e) => e.stopPropagation()}>
       <div className="flex justify-between items-center mb-2">
         <Label htmlFor="custom-script" className="font-medium">Your Script</Label>
         <span className={`text-xs ${isExceedingLimit || isUnderMinimumLimit ? 'text-destructive' : 'text-muted-foreground'}`}>
@@ -46,9 +55,9 @@ const CustomScriptEditor: React.FC<CustomScriptEditorProps> = ({
         id="custom-script"
         placeholder="Enter your script here..."
         value={customScript}
-        onChange={onCustomScriptChange}
+        onChange={handleTextareaChange}
+        onClick={handleTextareaClick}
         className={`h-32 ${isExceedingLimit || isUnderMinimumLimit ? 'border-destructive' : ''}`}
-        onClick={(e) => e.stopPropagation()}
       />
       
       {isExceedingLimit && (

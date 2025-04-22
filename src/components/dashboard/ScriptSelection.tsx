@@ -167,8 +167,13 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
     }
   };
 
+  // Prevent event bubbling for the entire component
+  const handlePreventPropagation = (e: React.MouseEvent) => {
+    e.stopPropagation();
+  };
+
   return (
-    <section className="animate-fade-in border-b border-border pb-8 mb-8">
+    <section className="animate-fade-in border-b border-border pb-8 mb-8" onClick={handlePreventPropagation}>
       <h2 className="text-xl font-medium mb-4">Script Selection</h2>
       
       <ScriptOptions
@@ -197,7 +202,7 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
         />
       )}
 
-      {scriptOption && (
+      {scriptOption && scriptOption !== 'custom' && (
         <ScriptPreview
           scriptOption={scriptOption}
           onUseScript={handleUseScript}

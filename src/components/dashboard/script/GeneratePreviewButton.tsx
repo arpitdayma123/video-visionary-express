@@ -65,10 +65,16 @@ const GeneratePreviewButton: React.FC<GeneratePreviewButtonProps> = ({
     return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
   };
 
+  const handleClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onGenerate(e);
+  };
+
   return (
-    <div className="mt-6">
+    <div className="mt-6" onClick={(e) => e.stopPropagation()}>
       <Button
-        onClick={onGenerate}
+        onClick={handleClick}
         disabled={isLoading}
         className="w-full sm:w-auto"
         type="button"

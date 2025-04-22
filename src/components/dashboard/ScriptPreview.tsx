@@ -33,13 +33,12 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
 
   // Reset preview visibility when script option changes
   useEffect(() => {
-    if (scriptOption !== 'custom') {
-      setIsPreviewVisible(false);
-    }
+    setIsPreviewVisible(false);
   }, [scriptOption, setIsPreviewVisible]);
 
   // Handle regenerate with the same pattern as generate preview
   const handleRegenerate = (e: React.MouseEvent) => {
+    e.preventDefault();
     e.stopPropagation();
     setGenerationStartTime(Date.now());
     setWaitTimeExpired(false);
@@ -48,6 +47,7 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
 
   // Wrapper to track generation start time
   const handleStartGeneration = (e: React.MouseEvent) => {
+    e.preventDefault();
     e.stopPropagation();
     setGenerationStartTime(Date.now());
     setWaitTimeExpired(false);
@@ -56,7 +56,12 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
 
   // Prevent event bubbling for the entire component
   const preventPropagation = (e: React.MouseEvent) => {
+    e.preventDefault();
     e.stopPropagation();
+  };
+
+  const handleUseScriptClick = () => {
+    handleUseScript(script);
   };
 
   if (!isPreviewVisible) {
@@ -81,7 +86,7 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
         wordCount={wordCount}
         onScriptChange={handleScriptChange}
         onRegenerateScript={handleRegenerate}
-        onUseScript={() => handleUseScript(script)}
+        onUseScript={handleUseScriptClick}
       />
     </div>
   );
