@@ -31,19 +31,25 @@ const CustomScriptEditor: React.FC<CustomScriptEditorProps> = ({
   
   // Stop event propagation to prevent React rendering issues
   const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    e.stopPropagation();
+    if (e && e.stopPropagation) {
+      e.stopPropagation();
+    }
     onCustomScriptChange(e);
   };
   
   const handleSaveClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     onSaveScript();
   };
   
   // Safe click handler to prevent event propagation issues
   const handleContainerClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
+    if (e && e.stopPropagation) {
+      e.stopPropagation();
+    }
   };
   
   return (

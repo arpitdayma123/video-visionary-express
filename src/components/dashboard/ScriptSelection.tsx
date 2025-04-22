@@ -47,20 +47,26 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
     // Prevent React rendering issues by stopping unnecessary re-renders
     if (value === scriptOption) return;
     
-    setScriptOption(value);
-    updateProfile({ script_option: value })
-      .catch(error => {
-        console.error('Error updating script option:', error);
-        toast({
-          title: "Update Failed",
-          description: "Failed to update script option.",
-          variant: "destructive"
+    try {
+      setScriptOption(value);
+      updateProfile({ script_option: value })
+        .catch(error => {
+          console.error('Error updating script option:', error);
+          toast({
+            title: "Update Failed",
+            description: "Failed to update script option.",
+            variant: "destructive"
+          });
         });
-      });
+    } catch (error) {
+      console.error('Error in handleScriptOptionChange:', error);
+    }
   };
 
   const handleCustomScriptChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    e.stopPropagation();
+    if (e && e.stopPropagation) {
+      e.stopPropagation();
+    }
     setCustomScript(e.target.value);
   };
 
@@ -216,7 +222,9 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
 
   // Safe click handler to prevent event propagation issues
   const handleSectionClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
+    if (e && e.stopPropagation) {
+      e.stopPropagation();
+    }
   };
 
   return (

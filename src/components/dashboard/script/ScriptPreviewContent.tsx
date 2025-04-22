@@ -22,15 +22,28 @@ const ScriptPreviewContent: React.FC<ScriptPreviewContentProps> = ({
 }) => {
   // Add handler for the textarea to stop propagation
   const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     onScriptChange(e);
   };
   
   // Safe click handler for the container
   const handleContainerClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+  };
+
+  // Safe handler for regenerate button click
+  const handleRegenerateClick = (e: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    onRegenerateScript(e);
   };
 
   return (
@@ -62,11 +75,7 @@ const ScriptPreviewContent: React.FC<ScriptPreviewContentProps> = ({
       <div className="flex flex-wrap gap-4" onClick={(e) => e.stopPropagation()}>
         <Button
           variant="outline"
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            onRegenerateScript(e);
-          }}
+          onClick={handleRegenerateClick}
           disabled={isLoading}
           type="button"
         >

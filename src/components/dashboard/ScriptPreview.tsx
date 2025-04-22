@@ -35,26 +35,30 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
   } = useScriptPreview(user, onUseScript, scriptOption);
 
   // Handle regenerate with the same pattern as generate preview
-  const handleRegenerate = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const handleRegenerate = async (e: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     setGenerationStartTime(Date.now());
     setWaitTimeExpired(false);
-    handleRegenerateScript();
+    await handleRegenerateScript();
   };
 
   // Wrapper to track generation start time
-  const handleStartGeneration = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const handleStartGeneration = async (e: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     setGenerationStartTime(Date.now());
     setWaitTimeExpired(false);
     
     // Use the parent component's generate preview function for ai_remake
     if (scriptOption === 'ai_remake' && onGeneratePreview) {
-      onGeneratePreview();
+      await onGeneratePreview();
     } else {
-      internalHandleGeneratePreview();
+      await internalHandleGeneratePreview();
     }
   };
 

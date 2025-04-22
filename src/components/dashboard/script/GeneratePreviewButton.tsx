@@ -31,8 +31,10 @@ const GeneratePreviewButton: React.FC<GeneratePreviewButtonProps> = ({
   
   // Handler to stop event propagation
   const handleClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     onGenerate(e);
   };
 
