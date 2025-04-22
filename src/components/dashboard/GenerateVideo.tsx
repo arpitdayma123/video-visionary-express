@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
@@ -34,7 +33,7 @@ const GenerateVideo: React.FC<GenerateVideoProps> = ({
   selectedVoice,
   selectedNiches,
   competitors,
-  isScriptSelected = false
+  isScriptSelected = true
 }) => {
   const isProcessing = userStatus === 'Processing';
 
@@ -50,15 +49,15 @@ const GenerateVideo: React.FC<GenerateVideoProps> = ({
   const hasCompetitors = competitors.length > 0;
   const hasCredits = userCredits >= 1;
 
-  const isGenerateEnabled = isFormComplete && hasCredits && !isProcessing && isScriptSelected;
+  // Updated to remove isScriptSelected from the generation check
+  const isGenerateEnabled = isFormComplete && hasCredits && !isProcessing;
 
-  // List of incomplete requirements
+  // Updated list of requirements to remove script confirmation
   const remainingTasks = [
     { completed: hasVideoSelected, label: 'Select a target video' },
     { completed: hasVoiceSelected, label: 'Select a voice file' },
     { completed: hasNiches, label: 'Choose at least one niche' },
     { completed: hasCompetitors, label: 'Add competitor accounts' },
-    { completed: isScriptSelected, label: 'Confirm your script' },
     { completed: hasCredits, label: 'Have at least 1 credit' }
   ];
 
