@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -10,6 +11,7 @@ interface ScriptPreviewContentProps {
   wordCount: number;
   onScriptChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
   onRegenerateScript: (e: React.MouseEvent) => void;
+  scriptOption?: string;
 }
 
 const ScriptPreviewContent: React.FC<ScriptPreviewContentProps> = ({
@@ -18,6 +20,7 @@ const ScriptPreviewContent: React.FC<ScriptPreviewContentProps> = ({
   wordCount,
   onScriptChange,
   onRegenerateScript,
+  scriptOption
 }) => {
   // Keep click handlers for propagation control
   const handleTextareaClick = (e: React.MouseEvent) => {
@@ -29,13 +32,25 @@ const ScriptPreviewContent: React.FC<ScriptPreviewContentProps> = ({
     onScriptChange(e);
   };
 
+  const isAiRemake = scriptOption === 'ai_remake';
+  const MAX_WORDS = 200;
+  const MIN_WORDS = 30;
+  const currentWordCount = script.trim() ? script.trim().split(/\s+/).length : 0;
+  const isExceedingLimit = currentWordCount > MAX_WORDS;
+  const isUnderMinimumLimit = currentWordCount > 0 && currentWordCount < MIN_WORDS;
+
   return (
     <div className="mt-6 space-y-4" onClick={(e) => e.stopPropagation()}>
       <div>
         <div className="flex justify-between items-center mb-2">
           <label htmlFor="script-preview" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed">
-            Script Preview ({wordCount} words)
+            {isAiRemake ? 'Your Script' : `Script Preview (${wordCount} words)`}
           </label>
+          {isAiRemake && (
+            <span className={`text-xs ${isExceedingLimit || isUnderMinimumLimit ? 'text-destructive' : 'text-muted-foreground'}`}>
+              {currentWordCount}/{MAX_WORDS} words
+            </span>
+          )}
         </div>
         {isLoading ? (
           <div className="relative">
@@ -47,11 +62,11 @@ const ScriptPreviewContent: React.FC<ScriptPreviewContentProps> = ({
         ) : (
           <Textarea
             id="script-preview"
-            placeholder="Your generated script will appear here..."
+            placeholder={isAiRemake ? "Enter your script here..." : "Your generated script will appear here..."}
             value={script}
             onChange={handleTextareaChange}
             onClick={handleTextareaClick}
-            className="h-48 resize-none"
+            className={`h-48 resize-none ${isAiRemake && (isExceedingLimit || isUnderMinimumLimit) ? 'border-destructive' : ''}`}
           />
         )}
       </div>
@@ -59,16 +74,16 @@ const ScriptPreviewContent: React.FC<ScriptPreviewContentProps> = ({
         <Button
           variant="outline"
           onClick={onRegenerateScript}
-          disabled={isLoading}
+          disabled={isLoading || (isAiRemake && (isExceedingLimit || isUnderMinimumLimit || !script.trim()))}
           type="button"
         >
           {isLoading ? (
             <>
               <Loader className="mr-2 h-4 w-4 animate-spin" />
-              Regenerating...
+              {isAiRemake ? 'Generating...' : 'Regenerating...'}
             </>
           ) : (
-            'Regenerate Script'
+            isAiRemake ? 'Generate Script' : 'Regenerate Script'
           )}
         </Button>
       </div>
