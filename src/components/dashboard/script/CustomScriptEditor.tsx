@@ -27,6 +27,12 @@ const CustomScriptEditor: React.FC<CustomScriptEditorProps> = ({
 }) => {
   const MAX_WORDS = 200;
   
+  const handleSaveClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onSaveScript();
+  };
+  
   return (
     <div className="mt-6 animate-fade-in">
       <div className="flex justify-between items-center mb-2">
@@ -42,6 +48,7 @@ const CustomScriptEditor: React.FC<CustomScriptEditorProps> = ({
         value={customScript}
         onChange={onCustomScriptChange}
         className={`h-32 ${isExceedingLimit || isUnderMinimumLimit ? 'border-destructive' : ''}`}
+        onClick={(e) => e.stopPropagation()}
       />
       
       {isExceedingLimit && (
@@ -65,9 +72,10 @@ const CustomScriptEditor: React.FC<CustomScriptEditorProps> = ({
       )}
       
       <Button 
-        onClick={onSaveScript} 
+        onClick={handleSaveClick} 
         className="mt-4"
         disabled={isExceedingLimit || isUnderMinimumLimit || !customScript.trim() || isSaving}
+        type="button"
       >
         {isSaving ? 'Saving...' : 'Save Script'}
       </Button>

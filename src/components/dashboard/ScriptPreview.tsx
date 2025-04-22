@@ -33,21 +33,22 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
 
   // Reset preview visibility when script option changes
   useEffect(() => {
-    // Reset preview visibility when changing options
     if (scriptOption !== 'custom') {
       setIsPreviewVisible(false);
     }
   }, [scriptOption, setIsPreviewVisible]);
 
   // Handle regenerate with the same pattern as generate preview
-  const handleRegenerate = () => {
+  const handleRegenerate = (e: React.MouseEvent) => {
+    e.stopPropagation();
     setGenerationStartTime(Date.now());
     setWaitTimeExpired(false);
     handleRegenerateScript();
   };
 
   // Wrapper to track generation start time
-  const handleStartGeneration = () => {
+  const handleStartGeneration = (e: React.MouseEvent) => {
+    e.stopPropagation();
     setGenerationStartTime(Date.now());
     setWaitTimeExpired(false);
     handleGeneratePreview();

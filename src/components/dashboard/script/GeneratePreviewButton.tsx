@@ -5,7 +5,7 @@ import { Loader } from 'lucide-react';
 
 interface GeneratePreviewButtonProps {
   isLoading: boolean;
-  onGenerate: () => void;
+  onGenerate: (e: React.MouseEvent) => void;
   scriptOption: string;
   generationStartTime: number | null;
   waitTimeExpired: boolean;
@@ -24,13 +24,6 @@ const GeneratePreviewButton: React.FC<GeneratePreviewButtonProps> = ({
   // Don't render the button if script option is "custom"
   if (scriptOption === 'custom') return null;
   
-  // Handler to stop event propagation
-  const handleClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    onGenerate();
-  };
-
   // Calculate initial wait time based on script option
   useEffect(() => {
     if (isLoading && generationStartTime) {
@@ -73,12 +66,12 @@ const GeneratePreviewButton: React.FC<GeneratePreviewButtonProps> = ({
   };
 
   return (
-    <div className="mt-6" onClick={(e) => e.stopPropagation()}>
+    <div className="mt-6">
       <Button
-        onClick={handleClick}
+        onClick={onGenerate}
         disabled={isLoading}
         className="w-full sm:w-auto"
-        type="button" // Explicitly set type to button
+        type="button"
       >
         {isLoading ? (
           <>

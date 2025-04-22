@@ -10,7 +10,7 @@ interface ScriptPreviewContentProps {
   script: string;
   wordCount: number;
   onScriptChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
-  onRegenerateScript: () => void;
+  onRegenerateScript: (e: React.MouseEvent) => void;
   onUseScript: () => void;
 }
 
@@ -22,13 +22,6 @@ const ScriptPreviewContent: React.FC<ScriptPreviewContentProps> = ({
   onRegenerateScript,
   onUseScript,
 }) => {
-  // Add a handler to explicitly stop propagation
-  const handleRegenerateScript = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    onRegenerateScript();
-  };
-
   // Add a handler to explicitly stop propagation for use script
   const handleUseScript = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -62,10 +55,10 @@ const ScriptPreviewContent: React.FC<ScriptPreviewContentProps> = ({
           />
         )}
       </div>
-      <div className="flex flex-wrap gap-4" onClick={(e) => e.stopPropagation()}>
+      <div className="flex flex-wrap gap-4">
         <Button
           variant="outline"
-          onClick={handleRegenerateScript}
+          onClick={onRegenerateScript}
           disabled={isLoading}
           type="button"
         >

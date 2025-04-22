@@ -142,10 +142,16 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
     }
     
     try {
-      await updateProfile({ 
-        finalscript: generatedScript,
-        custom_script: generatedScript 
-      });
+      // For ai_remake, also save to custom_script
+      const updates: { [key: string]: string } = {
+        finalscript: generatedScript
+      };
+      
+      if (scriptOption === 'ai_remake') {
+        updates.custom_script = generatedScript;
+      }
+      
+      await updateProfile(updates);
       
       toast({
         title: "Script saved",
