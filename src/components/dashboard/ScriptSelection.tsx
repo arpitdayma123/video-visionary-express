@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import ScriptOptions from './script/ScriptOptions';
-import CustomScriptEditor from './script/CustomScriptEditor';
-import InstagramReelInput from './script/InstagramReelInput';
+import CustomScriptSection from './script/CustomScriptSection';
+import ReelSection from './script/ReelSection';
 import ScriptPreview from './ScriptPreview';
+import ScriptSelectionWrapper from './script/ScriptSelectionWrapper';
+import ScriptSectionHeader from './script/ScriptSectionHeader';
 
 interface ScriptSelectionProps {
   scriptOption: string;
@@ -47,9 +49,7 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
 
   const handleScriptOptionChange = async (value: string) => {
     try {
-      // First update the database to avoid state conflicts
       await updateProfile({ script_option: value });
-      // Then update the local state
       setScriptOption(value);
     } catch (error) {
       console.error('Error updating script option:', error);
@@ -64,7 +64,6 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
   const handleCustomScriptChange = async (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setCustomScript(e.target.value);
     
-    // If in ai_remake mode, automatically save the script as it changes
     if (scriptOption === 'ai_remake') {
       try {
         await updateProfile({ custom_script: e.target.value });
@@ -127,11 +126,8 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
     setIsSaving(true);
     try {
       await updateProfile({ custom_script: customScript });
-      
-      // Also mark as finalscript to be consistent with other script options
       await updateProfile({ finalscript: customScript });
       
-      // Notify parent component that script has been confirmed
       if (onScriptConfirmed) {
         onScriptConfirmed(customScript);
       }
@@ -152,55 +148,13 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
     }
   };
 
-  const handleUseScript = async (generatedScript: string) => {
-    setCustomScript(generatedScript);
-    
-    // Notify parent component that script has been confirmed
-    if (onScriptConfirmed) {
-      onScriptConfirmed(generatedScript);
-    }
-    
-    try {
-      // For ai_remake, also save to custom_script
-      const updates: { [key: string]: string } = {
-        finalscript: generatedScript
-      };
-      
-      if (scriptOption === 'ai_remake') {
-        updates.custom_script = generatedScript;
-      }
-      
-      await updateProfile(updates);
-      
-      toast({
-        title: "Script saved",
-        description: "Your script has been saved successfully.",
-      });
-    } catch (error) {
-      console.error('Error saving script:', error);
-      toast({
-        title: "Save failed",
-        description: "There was an error saving your script.",
-        variant: "destructive"
-      });
-    }
-  };
-
-  // Add new handler for when script preview is loaded
-  const handleScriptPreviewLoaded = () => {
-    if (scriptOption === 'ai_remake') {
-      setShowCustomEditor(false);
-    }
-  };
-
-  // Prevent event bubbling for the entire component
   const handlePreventPropagation = (e: React.MouseEvent) => {
     e.stopPropagation();
   };
 
   return (
-    <section className="animate-fade-in border-b border-border pb-8 mb-8" onClick={handlePreventPropagation}>
-      <h2 className="text-xl font-medium mb-4">Script Selection</h2>
+    <ScriptSelectionWrapper handlePreventPropagation={handlePreventPropagation}>
+      <ScriptSectionHeader />
       
       <ScriptOptions
         scriptOption={scriptOption}
@@ -208,7 +162,7 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
       />
       
       {scriptOption === 'custom' && (
-        <CustomScriptEditor
+        <CustomScriptSection
           customScript={customScript}
           wordCount={wordCount}
           isExceedingLimit={isExceedingLimit}
@@ -221,7 +175,7 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
       )}
 
       {scriptOption === 'ig_reel' && (
-        <InstagramReelInput
+        <ReelSection
           reelUrl={reelUrl}
           isValidReelUrl={isValidReelUrl}
           isSaving={isSaving}
@@ -232,11 +186,11 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
       {scriptOption && scriptOption !== 'custom' && (
         <ScriptPreview
           scriptOption={scriptOption}
-          onUseScript={handleUseScript}
-          onScriptLoaded={handleScriptPreviewLoaded}
+          onUseScript={onScriptConfirmed || (() => {})}
+          onScriptLoaded={() => setShowCustomEditor(false)}
         />
       )}
-    </section>
+    </ScriptSelectionWrapper>
   );
 };
 
