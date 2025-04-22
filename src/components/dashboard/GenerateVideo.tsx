@@ -18,6 +18,7 @@ interface GenerateVideoProps {
   selectedVoice: UploadedFile | null;
   selectedNiches: string[];
   competitors: string[];
+  isScriptSelected?: boolean;
 }
 
 const GenerateVideo: React.FC<GenerateVideoProps> = ({
@@ -32,9 +33,9 @@ const GenerateVideo: React.FC<GenerateVideoProps> = ({
   selectedVoice,
   selectedNiches,
   competitors,
+  isScriptSelected = true
 }) => {
   const isProcessing = userStatus === 'Processing';
-  const hasCredits = userCredits >= 1;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,16 +47,18 @@ const GenerateVideo: React.FC<GenerateVideoProps> = ({
   const hasVoiceSelected = selectedVoice !== null;
   const hasNiches = selectedNiches.length > 0;
   const hasCompetitors = competitors.length > 0;
+  const hasCredits = userCredits >= 1;
 
+  // Updated to remove isScriptSelected from the generation check
   const isGenerateEnabled = isFormComplete && hasCredits && !isProcessing;
 
+  // Updated list of requirements to remove script confirmation
   const remainingTasks = [
     { completed: hasVideoSelected, label: 'Select a target video' },
     { completed: hasVoiceSelected, label: 'Select a voice file' },
     { completed: hasNiches, label: 'Choose at least one niche' },
     { completed: hasCompetitors, label: 'Add competitor accounts' },
-    { completed: hasCredits, label: 'Have at least 1 credit' },
-    { completed: isFormComplete, label: 'Complete required script actions' }
+    { completed: hasCredits, label: 'Have at least 1 credit' }
   ];
 
   const incompleteTasks = remainingTasks.filter(task => !task.completed);

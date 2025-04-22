@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -62,7 +62,6 @@ const VideoSubmitForm = ({
   updateProfile
 }: VideoSubmitFormProps) => {
   const { toast } = useToast();
-  const [hasGeneratedPreview, setHasGeneratedPreview] = useState(false);
   
   const handleSubmit = async (e: React.FormEvent) => {
     // Check if this is a direct form submission or a button that's not Generate Video
@@ -228,7 +227,7 @@ const VideoSubmitForm = ({
     }
   };
   
-  // Update isFormComplete to include the preview generation requirement
+  // Fix the type issue by ensuring isFormComplete is always a boolean
   const isFormComplete = Boolean(
     videos.length > 0 && 
     voiceFiles.length > 0 && 
@@ -236,10 +235,8 @@ const VideoSubmitForm = ({
     competitors.length > 0 && 
     selectedVideo !== null && 
     selectedVoice !== null && 
-    customScript && 
-    (scriptOption !== 'ig_reel' || (scriptOption === 'ig_reel' && reelUrl)) &&
-    // Add condition to check if preview is required and generated
-    (scriptOption !== 'ai_find' && scriptOption !== 'ig_reel' || hasGeneratedPreview)
+    customScript && // Check for script presence instead of isScriptSelected
+    (scriptOption !== 'ig_reel' || (scriptOption === 'ig_reel' && reelUrl))
   );
 
   return (
@@ -290,7 +287,6 @@ const VideoSubmitForm = ({
         setScriptOption={setScriptOption}
         setCustomScript={setCustomScript}
         updateProfile={updateProfile}
-        onScriptLoaded={() => setHasGeneratedPreview(true)}
       />
 
       <GenerateVideo 
