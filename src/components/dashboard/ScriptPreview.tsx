@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useScriptPreview } from '@/hooks/useScriptPreview';
@@ -33,7 +34,7 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
 
   // Reset preview visibility when script option changes
   useEffect(() => {
-    setIsPreviewVisible(false);
+    setIsPreviewVisible(scriptOption !== 'ai_remake');
   }, [scriptOption, setIsPreviewVisible]);
 
   // Handle regenerate with the same pattern as generate preview
@@ -51,30 +52,6 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
     e.stopPropagation();
     
     try {
-      // First save the script to custom_script if in ai_remake mode
-      if (scriptOption === 'ai_remake' && user) {
-        // Fetch the current script from the hook
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('custom_script')
-          .eq('id', user.id)
-          .single();
-        
-        if (error) {
-          console.error('Error fetching script before generation:', error);
-          toast({
-            title: "Error",
-            description: "Failed to load your script. Please try again.",
-            variant: "destructive"
-          });
-          return;
-        }
-        
-        // Use the fetched script for generation
-        console.log('Current script before generation:', data.custom_script);
-      }
-      
-      // Continue with normal generation flow
       setGenerationStartTime(Date.now());
       setWaitTimeExpired(false);
       handleGeneratePreview();
@@ -94,9 +71,9 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
     e.stopPropagation();
   };
 
-  if (!isPreviewVisible) {
-    return (
-      <div onClick={preventPropagation}>
+  return (
+    <div onClick={preventPropagation}>
+      {(!isPreviewVisible && scriptOption !== 'ai_remake') ? (
         <GeneratePreviewButton
           isLoading={isLoading}
           onGenerate={handleStartGeneration}
@@ -104,19 +81,16 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
           generationStartTime={generationStartTime}
           waitTimeExpired={waitTimeExpired}
         />
-      </div>
-    );
-  }
-
-  return (
-    <div onClick={preventPropagation}>
-      <ScriptPreviewContent
-        isLoading={isLoading}
-        script={script}
-        wordCount={wordCount}
-        onScriptChange={handleScriptChange}
-        onRegenerateScript={handleRegenerate}
-      />
+      ) : (
+        <ScriptPreviewContent
+          isLoading={isLoading}
+          script={script}
+          wordCount={wordCount}
+          onScriptChange={handleScriptChange}
+          onRegenerateScript={handleRegenerate}
+          scriptOption={scriptOption}
+        />
+      )}
     </div>
   );
 };

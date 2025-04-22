@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import ScriptOptions from './script/ScriptOptions';
@@ -194,7 +195,7 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
         onScriptOptionChange={handleScriptOptionChange}
       />
       
-      {(scriptOption === 'custom' || scriptOption === 'ai_remake') && (
+      {(scriptOption === 'custom') && (
         <CustomScriptEditor
           customScript={customScript}
           wordCount={wordCount}

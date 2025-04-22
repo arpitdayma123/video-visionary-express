@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -10,6 +11,7 @@ interface ScriptPreviewContentProps {
   wordCount: number;
   onScriptChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
   onRegenerateScript: (e: React.MouseEvent) => void;
+  scriptOption?: string;
 }
 
 const ScriptPreviewContent: React.FC<ScriptPreviewContentProps> = ({
@@ -18,8 +20,8 @@ const ScriptPreviewContent: React.FC<ScriptPreviewContentProps> = ({
   wordCount,
   onScriptChange,
   onRegenerateScript,
+  scriptOption
 }) => {
-  // Keep click handlers for propagation control
   const handleTextareaClick = (e: React.MouseEvent) => {
     e.stopPropagation();
   };
@@ -34,7 +36,7 @@ const ScriptPreviewContent: React.FC<ScriptPreviewContentProps> = ({
       <div>
         <div className="flex justify-between items-center mb-2">
           <label htmlFor="script-preview" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed">
-            Script Preview ({wordCount} words)
+            {scriptOption === 'ai_remake' ? 'Your Script' : 'Script Preview'} ({wordCount} words)
           </label>
         </div>
         {isLoading ? (
@@ -47,7 +49,7 @@ const ScriptPreviewContent: React.FC<ScriptPreviewContentProps> = ({
         ) : (
           <Textarea
             id="script-preview"
-            placeholder="Your generated script will appear here..."
+            placeholder={scriptOption === 'ai_remake' ? "Enter your script here..." : "Your generated script will appear here..."}
             value={script}
             onChange={handleTextareaChange}
             onClick={handleTextareaClick}
@@ -56,21 +58,38 @@ const ScriptPreviewContent: React.FC<ScriptPreviewContentProps> = ({
         )}
       </div>
       <div className="flex flex-wrap gap-4">
-        <Button
-          variant="outline"
-          onClick={onRegenerateScript}
-          disabled={isLoading}
-          type="button"
-        >
-          {isLoading ? (
-            <>
-              <Loader className="mr-2 h-4 w-4 animate-spin" />
-              Regenerating...
-            </>
-          ) : (
-            'Regenerate Script'
-          )}
-        </Button>
+        {scriptOption === 'ai_remake' ? (
+          <Button
+            onClick={onRegenerateScript}
+            disabled={isLoading || !script.trim()}
+            type="button"
+          >
+            {isLoading ? (
+              <>
+                <Loader className="mr-2 h-4 w-4 animate-spin" />
+                Generating...
+              </>
+            ) : (
+              'Generate Script'
+            )}
+          </Button>
+        ) : (
+          <Button
+            variant="outline"
+            onClick={onRegenerateScript}
+            disabled={isLoading}
+            type="button"
+          >
+            {isLoading ? (
+              <>
+                <Loader className="mr-2 h-4 w-4 animate-spin" />
+                Regenerating...
+              </>
+            ) : (
+              'Regenerate Script'
+            )}
+          </Button>
+        )}
       </div>
     </div>
   );
