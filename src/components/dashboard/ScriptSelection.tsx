@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import ScriptOptions from './script/ScriptOptions';
@@ -14,7 +13,7 @@ interface ScriptSelectionProps {
   setScriptOption: (option: string) => void;
   setCustomScript: (script: string) => void;
   updateProfile: (updates: any) => Promise<void>;
-  onScriptLoaded: (script: string) => void;
+  onScriptConfirmed?: (script: string) => void;
 }
 
 const ScriptSelection: React.FC<ScriptSelectionProps> = ({
@@ -23,7 +22,7 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
   setScriptOption,
   setCustomScript,
   updateProfile,
-  onScriptLoaded
+  onScriptConfirmed
 }) => {
   const [wordCount, setWordCount] = useState(0);
   const [isExceedingLimit, setIsExceedingLimit] = useState(false);
@@ -112,6 +111,7 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
           toast({
             title: "Save failed",
             description: "There was an error saving your reel URL.",
+            variant: "destructive"
           });
         }
       }, 500);
@@ -128,9 +128,8 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
       await updateProfile({ custom_script: customScript });
       await updateProfile({ finalscript: customScript });
       
-      // Pass the script to the parent component instead of using onScriptConfirmed
-      if (onScriptLoaded) {
-        onScriptLoaded(customScript);
+      if (onScriptConfirmed) {
+        onScriptConfirmed(customScript);
       }
       
       toast({
@@ -142,6 +141,7 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
       toast({
         title: "Save failed",
         description: "There was an error saving your script.",
+        variant: "destructive"
       });
     } finally {
       setIsSaving(false);
@@ -183,10 +183,11 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
         />
       )}
 
-      {(scriptOption === 'ai_find' || scriptOption === 'ig_reel') && (
+      {scriptOption && scriptOption !== 'custom' && (
         <ScriptPreview
           scriptOption={scriptOption}
-          onScriptLoaded={onScriptLoaded}
+          onUseScript={onScriptConfirmed || (() => {})}
+          onScriptLoaded={() => setShowCustomEditor(false)}
         />
       )}
     </ScriptSelectionWrapper>

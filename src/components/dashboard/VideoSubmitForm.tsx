@@ -71,13 +71,10 @@ const VideoSubmitForm = ({
         !targetElement.textContent?.includes('Generate Video')) {
       e.preventDefault();
       e.stopPropagation();
-      return; // Don't handle the event for other buttons
+      return;
     }
     
     e.preventDefault();
-    
-    // Mark script as selected since we're proceeding with generation
-    
     
     // Save the current script as finalscript before generating video
     if (userId) {
@@ -113,9 +110,6 @@ const VideoSubmitForm = ({
       });
       return;
     }
-    
-    // Check if script has been selected
-    
     
     // Check if user has at least 1 credit
     if (userCredits < 1) {
@@ -233,12 +227,8 @@ const VideoSubmitForm = ({
       });
     }
   };
-
-  const handleScriptConfirmed = (script: string) => {
-    setHasGeneratedPreview(true);
-  };
-
-  // Fix the type issue by ensuring isFormComplete is always a boolean
+  
+  // Update isFormComplete to include the preview generation requirement
   const isFormComplete = Boolean(
     videos.length > 0 && 
     voiceFiles.length > 0 && 
@@ -249,8 +239,7 @@ const VideoSubmitForm = ({
     customScript && 
     (scriptOption !== 'ig_reel' || (scriptOption === 'ig_reel' && reelUrl)) &&
     // Add condition to check if preview is required and generated
-    ((['ai_find', 'ig_reel'].includes(scriptOption) && hasGeneratedPreview) || 
-     !['ai_find', 'ig_reel'].includes(scriptOption))
+    (scriptOption !== 'ai_find' && scriptOption !== 'ig_reel' || hasGeneratedPreview)
   );
 
   return (
@@ -259,15 +248,12 @@ const VideoSubmitForm = ({
       className="space-y-12"
       onClick={(e) => {
         const target = e.target as HTMLElement;
-        // If the click is not directly on the form element or if it's on a button 
-        // that's not the Generate Video button, stop propagation
         if (e.currentTarget !== e.target || 
             (target.tagName === 'BUTTON' && !target.textContent?.includes('Generate Video'))) {
           e.stopPropagation();
         }
       }}
     >
-      {/* Video Upload Section */}
       <VideoUpload 
         videos={videos} 
         setVideos={setVideos} 
@@ -277,7 +263,6 @@ const VideoSubmitForm = ({
         updateProfile={updateProfile} 
       />
 
-      {/* Voice Upload Section */}
       <VoiceUpload 
         voiceFiles={voiceFiles} 
         setVoiceFiles={setVoiceFiles} 
@@ -287,14 +272,12 @@ const VideoSubmitForm = ({
         updateProfile={updateProfile} 
       />
 
-      {/* Niche Selection Section */}
       <NicheSelection 
         selectedNiches={selectedNiches} 
         setSelectedNiches={setSelectedNiches} 
         updateProfile={updateProfile} 
       />
 
-      {/* Competitor Section */}
       <CompetitorInput 
         competitors={competitors} 
         setCompetitors={setCompetitors} 
@@ -307,7 +290,7 @@ const VideoSubmitForm = ({
         setScriptOption={setScriptOption}
         setCustomScript={setCustomScript}
         updateProfile={updateProfile}
-        onScriptLoaded={handleScriptConfirmed}
+        onScriptLoaded={() => setHasGeneratedPreview(true)}
       />
 
       <GenerateVideo 
