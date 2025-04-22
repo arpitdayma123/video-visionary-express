@@ -1,4 +1,6 @@
-import React, { useState, useEffect } from 'react';
+
+import React, { useState } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
 import { useScriptPreview } from '@/hooks/useScriptPreview';
 import GeneratePreviewButton from './script/GeneratePreviewButton';
 import ScriptPreviewContent from './script/ScriptPreviewContent';
@@ -6,14 +8,16 @@ import ScriptPreviewContent from './script/ScriptPreviewContent';
 interface ScriptPreviewProps {
   scriptOption: string;
   onUseScript: (script: string) => void;
-  onScriptConfirmed?: (script: string) => Promise<void>;
 }
 
-const ScriptPreview: React.FC<ScriptPreviewProps> = ({ 
-  scriptOption, 
-  onUseScript,
-  onScriptConfirmed 
+const ScriptPreview: React.FC<ScriptPreviewProps> = ({
+  scriptOption,
+  onUseScript
 }) => {
+  const { user } = useAuth();
+  const [generationStartTime, setGenerationStartTime] = useState<number | null>(null);
+  const [waitTimeExpired, setWaitTimeExpired] = useState(false);
+  
   const {
     isLoading,
     script,
@@ -24,62 +28,45 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
     handleRegenerateScript,
     handleUseScript,
     handleSaveCustomScript
-  } = useScriptPreview(onUseScript, scriptOption);
+  } = useScriptPreview(user, onUseScript, scriptOption);
 
-  const [generationStartTime, setGenerationStartTime] = useState<number | null>(null);
-  const [waitTimeExpired, setWaitTimeExpired] = useState(false);
+  // Handle regenerate with the same pattern as generate preview
+  const handleRegenerate = () => {
+    setGenerationStartTime(Date.now());
+    setWaitTimeExpired(false);
+    handleRegenerateScript();
+  };
 
-  useEffect(() => {
-    if (isLoading && !generationStartTime) {
-      setGenerationStartTime(Date.now());
-      setWaitTimeExpired(false);
-    } else if (!isLoading) {
-      setGenerationStartTime(null);
-      setWaitTimeExpired(false);
-    }
-  }, [isLoading]);
-
-  useEffect(() => {
-    if (generationStartTime) {
-      const checkInterval = setInterval(() => {
-        if (Date.now() - generationStartTime > 180000) { // 3 minutes
-          setWaitTimeExpired(true);
-          clearInterval(checkInterval);
-        }
-      }, 60000); // Check every minute
-
-      return () => clearInterval(checkInterval);
-    }
-  }, [generationStartTime]);
-
-  const handleGeneratePreviewWrapper = async () => {
-    if (scriptOption === 'ai_remake' && onScriptConfirmed) {
-      await onScriptConfirmed(script);
-    }
+  // Wrapper to track generation start time
+  const handleStartGeneration = () => {
+    setGenerationStartTime(Date.now());
+    setWaitTimeExpired(false);
     handleGeneratePreview();
   };
 
-  return (
-    <div className="mt-4 animate-fade-in">
-      {scriptOption !== 'custom' && (
+  if (!isPreviewVisible) {
+    return (
+      <div onClick={(e) => e.stopPropagation()}>
         <GeneratePreviewButton
           isLoading={isLoading}
-          onGenerate={handleGeneratePreviewWrapper}
+          onGenerate={handleStartGeneration}
           scriptOption={scriptOption}
           generationStartTime={generationStartTime}
           waitTimeExpired={waitTimeExpired}
         />
-      )}
+      </div>
+    );
+  }
 
-      {isPreviewVisible && (
-        <ScriptPreviewContent
-          isLoading={isLoading}
-          script={script}
-          wordCount={wordCount}
-          onScriptChange={handleScriptChange}
-          onRegenerateScript={handleRegenerateScript}
-        />
-      )}
+  return (
+    <div onClick={(e) => e.stopPropagation()}>
+      <ScriptPreviewContent
+        isLoading={isLoading}
+        script={script}
+        wordCount={wordCount}
+        onScriptChange={handleScriptChange}
+        onRegenerateScript={handleRegenerate}
+      />
     </div>
   );
 };
