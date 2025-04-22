@@ -14,6 +14,7 @@ interface CustomScriptEditorProps {
   isSaving: boolean;
   onCustomScriptChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
   onSaveScript: () => void;
+  scriptOption?: string;
 }
 
 const CustomScriptEditor: React.FC<CustomScriptEditorProps> = ({
@@ -23,7 +24,8 @@ const CustomScriptEditor: React.FC<CustomScriptEditorProps> = ({
   isUnderMinimumLimit,
   isSaving,
   onCustomScriptChange,
-  onSaveScript
+  onSaveScript,
+  scriptOption
 }) => {
   const MAX_WORDS = 200;
   
@@ -69,7 +71,7 @@ const CustomScriptEditor: React.FC<CustomScriptEditorProps> = ({
         className="mt-4"
         disabled={isExceedingLimit || isUnderMinimumLimit || !customScript.trim() || isSaving}
       >
-        {isSaving ? 'Saving...' : 'Save Script'}
+        {scriptOption === 'ai_remake' ? 'Generate Script Preview' : 'Save Script'}
       </Button>
     </div>
   );
