@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useScriptPreview } from '@/hooks/useScriptPreview';
@@ -9,11 +10,13 @@ import { useToast } from '@/hooks/use-toast';
 interface ScriptPreviewProps {
   scriptOption: string;
   onUseScript: (script: string) => void;
+  onPreviewVisibilityChange?: (isVisible: boolean) => void;
 }
 
 const ScriptPreview: React.FC<ScriptPreviewProps> = ({
   scriptOption,
-  onUseScript
+  onUseScript,
+  onPreviewVisibilityChange
 }) => {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -34,7 +37,17 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
   // Reset preview visibility when script option changes
   useEffect(() => {
     setIsPreviewVisible(false);
-  }, [scriptOption, setIsPreviewVisible]);
+    if (onPreviewVisibilityChange) {
+      onPreviewVisibilityChange(false);
+    }
+  }, [scriptOption, setIsPreviewVisible, onPreviewVisibilityChange]);
+
+  // Notify parent when preview visibility changes
+  useEffect(() => {
+    if (onPreviewVisibilityChange) {
+      onPreviewVisibilityChange(isPreviewVisible);
+    }
+  }, [isPreviewVisible, onPreviewVisibilityChange]);
 
   // Handle regenerate with the same pattern as generate preview
   const handleRegenerate = (e: React.MouseEvent) => {

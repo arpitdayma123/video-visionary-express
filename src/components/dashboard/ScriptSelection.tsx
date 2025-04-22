@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import ScriptOptions from './script/ScriptOptions';
@@ -28,6 +29,7 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const [reelUrl, setReelUrl] = useState('');
   const [isValidReelUrl, setIsValidReelUrl] = useState(true);
+  const [isPreviewVisible, setIsPreviewVisible] = useState(false);
   const { toast } = useToast();
   const MIN_WORDS = 30;
   const [saveUrlTimeout, setSaveUrlTimeout] = useState<NodeJS.Timeout | null>(null);
@@ -45,6 +47,8 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
       await updateProfile({ script_option: value });
       // Then update the local state
       setScriptOption(value);
+      // Reset preview visibility when script option changes
+      setIsPreviewVisible(false);
     } catch (error) {
       console.error('Error updating script option:', error);
       toast({
@@ -180,9 +184,24 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
     }
   };
 
+  // Update preview visibility state
+  const handlePreviewVisibilityChange = (isVisible: boolean) => {
+    setIsPreviewVisible(isVisible);
+  };
+
   // Prevent event bubbling for the entire component
   const handlePreventPropagation = (e: React.MouseEvent) => {
     e.stopPropagation();
+  };
+
+  // Determine if CustomScriptEditor should be shown
+  const shouldShowCustomEditor = () => {
+    // For ai_remake, hide the editor when preview is visible
+    if (scriptOption === 'ai_remake' && isPreviewVisible) {
+      return false;
+    }
+    // For other modes, always show the editor when that option is selected
+    return scriptOption === 'custom' || scriptOption === 'ai_remake';
   };
 
   return (
@@ -194,7 +213,7 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
         onScriptOptionChange={handleScriptOptionChange}
       />
       
-      {(scriptOption === 'custom' || scriptOption === 'ai_remake') && (
+      {shouldShowCustomEditor() && (
         <CustomScriptEditor
           customScript={customScript}
           wordCount={wordCount}
@@ -220,6 +239,7 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
         <ScriptPreview
           scriptOption={scriptOption}
           onUseScript={handleUseScript}
+          onPreviewVisibilityChange={handlePreviewVisibilityChange}
         />
       )}
     </section>
