@@ -4,6 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
 import CreditDisplay from './CreditDisplay';
 import { UploadedFile } from '@/hooks/useDashboardData';
+import { Alert } from '@/components/ui/alert';
+import { CheckCircle2, XCircle } from 'lucide-react';
 
 interface GenerateVideoProps {
   isFormComplete: boolean;
@@ -35,12 +37,32 @@ const GenerateVideo: React.FC<GenerateVideoProps> = ({
   isScriptSelected = false
 }) => {
   const isProcessing = userStatus === 'Processing';
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSubmit(e);
   };
 
-  const isGenerateEnabled = isFormComplete && userCredits >= 1 && !isProcessing && isScriptSelected;
+  // Check individual requirements
+  const hasVideoSelected = selectedVideo !== null;
+  const hasVoiceSelected = selectedVoice !== null;
+  const hasNiches = selectedNiches.length > 0;
+  const hasCompetitors = competitors.length > 0;
+  const hasCredits = userCredits >= 1;
+
+  const isGenerateEnabled = isFormComplete && hasCredits && !isProcessing && isScriptSelected;
+
+  // List of incomplete requirements
+  const remainingTasks = [
+    { completed: hasVideoSelected, label: 'Select a target video' },
+    { completed: hasVoiceSelected, label: 'Select a voice file' },
+    { completed: hasNiches, label: 'Choose at least one niche' },
+    { completed: hasCompetitors, label: 'Add competitor accounts' },
+    { completed: isScriptSelected, label: 'Confirm your script' },
+    { completed: hasCredits, label: 'Have at least 1 credit' }
+  ];
+
+  const incompleteTasks = remainingTasks.filter(task => !task.completed);
 
   return (
     <section className="animate-fade-in pb-8">
@@ -48,23 +70,28 @@ const GenerateVideo: React.FC<GenerateVideoProps> = ({
       
       <div className="flex flex-col space-y-4">
         <div className="p-4 bg-muted rounded-md">
-          <p className="font-medium text-sm mb-2">Before generating your video:</p>
-          <ul className="list-disc list-inside text-sm space-y-1 text-muted-foreground">
-            <li>Ensure you've selected a target video and voice file</li>
-            <li>Choose at least one niche for your content</li>
-            <li>Add competitor accounts for inspiration</li>
-            <li>Select and confirm your script</li>
+          <p className="font-medium text-sm mb-3">Generation Requirements:</p>
+          <ul className="space-y-2">
+            {remainingTasks.map((task, index) => (
+              <li key={index} className="flex items-center text-sm">
+                {task.completed ? (
+                  <CheckCircle2 className="h-4 w-4 text-green-500 mr-2 shrink-0" />
+                ) : (
+                  <XCircle className="h-4 w-4 text-red-500 mr-2 shrink-0" />
+                )}
+                <span className={task.completed ? 'text-muted-foreground line-through' : ''}>
+                  {task.label}
+                </span>
+              </li>
+            ))}
           </ul>
         </div>
         
         <div className="flex flex-col sm:flex-row gap-4 items-center justify-between p-4 bg-muted rounded-md">
           <div>
             <CreditDisplay userCredits={userCredits} userStatus={userStatus} />
-            {userCredits < 1 && (
+            {!hasCredits && (
               <p className="text-sm text-red-500 mt-1">You need at least 1 credit to generate a video.</p>
-            )}
-            {!isScriptSelected && isFormComplete && (
-              <p className="text-sm text-amber-500 mt-1">Please confirm your script before generating.</p>
             )}
           </div>
           
@@ -84,6 +111,14 @@ const GenerateVideo: React.FC<GenerateVideoProps> = ({
             )}
           </Button>
         </div>
+        
+        {incompleteTasks.length > 0 && !isProcessing && (
+          <Alert variant="info" className="bg-blue-50 border-blue-200">
+            <p className="text-sm text-blue-700">
+              <strong>Remaining steps:</strong> {incompleteTasks.map(task => task.label).join(', ')}
+            </p>
+          </Alert>
+        )}
         
         {isProcessing && (
           <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-md">
