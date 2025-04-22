@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -62,6 +62,7 @@ const VideoSubmitForm = ({
   updateProfile
 }: VideoSubmitFormProps) => {
   const { toast } = useToast();
+  const [isScriptSelected, setIsScriptSelected] = useState(false);
   
   const handleSubmit = async (e: React.FormEvent) => {
     // Check if this is a direct form submission or a button that's not Generate Video
@@ -70,10 +71,13 @@ const VideoSubmitForm = ({
         !targetElement.textContent?.includes('Generate Video')) {
       e.preventDefault();
       e.stopPropagation();
-      return;
+      return; // Don't handle the event for other buttons
     }
     
     e.preventDefault();
+    
+    // Mark script as selected since we're proceeding with generation
+    setIsScriptSelected(true);
     
     // Save the current script as finalscript before generating video
     if (userId) {
@@ -105,6 +109,16 @@ const VideoSubmitForm = ({
       toast({
         title: "Incomplete form",
         description: "Please fill in all required fields and select a target video and voice file before submitting.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    // Check if script has been selected
+    if (!isScriptSelected) {
+      toast({
+        title: "Script not confirmed",
+        description: "Please select and confirm a script by clicking 'Use This Script' first.",
         variant: "destructive"
       });
       return;
@@ -226,6 +240,8 @@ const VideoSubmitForm = ({
       });
     }
   };
+
+  // Remove handleScriptConfirmed as it's no longer needed
   
   // Fix the type issue by ensuring isFormComplete is always a boolean
   const isFormComplete = Boolean(
@@ -243,14 +259,18 @@ const VideoSubmitForm = ({
     <form 
       onSubmit={handleSubmit} 
       className="space-y-12"
+      // Updated onClick handler - improved event handling
       onClick={(e) => {
         const target = e.target as HTMLElement;
+        // If the click is not directly on the form element or if it's on a button 
+        // that's not the Generate Video button, stop propagation
         if (e.currentTarget !== e.target || 
             (target.tagName === 'BUTTON' && !target.textContent?.includes('Generate Video'))) {
           e.stopPropagation();
         }
       }}
     >
+      {/* Video Upload Section */}
       <VideoUpload 
         videos={videos} 
         setVideos={setVideos} 
@@ -260,6 +280,7 @@ const VideoSubmitForm = ({
         updateProfile={updateProfile} 
       />
 
+      {/* Voice Upload Section */}
       <VoiceUpload 
         voiceFiles={voiceFiles} 
         setVoiceFiles={setVoiceFiles} 
@@ -269,26 +290,31 @@ const VideoSubmitForm = ({
         updateProfile={updateProfile} 
       />
 
+      {/* Niche Selection Section */}
       <NicheSelection 
         selectedNiches={selectedNiches} 
         setSelectedNiches={setSelectedNiches} 
         updateProfile={updateProfile} 
       />
 
+      {/* Competitor Section */}
       <CompetitorInput 
         competitors={competitors} 
         setCompetitors={setCompetitors} 
         updateProfile={updateProfile} 
       />
       
+      {/* Script Selection Section with updated onUseScript handler */}
       <ScriptSelection
         scriptOption={scriptOption}
         customScript={customScript}
         setScriptOption={setScriptOption}
         setCustomScript={setCustomScript}
         updateProfile={updateProfile}
+        onScriptConfirmed={() => setIsScriptSelected(true)}
       />
 
+      {/* Submit Section */}
       <GenerateVideo 
         isFormComplete={isFormComplete} 
         userCredits={userCredits} 
@@ -301,6 +327,7 @@ const VideoSubmitForm = ({
         selectedVoice={selectedVoice}
         selectedNiches={selectedNiches}
         competitors={competitors}
+        isScriptSelected={isScriptSelected}
       />
     </form>
   );
