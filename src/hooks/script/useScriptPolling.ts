@@ -21,7 +21,7 @@ export const useScriptPolling = (
     try {
       const { data: profile, error } = await supabase
         .from('profiles')
-        .select('preview_status, preview_script')
+        .select('status, previewscript')
         .eq('id', user.id)
         .single();
 
@@ -30,7 +30,7 @@ export const useScriptPolling = (
         return;
       }
 
-      if (profile.preview_status === 'generated' && profile.preview_script) {
+      if (profile.status === 'generated' && profile.previewscript) {
         if (pollingInterval.current) {
           clearInterval(pollingInterval.current);
           pollingInterval.current = null;
@@ -43,7 +43,7 @@ export const useScriptPolling = (
         
         if (isMounted.current) {
           setIsLoading(false);
-          onScriptGenerated(profile.preview_script);
+          onScriptGenerated(profile.previewscript);
         }
       }
     } catch (error) {

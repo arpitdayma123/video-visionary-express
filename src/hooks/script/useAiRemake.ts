@@ -89,7 +89,7 @@ export const useAiRemake = (
       const { error } = await supabase
         .from('profiles')
         .update({
-          preview_status: 'generating'
+          status: 'generating'
         })
         .eq('id', user.id);
 

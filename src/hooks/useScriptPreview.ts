@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { User } from '@supabase/supabase-js';
 import { useToast } from '@/hooks/use-toast';
@@ -66,7 +67,7 @@ export const useScriptPreview = (
       const { error } = await supabase
         .from('profiles')
         .update({
-          preview_status: 'generating'
+          status: 'generating'
         })
         .eq('id', user.id);
 
@@ -107,6 +108,11 @@ export const useScriptPreview = (
     }
   };
 
+  const handleRegenerateScript = async () => {
+    // Similar implementation as in useAiRemake but for normal script preview
+    await handleGeneratePreview();
+  };
+
   return {
     isLoading,
     script,
@@ -116,6 +122,6 @@ export const useScriptPreview = (
     handleScriptChange,
     handleGeneratePreview,
     handleRegenerateScript,
-    hasGeneratedPreview // Add to return values
+    hasGeneratedPreview
   };
 };
