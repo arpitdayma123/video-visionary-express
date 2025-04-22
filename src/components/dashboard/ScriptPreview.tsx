@@ -31,14 +31,18 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
   } = useScriptPreview(user, onUseScript, scriptOption);
 
   // Handle regenerate with the same pattern as generate preview
-  const handleRegenerate = () => {
+  const handleRegenerate = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
     setGenerationStartTime(Date.now());
     setWaitTimeExpired(false);
     handleRegenerateScript();
   };
 
   // Wrapper to track generation start time
-  const handleStartGeneration = () => {
+  const handleStartGeneration = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
     setGenerationStartTime(Date.now());
     setWaitTimeExpired(false);
     handleGeneratePreview();

@@ -10,7 +10,7 @@ interface ScriptPreviewContentProps {
   script: string;
   wordCount: number;
   onScriptChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
-  onRegenerateScript: () => void;
+  onRegenerateScript: (e: React.MouseEvent) => void;
 }
 
 const ScriptPreviewContent: React.FC<ScriptPreviewContentProps> = ({
@@ -20,15 +20,14 @@ const ScriptPreviewContent: React.FC<ScriptPreviewContentProps> = ({
   onScriptChange,
   onRegenerateScript,
 }) => {
-  // Add a handler to explicitly stop regenerate propagation
-  const handleRegenerateScript = (e: React.MouseEvent) => {
-    e.preventDefault();
+  // Add handler for the textarea to stop propagation
+  const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     e.stopPropagation();
-    onRegenerateScript();
+    onScriptChange(e);
   };
 
   return (
-    <div className="mt-6 space-y-4">
+    <div className="mt-6 space-y-4" onClick={(e) => e.stopPropagation()}>
       <div>
         <div className="flex justify-between items-center mb-2">
           <label htmlFor="script-preview" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed">
@@ -47,15 +46,16 @@ const ScriptPreviewContent: React.FC<ScriptPreviewContentProps> = ({
             id="script-preview"
             placeholder="Your generated script will appear here..."
             value={script}
-            onChange={onScriptChange}
+            onChange={handleTextareaChange}
             className="h-48 resize-none"
+            onClick={(e) => e.stopPropagation()}
           />
         )}
       </div>
       <div className="flex flex-wrap gap-4" onClick={(e) => e.stopPropagation()}>
         <Button
           variant="outline"
-          onClick={handleRegenerateScript}
+          onClick={onRegenerateScript}
           disabled={isLoading}
           type="button"
         >

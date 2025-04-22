@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/contexts/AuthContext'; // Add this import to get user
+import { useAuth } from '@/contexts/AuthContext';
 import ScriptOptions from './script/ScriptOptions';
 import CustomScriptEditor from './script/CustomScriptEditor';
 import InstagramReelInput from './script/InstagramReelInput';
@@ -31,7 +31,7 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
   const [reelUrl, setReelUrl] = useState('');
   const [isValidReelUrl, setIsValidReelUrl] = useState(true);
   const { toast } = useToast();
-  const { user } = useAuth(); // Get the current user
+  const { user } = useAuth();
   const MIN_WORDS = 30;
   const [saveUrlTimeout, setSaveUrlTimeout] = useState<NodeJS.Timeout | null>(null);
 
@@ -43,8 +43,19 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
   }, [customScript]);
 
   const handleScriptOptionChange = (value: string) => {
+    // Prevent React rendering issues by stopping unnecessary re-renders
+    if (value === scriptOption) return;
+    
     setScriptOption(value);
-    updateProfile({ script_option: value });
+    updateProfile({ script_option: value })
+      .catch(error => {
+        console.error('Error updating script option:', error);
+        toast({
+          title: "Update Failed",
+          description: "Failed to update script option.",
+          variant: "destructive"
+        });
+      });
   };
 
   const handleCustomScriptChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -194,7 +205,7 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
   };
 
   return (
-    <section className="animate-fade-in border-b border-border pb-8 mb-8">
+    <section className="animate-fade-in border-b border-border pb-8 mb-8" onClick={(e) => e.stopPropagation()}>
       <h2 className="text-xl font-medium mb-4">Script Selection</h2>
       
       <ScriptOptions
