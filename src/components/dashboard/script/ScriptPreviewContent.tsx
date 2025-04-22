@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -10,6 +11,8 @@ interface ScriptPreviewContentProps {
   wordCount: number;
   onScriptChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
   onRegenerateScript: (e: React.MouseEvent) => void;
+  showChangeScript?: boolean;
+  onChangeScript?: (e: React.MouseEvent) => void;
 }
 
 const ScriptPreviewContent: React.FC<ScriptPreviewContentProps> = ({
@@ -18,6 +21,8 @@ const ScriptPreviewContent: React.FC<ScriptPreviewContentProps> = ({
   wordCount,
   onScriptChange,
   onRegenerateScript,
+  showChangeScript,
+  onChangeScript,
 }) => {
   // Keep click handlers for propagation control
   const handleTextareaClick = (e: React.MouseEvent) => {
@@ -71,9 +76,20 @@ const ScriptPreviewContent: React.FC<ScriptPreviewContentProps> = ({
             'Regenerate Script'
           )}
         </Button>
+        {showChangeScript && onChangeScript && (
+          <Button
+            variant="outline"
+            onClick={onChangeScript}
+            disabled={isLoading}
+            type="button"
+          >
+            Change Script
+          </Button>
+        )}
       </div>
     </div>
   );
 };
 
 export default ScriptPreviewContent;
+

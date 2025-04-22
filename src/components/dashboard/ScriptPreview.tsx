@@ -30,7 +30,8 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
     setIsPreviewVisible,
     handleScriptChange,
     handleGeneratePreview,
-    handleRegenerateScript
+    handleRegenerateScript,
+    handleChangeScript, // new
   } = useScriptPreview(user, onUseScript, scriptOption);
 
   // Reset preview visibility when script option changes, but show immediately for ai_remake
@@ -132,6 +133,7 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
     );
   }
 
+  // Pass showChangeScript for ai_find option only
   return (
     <div onClick={preventPropagation}>
       <ScriptPreviewContent
@@ -139,7 +141,13 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
         script={script}
         wordCount={wordCount}
         onScriptChange={handleScriptChange}
-        onRegenerateScript={handleRegenerateScript}
+        onRegenerateScript={(e) => { e.preventDefault(); e.stopPropagation(); handleRegenerateScript(); }}
+        showChangeScript={scriptOption === 'ai_find'}
+        onChangeScript={
+          scriptOption === 'ai_find'
+            ? (e) => { e.preventDefault(); e.stopPropagation(); handleChangeScript(); }
+            : undefined
+        }
       />
     </div>
   );

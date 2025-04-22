@@ -54,17 +54,15 @@ export const useScriptPreview = (
     }
   };
 
+  // main preview generation (regenerate=false)
   const handleGeneratePreview = async () => {
     if (!user) return;
     
     setIsLoading(true);
-    
     try {
       const { error } = await supabase
         .from('profiles')
-        .update({
-          preview: 'generating'
-        })
+        .update({ preview: 'generating' })
         .eq('id', user.id);
 
       if (error) throw error;
@@ -104,6 +102,100 @@ export const useScriptPreview = (
     }
   };
 
+  // Regenerate (regenerate=true)
+  const handleRegenerateScript = async () => {
+    if (!user) return;
+    setIsLoading(true);
+
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ preview: 'generating' })
+        .eq('id', user.id);
+
+      if (error) throw error;
+
+      const webhookResponse = await fetch(
+        `https://primary-production-ce25.up.railway.app/webhook/scriptfind?userId=${user.id}&regenerate=true`,
+        {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json',
+            'Cache-Control': 'no-cache'
+          }
+        }
+      );
+
+      if (!webhookResponse.ok) {
+        throw new Error(`Webhook failed with status ${webhookResponse.status}`);
+      }
+
+      setIsPreviewVisible(true);
+
+      if (pollingInterval.current) {
+        clearInterval(pollingInterval.current);
+      }
+
+      const interval = setInterval(checkPreviewStatus, 2000);
+      pollingInterval.current = interval;
+    } catch (error) {
+      console.error('Error starting regeneration:', error);
+      setIsLoading(false);
+      toast({
+        title: "Error",
+        description: "Failed to regenerate script. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Change Script (changescript=true, regenerate ignored)
+  const handleChangeScript = async () => {
+    if (!user) return;
+    setIsLoading(true);
+
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ preview: 'generating' })
+        .eq('id', user.id);
+
+      if (error) throw error;
+
+      const webhookResponse = await fetch(
+        `https://primary-production-ce25.up.railway.app/webhook/scriptfind?userId=${user.id}&changescript=true`,
+        {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json',
+            'Cache-Control': 'no-cache'
+          }
+        }
+      );
+
+      if (!webhookResponse.ok) {
+        throw new Error(`Webhook failed with status ${webhookResponse.status}`);
+      }
+
+      setIsPreviewVisible(true);
+
+      if (pollingInterval.current) {
+        clearInterval(pollingInterval.current);
+      }
+
+      const interval = setInterval(checkPreviewStatus, 2000);
+      pollingInterval.current = interval;
+    } catch (error) {
+      console.error('Error starting change script generation:', error);
+      setIsLoading(false);
+      toast({
+        title: "Error",
+        description: "Failed to request a new script. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
   return {
     isLoading,
     script,
@@ -112,6 +204,7 @@ export const useScriptPreview = (
     setIsPreviewVisible,
     handleScriptChange,
     handleGeneratePreview,
-    handleRegenerateScript: handleGeneratePreview
+    handleRegenerateScript,
+    handleChangeScript, // expose new handler
   };
 };
