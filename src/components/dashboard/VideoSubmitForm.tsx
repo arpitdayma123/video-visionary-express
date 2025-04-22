@@ -62,7 +62,7 @@ const VideoSubmitForm = ({
   updateProfile
 }: VideoSubmitFormProps) => {
   const { toast } = useToast();
-  const [isScriptSelected, setIsScriptSelected] = useState(false);
+  const [hasGeneratedPreview, setHasGeneratedPreview] = useState(false);
   
   const handleSubmit = async (e: React.FormEvent) => {
     // Check if this is a direct form submission or a button that's not Generate Video
@@ -77,7 +77,7 @@ const VideoSubmitForm = ({
     e.preventDefault();
     
     // Mark script as selected since we're proceeding with generation
-    setIsScriptSelected(true);
+    
     
     // Save the current script as finalscript before generating video
     if (userId) {
@@ -115,14 +115,7 @@ const VideoSubmitForm = ({
     }
     
     // Check if script has been selected
-    if (!isScriptSelected) {
-      toast({
-        title: "Script not confirmed",
-        description: "Please select and confirm a script by clicking 'Use This Script' first.",
-        variant: "destructive"
-      });
-      return;
-    }
+    
     
     // Check if user has at least 1 credit
     if (userCredits < 1) {
@@ -241,8 +234,10 @@ const VideoSubmitForm = ({
     }
   };
 
-  // Remove handleScriptConfirmed as it's no longer needed
-  
+  const handleScriptConfirmed = (script: string) => {
+    setHasGeneratedPreview(true);
+  };
+
   // Fix the type issue by ensuring isFormComplete is always a boolean
   const isFormComplete = Boolean(
     videos.length > 0 && 
@@ -251,15 +246,17 @@ const VideoSubmitForm = ({
     competitors.length > 0 && 
     selectedVideo !== null && 
     selectedVoice !== null && 
-    customScript && // Check for script presence instead of isScriptSelected
-    (scriptOption !== 'ig_reel' || (scriptOption === 'ig_reel' && reelUrl))
+    customScript && 
+    (scriptOption !== 'ig_reel' || (scriptOption === 'ig_reel' && reelUrl)) &&
+    // Add condition to check if preview is required and generated
+    ((['ai_find', 'ig_reel'].includes(scriptOption) && hasGeneratedPreview) || 
+     !['ai_find', 'ig_reel'].includes(scriptOption))
   );
 
   return (
     <form 
       onSubmit={handleSubmit} 
       className="space-y-12"
-      // Updated onClick handler - improved event handling
       onClick={(e) => {
         const target = e.target as HTMLElement;
         // If the click is not directly on the form element or if it's on a button 
@@ -304,17 +301,15 @@ const VideoSubmitForm = ({
         updateProfile={updateProfile} 
       />
       
-      {/* Script Selection Section with updated onUseScript handler */}
       <ScriptSelection
         scriptOption={scriptOption}
         customScript={customScript}
         setScriptOption={setScriptOption}
         setCustomScript={setCustomScript}
         updateProfile={updateProfile}
-        onScriptConfirmed={() => setIsScriptSelected(true)}
+        onScriptLoaded={handleScriptConfirmed}
       />
 
-      {/* Submit Section */}
       <GenerateVideo 
         isFormComplete={isFormComplete} 
         userCredits={userCredits} 
@@ -327,7 +322,6 @@ const VideoSubmitForm = ({
         selectedVoice={selectedVoice}
         selectedNiches={selectedNiches}
         competitors={competitors}
-        isScriptSelected={isScriptSelected}
       />
     </form>
   );
