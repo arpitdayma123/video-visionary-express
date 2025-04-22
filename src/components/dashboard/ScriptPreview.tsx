@@ -9,11 +9,13 @@ import { useToast } from '@/hooks/use-toast';
 interface ScriptPreviewProps {
   scriptOption: string;
   onUseScript: (script: string) => void;
+  onScriptLoaded?: () => void;
 }
 
 const ScriptPreview: React.FC<ScriptPreviewProps> = ({
   scriptOption,
-  onUseScript
+  onUseScript,
+  onScriptLoaded
 }) => {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -93,6 +95,12 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
     e.preventDefault();
     e.stopPropagation();
   };
+
+  useEffect(() => {
+    if (!isLoading && script && onScriptLoaded) {
+      onScriptLoaded();
+    }
+  }, [isLoading, script, onScriptLoaded]);
 
   if (!isPreviewVisible) {
     return (

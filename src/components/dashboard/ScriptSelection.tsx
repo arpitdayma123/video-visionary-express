@@ -31,6 +31,12 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
   const { toast } = useToast();
   const MIN_WORDS = 30;
   const [saveUrlTimeout, setSaveUrlTimeout] = useState<NodeJS.Timeout | null>(null);
+  const [showCustomEditor, setShowCustomEditor] = useState(true);
+
+  // Effect to handle script option changes
+  useEffect(() => {
+    setShowCustomEditor(true); // Reset visibility when option changes
+  }, [scriptOption]);
 
   useEffect(() => {
     const words = customScript.trim() ? customScript.trim().split(/\s+/).length : 0;
@@ -180,6 +186,13 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
     }
   };
 
+  // Add new handler for when script preview is loaded
+  const handleScriptPreviewLoaded = () => {
+    if (scriptOption === 'ai_remake') {
+      setShowCustomEditor(false);
+    }
+  };
+
   // Prevent event bubbling for the entire component
   const handlePreventPropagation = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -194,7 +207,7 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
         onScriptOptionChange={handleScriptOptionChange}
       />
       
-      {(scriptOption === 'custom' || scriptOption === 'ai_remake') && (
+      {(scriptOption === 'custom' || (scriptOption === 'ai_remake' && showCustomEditor)) && (
         <CustomScriptEditor
           customScript={customScript}
           wordCount={wordCount}
@@ -220,6 +233,7 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
         <ScriptPreview
           scriptOption={scriptOption}
           onUseScript={handleUseScript}
+          onScriptLoaded={handleScriptPreviewLoaded}
         />
       )}
     </section>
