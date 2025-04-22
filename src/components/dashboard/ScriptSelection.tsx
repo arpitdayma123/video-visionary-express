@@ -221,7 +221,7 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
         />
       )}
 
-      {scriptOption && scriptOption !== 'custom' && (
+      {scriptOption && (scriptOption !== 'custom') && (
         <ScriptPreview
           scriptOption={scriptOption}
           onUseScript={handleUseScript}
