@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import ScriptOptions from './script/ScriptOptions';
@@ -122,15 +121,15 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
     }
   };
 
-  const handleUseScript = (generatedScript: string) => {
+  const handleUseScript = async (generatedScript: string) => {
+    // First save the script
     setCustomScript(generatedScript);
+    await handleSaveScript();
     
-    // Notify parent component that script has been confirmed
+    // Then notify parent component
     if (onScriptConfirmed) {
       onScriptConfirmed(generatedScript);
     }
-    
-    handleSaveScript();
   };
 
   return (
@@ -149,6 +148,7 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
           isExceedingLimit={isExceedingLimit}
           isUnderMinimumLimit={isUnderMinimumLimit}
           isSaving={isSaving}
+          scriptOption={scriptOption}
           onCustomScriptChange={handleCustomScriptChange}
           onSaveScript={handleSaveScript}
         />
