@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { User } from '@supabase/supabase-js';
 import { useToast } from '@/hooks/use-toast';
@@ -54,10 +53,9 @@ export const useScriptPreview = (
     }
   };
 
-  // main preview generation (regenerate=false)
+  // Main preview generation: regenerate is always false here
   const handleGeneratePreview = async () => {
     if (!user) return;
-    
     setIsLoading(true);
     try {
       const { error } = await supabase
@@ -90,7 +88,6 @@ export const useScriptPreview = (
 
       const interval = setInterval(checkPreviewStatus, 2000);
       pollingInterval.current = interval;
-
     } catch (error) {
       console.error('Error starting preview generation:', error);
       setIsLoading(false);
@@ -102,7 +99,7 @@ export const useScriptPreview = (
     }
   };
 
-  // Regenerate (regenerate=true)
+  // Regenerate is ALWAYS true here now
   const handleRegenerateScript = async () => {
     if (!user) return;
     setIsLoading(true);
@@ -149,7 +146,7 @@ export const useScriptPreview = (
     }
   };
 
-  // Change Script (changescript=true, regenerate ignored)
+  // Change Script handler -- sends changescript=true
   const handleChangeScript = async () => {
     if (!user) return;
     setIsLoading(true);

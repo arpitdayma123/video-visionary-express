@@ -63,7 +63,31 @@ const VideoSubmitForm = ({
 }: VideoSubmitFormProps) => {
   const { toast } = useToast();
   const [isScriptSelected, setIsScriptSelected] = useState(false);
-  
+
+  // Save script preview to finalscript column before generating video
+  const saveScriptToFinalScript = async () => {
+    if (userId && customScript) {
+      try {
+        const { error: saveError } = await supabase
+          .from('profiles')
+          .update({
+            finalscript: customScript
+          })
+          .eq('id', userId);
+        if (saveError) throw saveError;
+      } catch (error) {
+        console.error('Error saving script to finalscript before video generation:', error);
+        toast({
+          title: "Error",
+          description: "Failed to save your script before video generation.",
+          variant: "destructive"
+        });
+        return false;
+      }
+    }
+    return true;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     // Check if this is a direct form submission or a button that's not Generate Video
     const targetElement = e.target as HTMLElement;
@@ -75,6 +99,12 @@ const VideoSubmitForm = ({
     }
     
     e.preventDefault();
+
+    // Save script preview to finalscript column BEFORE generating the video
+    const savedOk = await saveScriptToFinalScript();
+    if (!savedOk) {
+      return; // Prevent video generation if saving failed!
+    }
     
     // Mark script as selected since we're proceeding with generation
     setIsScriptSelected(true);

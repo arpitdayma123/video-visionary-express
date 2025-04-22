@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -22,7 +21,7 @@ const ScriptPreviewContent: React.FC<ScriptPreviewContentProps> = ({
   onScriptChange,
   onRegenerateScript,
   showChangeScript,
-  onChangeScript,
+  onChangeScript, // provided only when available
 }) => {
   // Keep click handlers for propagation control
   const handleTextareaClick = (e: React.MouseEvent) => {
@@ -92,4 +91,3 @@ const ScriptPreviewContent: React.FC<ScriptPreviewContentProps> = ({
 };
 
 export default ScriptPreviewContent;
-

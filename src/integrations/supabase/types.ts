@@ -79,6 +79,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          aichangescrpit: string | null
           competitors: string[] | null
           counter: number
           created_at: string | null
@@ -103,6 +104,7 @@ export type Database = {
           voice_files: Json[] | null
         }
         Insert: {
+          aichangescrpit?: string | null
           competitors?: string[] | null
           counter?: number
           created_at?: string | null
@@ -127,6 +129,7 @@ export type Database = {
           voice_files?: Json[] | null
         }
         Update: {
+          aichangescrpit?: string | null
           competitors?: string[] | null
           counter?: number
           created_at?: string | null
