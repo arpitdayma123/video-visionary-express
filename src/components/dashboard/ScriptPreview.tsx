@@ -34,7 +34,7 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
     handleRegenerateScript
   } = useScriptPreview(user, onUseScript, scriptOption);
 
-  // Reset preview visibility when script option changes
+  // Reset preview visibility when script option changes and notify parent
   useEffect(() => {
     setIsPreviewVisible(false);
     if (onPreviewVisibilityChange) {
@@ -42,7 +42,7 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
     }
   }, [scriptOption, setIsPreviewVisible, onPreviewVisibilityChange]);
 
-  // Notify parent when preview visibility changes
+  // Notify parent component when preview visibility changes
   useEffect(() => {
     if (onPreviewVisibilityChange) {
       onPreviewVisibilityChange(isPreviewVisible);

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import ScriptOptions from './script/ScriptOptions';
@@ -29,10 +28,10 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const [reelUrl, setReelUrl] = useState('');
   const [isValidReelUrl, setIsValidReelUrl] = useState(true);
-  const [isPreviewVisible, setIsPreviewVisible] = useState(false);
   const { toast } = useToast();
   const MIN_WORDS = 30;
   const [saveUrlTimeout, setSaveUrlTimeout] = useState<NodeJS.Timeout | null>(null);
+  const [isPreviewVisible, setIsPreviewVisible] = useState(false);
 
   useEffect(() => {
     const words = customScript.trim() ? customScript.trim().split(/\s+/).length : 0;
@@ -75,6 +74,11 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
         });
       }
     }
+  };
+
+  // Handle preview visibility updates from ScriptPreview component
+  const handlePreviewVisibilityChange = (isVisible: boolean) => {
+    setIsPreviewVisible(isVisible);
   };
 
   const validateInstagramReelUrl = (url: string) => {
@@ -184,24 +188,9 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
     }
   };
 
-  // Update preview visibility state
-  const handlePreviewVisibilityChange = (isVisible: boolean) => {
-    setIsPreviewVisible(isVisible);
-  };
-
   // Prevent event bubbling for the entire component
   const handlePreventPropagation = (e: React.MouseEvent) => {
     e.stopPropagation();
-  };
-
-  // Determine if CustomScriptEditor should be shown
-  const shouldShowCustomEditor = () => {
-    // For ai_remake, hide the editor when preview is visible
-    if (scriptOption === 'ai_remake' && isPreviewVisible) {
-      return false;
-    }
-    // For other modes, always show the editor when that option is selected
-    return scriptOption === 'custom' || scriptOption === 'ai_remake';
   };
 
   return (
@@ -213,7 +202,8 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
         onScriptOptionChange={handleScriptOptionChange}
       />
       
-      {shouldShowCustomEditor() && (
+      {/* Only show CustomScriptEditor if preview is not visible in ai_remake mode, or for custom mode always */}
+      {((scriptOption === 'ai_remake' && !isPreviewVisible) || scriptOption === 'custom') && (
         <CustomScriptEditor
           customScript={customScript}
           wordCount={wordCount}
