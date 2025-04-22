@@ -5,11 +5,10 @@ import { Loader } from 'lucide-react';
 
 interface GeneratePreviewButtonProps {
   isLoading: boolean;
-  onGenerate: (e: React.MouseEvent) => void;
+  onGenerate: () => void;
   scriptOption: string;
   generationStartTime: number | null;
   waitTimeExpired: boolean;
-  customScript?: string;
 }
 
 const GeneratePreviewButton: React.FC<GeneratePreviewButtonProps> = ({
@@ -17,8 +16,7 @@ const GeneratePreviewButton: React.FC<GeneratePreviewButtonProps> = ({
   onGenerate,
   scriptOption,
   generationStartTime,
-  waitTimeExpired,
-  customScript
+  waitTimeExpired
 }) => {
   const [countdown, setCountdown] = useState<number | null>(null);
   const [extendedTime, setExtendedTime] = useState(0);
@@ -26,16 +24,11 @@ const GeneratePreviewButton: React.FC<GeneratePreviewButtonProps> = ({
   // Don't render the button if script option is "custom"
   if (scriptOption === 'custom') return null;
   
-  // For ai_remake, validate that there's text entered
-  const isScriptEmpty = scriptOption === 'ai_remake' && (!customScript || customScript.trim() === '');
-  
   // Handler to stop event propagation
   const handleClick = (e: React.MouseEvent) => {
-    if (e) {
-      e.preventDefault();
-      e.stopPropagation();
-    }
-    onGenerate(e);
+    e.preventDefault();
+    e.stopPropagation();
+    onGenerate();
   };
 
   // Calculate initial wait time based on script option
@@ -83,7 +76,7 @@ const GeneratePreviewButton: React.FC<GeneratePreviewButtonProps> = ({
     <div className="mt-6" onClick={(e) => e.stopPropagation()}>
       <Button
         onClick={handleClick}
-        disabled={isLoading || isScriptEmpty}
+        disabled={isLoading}
         className="w-full sm:w-auto"
         type="button" // Explicitly set type to button
       >
@@ -96,15 +89,9 @@ const GeneratePreviewButton: React.FC<GeneratePreviewButtonProps> = ({
             }
           </>
         ) : (
-          scriptOption === 'ai_remake' ? 'Generate AI Remake' : 'Generate Script Preview'
+          'Generate Script Preview'
         )}
       </Button>
-      
-      {isScriptEmpty && (
-        <p className="text-sm text-red-500 mt-2">
-          Please enter a script for AI to remake.
-        </p>
-      )}
     </div>
   );
 };

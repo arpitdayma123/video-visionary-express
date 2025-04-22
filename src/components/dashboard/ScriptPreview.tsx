@@ -8,15 +8,11 @@ import ScriptPreviewContent from './script/ScriptPreviewContent';
 interface ScriptPreviewProps {
   scriptOption: string;
   onUseScript: (script: string) => void;
-  onGeneratePreview?: () => Promise<void>;
-  customScript?: string;
 }
 
 const ScriptPreview: React.FC<ScriptPreviewProps> = ({
   scriptOption,
-  onUseScript,
-  onGeneratePreview,
-  customScript
+  onUseScript
 }) => {
   const { user } = useAuth();
   const [generationStartTime, setGenerationStartTime] = useState<number | null>(null);
@@ -28,38 +24,24 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
     wordCount,
     isPreviewVisible,
     handleScriptChange,
-    handleGeneratePreview: internalHandleGeneratePreview,
+    handleGeneratePreview,
     handleRegenerateScript,
     handleUseScript,
     handleSaveCustomScript
   } = useScriptPreview(user, onUseScript, scriptOption);
 
   // Handle regenerate with the same pattern as generate preview
-  const handleRegenerate = async (e: React.MouseEvent) => {
-    if (e) {
-      e.preventDefault();
-      e.stopPropagation();
-    }
+  const handleRegenerate = () => {
     setGenerationStartTime(Date.now());
     setWaitTimeExpired(false);
-    await handleRegenerateScript();
+    handleRegenerateScript();
   };
 
   // Wrapper to track generation start time
-  const handleStartGeneration = async (e: React.MouseEvent) => {
-    if (e) {
-      e.preventDefault();
-      e.stopPropagation();
-    }
+  const handleStartGeneration = () => {
     setGenerationStartTime(Date.now());
     setWaitTimeExpired(false);
-    
-    // Use the parent component's generate preview function for ai_remake
-    if (scriptOption === 'ai_remake' && onGeneratePreview) {
-      await onGeneratePreview();
-    } else {
-      await internalHandleGeneratePreview();
-    }
+    handleGeneratePreview();
   };
 
   if (!isPreviewVisible) {
@@ -71,7 +53,6 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
           scriptOption={scriptOption}
           generationStartTime={generationStartTime}
           waitTimeExpired={waitTimeExpired}
-          customScript={customScript}
         />
       </div>
     );

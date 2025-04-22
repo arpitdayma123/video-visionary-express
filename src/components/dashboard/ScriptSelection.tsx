@@ -1,12 +1,10 @@
 
 import React, { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/contexts/AuthContext';
 import ScriptOptions from './script/ScriptOptions';
 import CustomScriptEditor from './script/CustomScriptEditor';
 import InstagramReelInput from './script/InstagramReelInput';
 import ScriptPreview from './ScriptPreview';
-import { supabase } from '@/integrations/supabase/client';
 
 interface ScriptSelectionProps {
   scriptOption: string;
@@ -32,7 +30,6 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
   const [reelUrl, setReelUrl] = useState('');
   const [isValidReelUrl, setIsValidReelUrl] = useState(true);
   const { toast } = useToast();
-  const { user } = useAuth();
   const MIN_WORDS = 30;
   const [saveUrlTimeout, setSaveUrlTimeout] = useState<NodeJS.Timeout | null>(null);
 
@@ -44,29 +41,11 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
   }, [customScript]);
 
   const handleScriptOptionChange = (value: string) => {
-    // Prevent React rendering issues by stopping unnecessary re-renders
-    if (value === scriptOption) return;
-    
-    try {
-      setScriptOption(value);
-      updateProfile({ script_option: value })
-        .catch(error => {
-          console.error('Error updating script option:', error);
-          toast({
-            title: "Update Failed",
-            description: "Failed to update script option.",
-            variant: "destructive"
-          });
-        });
-    } catch (error) {
-      console.error('Error in handleScriptOptionChange:', error);
-    }
+    setScriptOption(value);
+    updateProfile({ script_option: value });
   };
 
   const handleCustomScriptChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    if (e && e.stopPropagation) {
-      e.stopPropagation();
-    }
     setCustomScript(e.target.value);
   };
 
@@ -143,92 +122,19 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
     }
   };
 
-  const handleUseScript = async (generatedScript: string) => {
-    // First save the script
+  const handleUseScript = (generatedScript: string) => {
     setCustomScript(generatedScript);
-    await handleSaveScript();
     
-    // Then notify parent component
+    // Notify parent component that script has been confirmed
     if (onScriptConfirmed) {
       onScriptConfirmed(generatedScript);
     }
-  };
-
-  const handleGeneratePreview = async () => {
-    if (!user) {
-      console.error('No user found');
-      toast({
-        title: "Error",
-        description: "You must be logged in to generate a preview.",
-        variant: "destructive"
-      });
-      return;
-    }
     
-    if (isExceedingLimit || isUnderMinimumLimit) return;
-    
-    setIsSaving(true);
-    try {
-      // First, save the script if we're in ai_remake mode
-      if (scriptOption === 'ai_remake') {
-        console.log('Saving custom script in ai_remake mode before generating preview:', customScript);
-        // Directly use supabase to ensure updating without race conditions
-        const { error } = await supabase
-          .from('profiles')
-          .update({ custom_script: customScript })
-          .eq('id', user.id);
-          
-        if (error) {
-          throw error;
-        }
-        
-        toast({
-          title: "Script saved",
-          description: "Your script has been saved for AI to remake.",
-        });
-      }
-      
-      const webhookResponse = await fetch(
-        `https://primary-production-ce25.up.railway.app/webhook/scriptfind?userId=${user.id}&regenerate=false`,
-        {
-          method: 'GET',
-          headers: {
-            'Accept': 'application/json',
-            'Cache-Control': 'no-cache'
-          }
-        }
-      );
-
-      if (!webhookResponse.ok) {
-        throw new Error(`Webhook failed with status ${webhookResponse.status}`);
-      }
-      
-      toast({
-        title: "Preview Generation Started",
-        description: "Your script preview is being generated. Please wait...",
-      });
-      
-    } catch (error) {
-      console.error('Error initiating preview generation:', error);
-      toast({
-        title: "Error",
-        description: "Failed to start preview generation. Please try again.",
-        variant: "destructive"
-      });
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  // Safe click handler to prevent event propagation issues
-  const handleSectionClick = (e: React.MouseEvent) => {
-    if (e && e.stopPropagation) {
-      e.stopPropagation();
-    }
+    handleSaveScript();
   };
 
   return (
-    <section className="animate-fade-in border-b border-border pb-8 mb-8" onClick={handleSectionClick}>
+    <section className="animate-fade-in border-b border-border pb-8 mb-8">
       <h2 className="text-xl font-medium mb-4">Script Selection</h2>
       
       <ScriptOptions
@@ -243,7 +149,6 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
           isExceedingLimit={isExceedingLimit}
           isUnderMinimumLimit={isUnderMinimumLimit}
           isSaving={isSaving}
-          scriptOption={scriptOption}
           onCustomScriptChange={handleCustomScriptChange}
           onSaveScript={handleSaveScript}
         />
@@ -262,8 +167,6 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
         <ScriptPreview
           scriptOption={scriptOption}
           onUseScript={handleUseScript}
-          onGeneratePreview={scriptOption === 'ai_remake' ? handleGeneratePreview : undefined}
-          customScript={customScript}
         />
       )}
     </section>
