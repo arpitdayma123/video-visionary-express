@@ -132,6 +132,48 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
     }
   };
 
+  const handleGeneratePreview = async () => {
+    if (isExceedingLimit || isUnderMinimumLimit) return;
+    
+    setIsSaving(true);
+    try {
+      // First, save the script if we're in ai_remake mode
+      if (scriptOption === 'ai_remake') {
+        await updateProfile({ custom_script: customScript });
+      }
+      
+      const webhookResponse = await fetch(
+        `https://primary-production-ce25.up.railway.app/webhook/scriptfind?userId=${user.id}&regenerate=false`,
+        {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json',
+            'Cache-Control': 'no-cache'
+          }
+        }
+      );
+
+      if (!webhookResponse.ok) {
+        throw new Error(`Webhook failed with status ${webhookResponse.status}`);
+      }
+      
+      toast({
+        title: "Preview Generation Started",
+        description: "Your script preview is being generated. Please wait...",
+      });
+      
+    } catch (error) {
+      console.error('Error initiating preview generation:', error);
+      toast({
+        title: "Error",
+        description: "Failed to start preview generation. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   return (
     <section className="animate-fade-in border-b border-border pb-8 mb-8">
       <h2 className="text-xl font-medium mb-4">Script Selection</h2>
