@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Loader } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 interface ScriptPreviewContentProps {
   isLoading: boolean;
@@ -29,6 +30,9 @@ const ScriptPreviewContent: React.FC<ScriptPreviewContentProps> = ({
   onUseScript,
   useScriptDisabled,
 }) => {
+  const { toast } = useToast();
+  const MAX_WORDS = 220;
+
   // Keep click handlers for propagation control
   const handleTextareaClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -36,6 +40,18 @@ const ScriptPreviewContent: React.FC<ScriptPreviewContentProps> = ({
 
   const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     e.stopPropagation();
+    const newText = e.target.value;
+    const words = newText.trim().split(/\s+/).filter(word => word.length > 0);
+    
+    if (words.length > MAX_WORDS) {
+      toast({
+        title: "Word limit exceeded",
+        description: `Script cannot exceed ${MAX_WORDS} words. Current: ${words.length} words.`,
+        variant: "destructive"
+      });
+      return;
+    }
+    
     onScriptChange(e);
   };
 
@@ -44,7 +60,7 @@ const ScriptPreviewContent: React.FC<ScriptPreviewContentProps> = ({
       <div>
         <div className="flex justify-between items-center mb-2">
           <label htmlFor="script-preview" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed">
-            Script Preview ({wordCount} words)
+            Script Preview ({wordCount} / {MAX_WORDS} words)
           </label>
         </div>
         {isLoading ? (
@@ -61,10 +77,11 @@ const ScriptPreviewContent: React.FC<ScriptPreviewContentProps> = ({
             value={script}
             onChange={handleTextareaChange}
             onClick={handleTextareaClick}
-            className="h-48 resize-none"
+            className={`h-48 resize-none ${wordCount > MAX_WORDS ? 'border-red-500' : ''}`}
           />
         )}
       </div>
+
       <div className="flex flex-wrap gap-4">
         <Button
           variant="outline"
