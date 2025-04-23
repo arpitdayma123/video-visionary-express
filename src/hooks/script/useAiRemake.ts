@@ -8,15 +8,11 @@ import { useScriptPolling } from './useScriptPolling';
 
 export const useAiRemake = (
   user: User | null,
-  onScriptGenerated: (script: string) => void,
-  // Add a new callback for script confirmation
-  onScriptConfirmed?: (script: string) => void
+  onScriptGenerated: (script: string) => void
 ) => {
   const [isLoading, setIsLoading] = useState(false);
   const [script, setScript] = useState('');
   const [wordCount, setWordCount] = useState(0);
-  // New state to track if script is confirmed
-  const [isScriptConfirmed, setIsScriptConfirmed] = useState(false);
   const { toast } = useToast();
   const { updateWordCount, saveFinalScript, saveCustomScript } = useScriptUtils();
   const { checkPreviewStatus, pollingInterval } = useScriptPolling(
@@ -61,40 +57,7 @@ export const useAiRemake = (
     saveFinalScript(user, newScript);
     saveCustomScript(user, newScript);
     onScriptGenerated(newScript);
-    // Reset confirmation status when new script is generated
-    setIsScriptConfirmed(false);
   }
-
-  // New method to handle script confirmation
-  const handleUseScript = async () => {
-    if (!script) return;
-
-    try {
-      // Save the script as final script
-      await saveFinalScript(user, script);
-      await saveCustomScript(user, script);
-
-      // Mark script as confirmed
-      setIsScriptConfirmed(true);
-
-      // Call the onScriptConfirmed callback if provided
-      if (onScriptConfirmed) {
-        onScriptConfirmed(script);
-      }
-
-      toast({
-        title: "Script Confirmed",
-        description: "Your AI-remade script has been selected.",
-      });
-    } catch (error) {
-      console.error('Error confirming script:', error);
-      toast({
-        title: "Error",
-        description: "Failed to confirm the script. Please try again.",
-        variant: "destructive"
-      });
-    }
-  };
 
   const handleScriptChange = async (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newScript = e.target.value;
@@ -104,8 +67,6 @@ export const useAiRemake = (
     if (user) {
       await saveFinalScript(user, newScript);
       await saveCustomScript(user, newScript);
-      // Reset confirmation when script is manually changed
-      setIsScriptConfirmed(false);
     }
   };
 
@@ -156,9 +117,6 @@ export const useAiRemake = (
       const interval = setInterval(checkPreviewStatus, 2000);
       pollingInterval.current = interval;
 
-      // Reset confirmation status when regenerating
-      setIsScriptConfirmed(false);
-
     } catch (error) {
       console.error('Error regenerating script:', error);
       setIsLoading(false);
@@ -174,9 +132,7 @@ export const useAiRemake = (
     isLoading,
     script,
     wordCount,
-    isScriptConfirmed,
     handleScriptChange,
-    handleRegenerateScript,
-    handleUseScript
+    handleRegenerateScript
   };
 };
