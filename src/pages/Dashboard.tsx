@@ -45,6 +45,12 @@ const Dashboard = () => {
       </MainLayout>
     );
   }
+
+  // Handle script confirmation
+  const handleScriptConfirmed = (script: string) => {
+    console.log("Script confirmed in Dashboard:", script.substring(0, 50) + "...");
+    // Any additional dashboard level script handling could go here
+  };
   
   return (
     <MainLayout title="Creator Dashboard" subtitle="Upload your content and create personalized videos">
@@ -76,6 +82,7 @@ const Dashboard = () => {
           setReelUrl={setReelUrl}
           setUserStatus={setUserStatus}
           updateProfile={updateProfile}
+          onScriptConfirmed={handleScriptConfirmed}
         />
       </div>
     </MainLayout>

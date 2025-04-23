@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
@@ -54,15 +55,16 @@ const GenerateVideo: React.FC<GenerateVideoProps> = ({
   const hasCompetitors = competitors.length > 0;
   const hasCredits = userCredits >= 1;
 
-  // Eligibility logic for generate button has changed:
-  // For ai_find/ig_reel, "Generate Video" is enabled only if "Use This Script" was clicked
-  const requiresFinalizedScript = scriptOption === 'ai_find' || scriptOption === 'ig_reel';
+  // Button is enabled based solely on the isFormComplete prop from parent
+  // which now properly tracks if "Use This Script" was clicked for ai_find/ig_reel
+  const buttonEnabled = isFormComplete && hasCredits && !isProcessing;
 
-  // For ai_find/ig_reel, rely solely on isFormComplete (which now reflects "Use This Script" clicked)
-  const buttonEnabled =
-    isFormComplete &&
-    hasCredits &&
-    !isProcessing;
+  console.log('GenerateVideo component - Button enabled:', {
+    isFormComplete,
+    hasCredits,
+    isProcessing,
+    buttonEnabled
+  });
 
   // Updated requirements for visual checklist
   const remainingTasks = [
@@ -71,9 +73,12 @@ const GenerateVideo: React.FC<GenerateVideoProps> = ({
     { completed: hasNiches, label: 'Choose at least one niche' },
     { completed: hasCompetitors, label: 'Add competitor accounts' },
     { completed: hasCredits, label: 'Have at least 1 credit' },
-    ...(requiresFinalizedScript
-      ? [{ completed: isFormComplete, label: 'Finalize Script Selection (click "Use This Script")' }]
-      : []),
+    { 
+      completed: isFormComplete, 
+      label: scriptOption === 'ai_find' || scriptOption === 'ig_reel' 
+        ? 'Finalize Script Selection (click "Use This Script")' 
+        : 'Provide a script'
+    }
   ];
 
   const incompleteTasks = remainingTasks.filter(task => !task.completed);
