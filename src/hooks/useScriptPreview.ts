@@ -17,7 +17,7 @@ export const useScriptPreview = (
   const [wordCount, setWordCount] = useState(0);
   const [isPreviewVisible, setIsPreviewVisible] = useState(false);
   const { toast } = useToast();
-  const { updateWordCount, saveFinalScript } = useScriptUtils();
+  const { updateWordCount, saveCustomScript } = useScriptUtils();
   const { checkPreviewStatus, pollingInterval } = useScriptPolling(
     user,
     isLoading,
@@ -40,7 +40,10 @@ export const useScriptPreview = (
   function handleScriptGenerated(newScript: string) {
     setScript(newScript);
     setWordCount(updateWordCount(newScript));
-    saveFinalScript(user, newScript);
+    
+    // Do not save to finalscript here anymore - only update local state
+    // This will be saved only when Generate Video is clicked
+    
     // Make sure to set preview visible when script is generated
     setIsPreviewVisible(true);
     console.log('useScriptPreview - Script generated, setting preview visible to true');
@@ -52,9 +55,12 @@ export const useScriptPreview = (
     setScript(newScript);
     setWordCount(updateWordCount(newScript));
     
-    if (user) {
-      saveFinalScript(user, newScript);
+    // Save to custom_script for ai_remake mode only
+    if (user && scriptOption === 'ai_remake') {
+      saveCustomScript(user, newScript);
     }
+    
+    // We no longer automatically save to finalscript here
   };
 
   // Main preview generation: regenerate is always false here

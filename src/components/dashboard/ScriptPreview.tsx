@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useScriptPreview } from '@/hooks/useScriptPreview';
@@ -104,6 +105,7 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
   };
 
   // Critical: Set isPreviewVisible to true when a script is successfully loaded
+  // And pass the script to parent component
   useEffect(() => {
     if (!isLoading && script) {
       setIsPreviewVisible(true);

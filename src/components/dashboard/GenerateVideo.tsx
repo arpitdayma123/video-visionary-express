@@ -55,7 +55,7 @@ const GenerateVideo: React.FC<GenerateVideoProps> = ({
   const hasCompetitors = competitors.length > 0;
   const hasCredits = userCredits >= 1;
 
-  // Only enable for ai_find / ig_reel if script preview is visible
+  // Only require script preview is visible for ai_find / ig_reel
   const requiresScriptPreview = scriptOption === 'ai_find' || scriptOption === 'ig_reel';
   const scriptPreviewOk = !requiresScriptPreview || isScriptPreviewVisible;
   

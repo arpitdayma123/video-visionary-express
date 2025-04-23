@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
@@ -108,6 +109,7 @@ const VideoSubmitForm = ({
       (scriptOption === "ai_find" || scriptOption === "ig_reel")
         ? previewScriptContent
         : customScript;
+    
     if (!scriptToSave) {
       toast({
         title: "Script Error",
@@ -120,12 +122,13 @@ const VideoSubmitForm = ({
     if (!userId) return false;
 
     try {
+      console.log("Saving finalscript before video generation:", scriptToSave);
       const { error } = await supabase
         .from('profiles')
         .update({ finalscript: scriptToSave })
         .eq('id', userId);
+      
       if (error) throw error;
-      console.log("Saved finalscript before video generation:", scriptToSave);
       return true;
     } catch (error) {
       console.error('Error saving script to finalscript:', error);
@@ -150,12 +153,6 @@ const VideoSubmitForm = ({
     
     e.preventDefault();
 
-    // Save the appropriate script to finalscript before generating the video
-    const savedOk = await saveScriptForGeneration();
-    if (!savedOk) return;
-
-    setIsScriptSelected(true);
-
     // For all scriptOptions, fetch script for webhook from "previewScriptContent" (ai_find, ig_reel) or "customScript"
     const scriptForWebhook =
       (scriptOption === "ai_find" || scriptOption === "ig_reel")
@@ -178,11 +175,15 @@ const VideoSubmitForm = ({
       return;
     }
 
-    // Check if script has been selected
-    if (!isScriptSelected) {
+    // Check if script has been selected and preview is visible for ai_find/ig_reel
+    const scriptReady = (scriptOption === 'ai_find' || scriptOption === 'ig_reel') 
+      ? (isScriptPreviewVisible && !!previewScriptContent)
+      : !!customScript;
+      
+    if (!scriptReady) {
       toast({
-        title: "Script not confirmed",
-        description: "Please select and confirm a script by clicking 'Use This Script' first.",
+        title: "Script not ready",
+        description: "Please generate and confirm a script before proceeding.",
         variant: "destructive"
       });
       return;
@@ -218,6 +219,10 @@ const VideoSubmitForm = ({
       return;
     }
     
+    // Save the script to finalscript right before sending webhook
+    const savedOk = await saveScriptForGeneration();
+    if (!savedOk) return;
+    
     try {
       if (!userId) throw new Error('User not authenticated');
 
@@ -227,7 +232,7 @@ const VideoSubmitForm = ({
       const params = new URLSearchParams({
         userId: userId,
         scriptOption: scriptOption,
-        customScript: scriptForWebhook, // Always send current script from preview/custom field
+        customScript: scriptForWebhook, // Always send current script content
         reelUrl: scriptOption === 'ig_reel' ? reelUrl : ''
       });
 
@@ -322,6 +327,7 @@ const VideoSubmitForm = ({
   console.log('VideoSubmitForm - Script Preview Status:', {
     scriptOption,
     isScriptPreviewVisible,
+    previewScriptContentExists: !!previewScriptContent,
     isFormComplete
   });
 
@@ -379,10 +385,10 @@ const VideoSubmitForm = ({
         setScriptOption={setScriptOption}
         setCustomScript={setCustomScript}
         updateProfile={updateProfile}
-        // NEW: Pass handler to capture script preview content
+        // Updated handlers
         onScriptConfirmed={handleScriptConfirmed}
-        // Pass updated handler for script preview visibility, now can accept script value
-        onScriptPreviewVisible={(visible: boolean, scriptValue?: string) => handleScriptPreviewVisible(visible, scriptValue)}
+        onScriptPreviewVisible={(visible: boolean, scriptValue?: string) => 
+          handleScriptPreviewVisible(visible, scriptValue)}
       />
 
       <GenerateVideo
