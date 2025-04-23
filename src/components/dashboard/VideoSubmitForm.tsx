@@ -64,58 +64,78 @@ const VideoSubmitForm = ({
   const { toast } = useToast();
   const [isScriptSelected, setIsScriptSelected] = useState(false);
 
-  // New: Track whether preview script is generated/visible for ai_find / ig_reel
+  // Track the latest generated script preview text for ai_find/ig_reel cases
+  const [previewScriptContent, setPreviewScriptContent] = useState('');
+
+  // Track whether preview script is generated/visible for ai_find / ig_reel
   const [isScriptPreviewVisible, setIsScriptPreviewVisible] = useState(false);
   
-  // Reset script preview visibility when script option changes
+  // Reset preview script content and visibility when script option changes
   useEffect(() => {
     console.log('VideoSubmitForm - Script option changed to:', scriptOption);
     
+    // On switch to ai_find/ig_reel, reset preview script and visibility
     if (scriptOption === 'ai_find' || scriptOption === 'ig_reel') {
-      console.log('VideoSubmitForm - Resetting preview visibility to FALSE');
       setIsScriptPreviewVisible(false);
+      setPreviewScriptContent('');
     } else {
-      console.log('VideoSubmitForm - Setting preview visibility to TRUE (non-AI option)');
-      setIsScriptPreviewVisible(true); // Always true for other options
+      setIsScriptPreviewVisible(true);
+      setPreviewScriptContent('');
     }
   }, [scriptOption]);
 
-  const saveScriptToFinalScript = async () => {
-    if (userId) {
-      try {
-        // Get the current script preview content directly from the database
-        const { data, error: fetchError } = await supabase
-          .from('profiles')
-          .select('previewscript')
-          .eq('id', userId)
-          .single();
-        
-        if (fetchError) throw fetchError;
-        
-        const currentScriptPreview = data?.previewscript || '';
-
-        // Save the preview script to finalscript column
-        const { error: saveError } = await supabase
-          .from('profiles')
-          .update({
-            finalscript: currentScriptPreview
-          })
-          .eq('id', userId);
-        
-        if (saveError) throw saveError;
-        
-        console.log("Saved current preview script to finalscript:", currentScriptPreview);
-      } catch (error) {
-        console.error('Error saving script to finalscript before video generation:', error);
-        toast({
-          title: "Error",
-          description: "Failed to save your script before video generation.",
-          variant: "destructive"
-        });
-        return false;
-      }
+  // Update previewScriptContent when script is generated/shown via ScriptSelection
+  // This will rely on ScriptSelection invoking onScriptConfirmed with the generated script
+  const handleScriptConfirmed = (script: string) => {
+    setIsScriptSelected(true);
+    if (scriptOption === 'ai_find' || scriptOption === 'ig_reel') {
+      setPreviewScriptContent(script);
     }
-    return true;
+  };
+
+  // Also update previewScriptContent when the preview becomes visible (ScriptSelection's loaded handler)
+  const handleScriptPreviewVisible = (visible: boolean, scriptValue?: string) => {
+    setIsScriptPreviewVisible(visible);
+    // If scriptValue is passed & preview just turned visible, update previewScriptContent
+    if (visible && typeof scriptValue === "string" && (scriptOption === 'ai_find' || scriptOption === 'ig_reel')) {
+      setPreviewScriptContent(scriptValue);
+    }
+  };
+
+  // Save the script to finalscript ONLY when "Generate Video" is clicked
+  const saveScriptForGeneration = async () => {
+    const scriptToSave =
+      (scriptOption === "ai_find" || scriptOption === "ig_reel")
+        ? previewScriptContent
+        : customScript;
+    if (!scriptToSave) {
+      toast({
+        title: "Script Error",
+        description: "No script is available to generate the video.",
+        variant: "destructive"
+      });
+      return false;
+    }
+
+    if (!userId) return false;
+
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ finalscript: scriptToSave })
+        .eq('id', userId);
+      if (error) throw error;
+      console.log("Saved finalscript before video generation:", scriptToSave);
+      return true;
+    } catch (error) {
+      console.error('Error saving script to finalscript:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save your script before video generation.",
+        variant: "destructive"
+      });
+      return false;
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -130,42 +150,26 @@ const VideoSubmitForm = ({
     
     e.preventDefault();
 
-    // Save script preview to finalscript column BEFORE generating the video
-    const savedOk = await saveScriptToFinalScript();
-    if (!savedOk) {
-      return; // Prevent video generation if saving failed!
-    }
-    
-    // Mark script as selected since we're proceeding with generation
-    setIsScriptSelected(true);
-    
-    // Save the current script as finalscript before generating video
-    if (userId) {
-      try {
-        console.log("Saving current script as finalscript before video generation");
-        const { error: saveError } = await supabase
-          .from('profiles')
-          .update({
-            finalscript: customScript
-          })
-          .eq('id', userId);
+    // Save the appropriate script to finalscript before generating the video
+    const savedOk = await saveScriptForGeneration();
+    if (!savedOk) return;
 
-        if (saveError) {
-          console.error('Error saving final script:', saveError);
-          toast({
-            title: "Error",
-            description: "Failed to save your script. Please try again.",
-            variant: "destructive"
-          });
-          return;
-        }
-      } catch (error) {
-        console.error('Error saving script before video generation:', error);
-        return;
-      }
-    }
-    
-    if (videos.length === 0 || voiceFiles.length === 0 || selectedNiches.length === 0 || competitors.length === 0 || !selectedVideo || !selectedVoice) {
+    setIsScriptSelected(true);
+
+    // For all scriptOptions, fetch script for webhook from "previewScriptContent" (ai_find, ig_reel) or "customScript"
+    const scriptForWebhook =
+      (scriptOption === "ai_find" || scriptOption === "ig_reel")
+        ? previewScriptContent
+        : customScript;
+
+    if (
+      videos.length === 0 ||
+      voiceFiles.length === 0 ||
+      selectedNiches.length === 0 ||
+      competitors.length === 0 ||
+      !selectedVideo ||
+      !selectedVoice
+    ) {
       toast({
         title: "Incomplete form",
         description: "Please fill in all required fields and select a target video and voice file before submitting.",
@@ -173,7 +177,7 @@ const VideoSubmitForm = ({
       });
       return;
     }
-    
+
     // Check if script has been selected
     if (!isScriptSelected) {
       toast({
@@ -215,23 +219,18 @@ const VideoSubmitForm = ({
     }
     
     try {
-      if (!userId) {
-        throw new Error('User not authenticated');
-      }
-      
-      // Update user status to Processing but don't deduct credits (will be done by webhook)
-      await updateProfile({
-        status: 'Processing'
-      });
+      if (!userId) throw new Error('User not authenticated');
+
+      await updateProfile({ status: 'Processing' });
       setUserStatus('Processing');
       
       const params = new URLSearchParams({
         userId: userId,
         scriptOption: scriptOption,
-        customScript: (scriptOption === 'custom' || scriptOption === 'ai_remake') ? customScript : '',
+        customScript: scriptForWebhook, // Always send current script from preview/custom field
         reelUrl: scriptOption === 'ig_reel' ? reelUrl : ''
       });
-      
+
       // Improved fetch with better error handling and timeout
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
@@ -301,7 +300,6 @@ const VideoSubmitForm = ({
     }
   };
 
-  // Fix the type issue by ensuring isFormComplete is always a boolean
   const isFormComplete =
     Boolean(
       videos.length > 0 &&
@@ -313,9 +311,9 @@ const VideoSubmitForm = ({
       (
         // For "custom" or "ai_remake": require just script present, as before
         !["ai_find", "ig_reel"].includes(scriptOption)
-        ? customScript
-        // For "ai_find" and "ig_reel": require the preview be generated/shown
-        : isScriptPreviewVisible
+          ? customScript
+          // For "ai_find" and "ig_reel": require the preview be generated/shown
+          : isScriptPreviewVisible && previewScriptContent
       ) &&
       (scriptOption !== 'ig_reel' || (scriptOption === 'ig_reel' && reelUrl))
     );
@@ -375,25 +373,18 @@ const VideoSubmitForm = ({
         updateProfile={updateProfile}
       />
 
-      {/* Script Selection Section with updated onScriptPreviewVisible handler */}
       <ScriptSelection
         scriptOption={scriptOption}
         customScript={customScript}
         setScriptOption={setScriptOption}
         setCustomScript={setCustomScript}
         updateProfile={updateProfile}
-        onScriptConfirmed={() => {
-          console.log('VideoSubmitForm - Script confirmed by user');
-          setIsScriptSelected(true);
-        }}
-        // New: update script preview visibility when preview is generated/shown
-        onScriptPreviewVisible={(visible: boolean) => {
-          console.log('ScriptSelection reporting visibility change:', visible);
-          setIsScriptPreviewVisible(visible);
-        }}
+        // NEW: Pass handler to capture script preview content
+        onScriptConfirmed={handleScriptConfirmed}
+        // Pass updated handler for script preview visibility, now can accept script value
+        onScriptPreviewVisible={(visible: boolean, scriptValue?: string) => handleScriptPreviewVisible(visible, scriptValue)}
       />
 
-      {/* Submit Section - Add isScriptPreviewVisible prop */}
       <GenerateVideo
         isFormComplete={isFormComplete}
         userCredits={userCredits}
@@ -407,7 +398,7 @@ const VideoSubmitForm = ({
         selectedNiches={selectedNiches}
         competitors={competitors}
         isScriptSelected={isScriptSelected}
-        // New prop:
+        // Updated prop
         isScriptPreviewVisible={isScriptPreviewVisible}
         scriptOption={scriptOption}
       />

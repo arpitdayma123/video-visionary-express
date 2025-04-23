@@ -15,7 +15,7 @@ interface ScriptSelectionProps {
   updateProfile: (updates: any) => Promise<void>;
   onScriptConfirmed?: (script: string) => void;
   // Add new prop for letting parent know about preview visibility
-  onScriptPreviewVisible?: (visible: boolean) => void;
+  onScriptPreviewVisible?: (visible: boolean, scriptValue?: string) => void;
 }
 
 const ScriptSelection: React.FC<ScriptSelectionProps> = ({
@@ -37,6 +37,8 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
   const MIN_WORDS = 30;
   const [saveUrlTimeout, setSaveUrlTimeout] = useState<NodeJS.Timeout | null>(null);
   const [showCustomEditor, setShowCustomEditor] = useState(true);
+  // New: track the generated script from the preview (needed for handoff to parent)
+  const [latestPreviewScript, setLatestPreviewScript] = useState('');
 
   // New: track state for preview visibility (for ai_find, ig_reel)
   const [isPreviewVisible, setIsPreviewVisible] = useState(false);
@@ -47,12 +49,13 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
       (scriptOption === 'ai_find' || scriptOption === 'ig_reel') &&
       typeof onScriptPreviewVisible === 'function'
     ) {
-      onScriptPreviewVisible(isPreviewVisible);
+      onScriptPreviewVisible(isPreviewVisible, latestPreviewScript);
     } else if (typeof onScriptPreviewVisible === 'function') {
-      onScriptPreviewVisible(true); // Always "enabled" for other types
+      onScriptPreviewVisible(true, customScript); // Always "enabled" for other types
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isPreviewVisible, scriptOption]);
+  // Only depend on relevant state
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isPreviewVisible, latestPreviewScript, scriptOption]);
 
   // Reset preview visibility when switching script options
   useEffect(() => {
@@ -60,12 +63,12 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
     if (scriptOption === 'ai_find' || scriptOption === 'ig_reel') {
       setIsPreviewVisible(false);
       if (typeof onScriptPreviewVisible === 'function') {
-        onScriptPreviewVisible(false);
+        onScriptPreviewVisible(false, latestPreviewScript);
       }
     }
     
     setShowCustomEditor(true); // Reset visibility when option changes
-  }, [scriptOption, onScriptPreviewVisible]);
+  }, [scriptOption, onScriptPreviewVisible, latestPreviewScript]);
 
   useEffect(() => {
     const words = customScript.trim() ? customScript.trim().split(/\s+/).length : 0;
@@ -177,10 +180,31 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
     e.stopPropagation();
   };
 
-  // Callback for ScriptPreview to trigger when preview visible
-  const handleScriptLoaded = () => {
+  // Pass through callback so ScriptPreview sets latestPreviewScript and updates both local and parent state
+  const handleScriptLoaded = (scriptValue?: string) => {
     setShowCustomEditor(false);
     setIsPreviewVisible(true);
+    if ((scriptOption === 'ai_find' || scriptOption === 'ig_reel') && scriptValue) {
+      setLatestPreviewScript(scriptValue);
+      if (typeof onScriptPreviewVisible === "function") {
+        onScriptPreviewVisible(true, scriptValue);
+      }
+    }
+  };
+
+  // Callback from ScriptPreview's "Use Script" or equivalent
+  // "Use Script" on preview will call this with new script
+  const handleScriptConfirmedLocal = (script: string) => {
+    if ((scriptOption === 'ai_find' || scriptOption === 'ig_reel')) {
+      setLatestPreviewScript(script);
+      if (typeof onScriptConfirmed === 'function') {
+        onScriptConfirmed(script);
+      }
+    } else {
+      if (typeof onScriptConfirmed === 'function') {
+        onScriptConfirmed(script);
+      }
+    }
   };
 
   return (
@@ -218,12 +242,13 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
       {scriptOption && scriptOption !== 'custom' && (
         <ScriptPreview
           scriptOption={scriptOption}
-          onUseScript={onScriptConfirmed || (() => {})}
-          onScriptLoaded={handleScriptLoaded}
+          // Call this when using script or confirming script selection in the preview
+          onUseScript={handleScriptConfirmedLocal}
+          // Modified: always pass loaded script (if available) to parent
+          onScriptLoaded={() => handleScriptLoaded(latestPreviewScript)}
         />
       )}
     </ScriptSelectionWrapper>
   );
 };
-
 export default ScriptSelection;

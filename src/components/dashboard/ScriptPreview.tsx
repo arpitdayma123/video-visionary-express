@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useScriptPreview } from '@/hooks/useScriptPreview';
@@ -10,7 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 interface ScriptPreviewProps {
   scriptOption: string;
   onUseScript: (script: string) => void;
-  onScriptLoaded?: () => void;
+  onScriptLoaded?: (scriptValue?: string) => void; // allow loading script value out
 }
 
 const ScriptPreview: React.FC<ScriptPreviewProps> = ({
@@ -107,64 +106,54 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
   // Critical: Set isPreviewVisible to true when a script is successfully loaded
   useEffect(() => {
     if (!isLoading && script) {
-      // Script is loaded and not in loading state
-      console.log('ScriptPreview - Script loaded successfully, setting visible to true');
       setIsPreviewVisible(true);
-      
-      // Call the onScriptLoaded callback if provided
       if (onScriptLoaded) {
-        onScriptLoaded();
+        onScriptLoaded(script); // Pass loaded/generated script back to parent
       }
     }
   }, [isLoading, script, onScriptLoaded, setIsPreviewVisible]);
 
-  // For ai_remake, always show the preview content
-  if (scriptOption === 'ai_remake') {
-    return (
-      <div onClick={preventPropagation}>
-        <ScriptPreviewContent
-          isLoading={isLoading}
-          script={script}
-          wordCount={wordCount}
-          onScriptChange={handleScriptChange}
-          onRegenerateScript={handleRegenerateScript}
-        />
-      </div>
-    );
-  }
-
-  // For other options, keep the existing conditional rendering
-  if (!isPreviewVisible) {
-    return (
-      <div onClick={preventPropagation}>
-        <GeneratePreviewButton
-          isLoading={isLoading}
-          onGenerate={handleStartGeneration}
-          scriptOption={scriptOption}
-          generationStartTime={generationStartTime}
-          waitTimeExpired={waitTimeExpired}
-        />
-      </div>
-    );
-  }
-
   // Pass showChangeScript for ai_find option only
   return (
-    <div onClick={preventPropagation}>
-      <ScriptPreviewContent
-        isLoading={isLoading}
-        script={script}
-        wordCount={wordCount}
-        onScriptChange={handleScriptChange}
-        onRegenerateScript={(e) => { e.preventDefault(); e.stopPropagation(); handleRegenerateScript(); }}
-        showChangeScript={scriptOption === 'ai_find'}
-        onChangeScript={
-          scriptOption === 'ai_find'
-            ? (e) => { e.preventDefault(); e.stopPropagation(); handleChangeScript(); }
-            : undefined
-        }
-      />
-    </div>
+    scriptOption === 'ai_remake'
+      ? (
+        <div onClick={preventPropagation}>
+          <ScriptPreviewContent
+            isLoading={isLoading}
+            script={script}
+            wordCount={wordCount}
+            onScriptChange={handleScriptChange}
+            onRegenerateScript={handleRegenerateScript}
+          />
+        </div>
+      ) : 
+      (!isPreviewVisible ? (
+        <div onClick={preventPropagation}>
+          <GeneratePreviewButton
+            isLoading={isLoading}
+            onGenerate={handleStartGeneration}
+            scriptOption={scriptOption}
+            generationStartTime={generationStartTime}
+            waitTimeExpired={waitTimeExpired}
+          />
+        </div>
+      ) : (
+        <div onClick={preventPropagation}>
+          <ScriptPreviewContent
+            isLoading={isLoading}
+            script={script}
+            wordCount={wordCount}
+            onScriptChange={handleScriptChange}
+            onRegenerateScript={(e) => { e.preventDefault(); e.stopPropagation(); handleRegenerateScript(); }}
+            showChangeScript={scriptOption === 'ai_find'}
+            onChangeScript={
+              scriptOption === 'ai_find'
+                ? (e) => { e.preventDefault(); e.stopPropagation(); handleChangeScript(); }
+                : undefined
+            }
+          />
+        </div>
+      ))
   );
 };
 
