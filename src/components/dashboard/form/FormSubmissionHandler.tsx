@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { UploadedFile } from '@/hooks/useDashboardData';
@@ -45,6 +44,30 @@ const FormSubmissionHandler = ({
   saveScriptForGeneration
 }: FormSubmissionHandlerProps) => {
   const { toast } = useToast();
+
+  // Retry helper: tries fetch up to maxRetries (default 2, so 3 total attempts)
+  const fetchWithRetry = async (url: string, options: RequestInit, maxRetries: number = 2, delay: number = 2000): Promise<Response> => {
+    let attempt = 0;
+    let lastError: any = null;
+    while (attempt <= maxRetries) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
+        const resp = await fetch(url, { ...options, signal: controller.signal });
+        clearTimeout(timeoutId);
+
+        if (resp.ok) return resp;
+        lastError = new Error(`Non-OK status: ${resp.status}`);
+      } catch (err) {
+        lastError = err;
+      }
+      attempt++;
+      if (attempt <= maxRetries) {
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+    throw lastError;
+  };
 
   // Main form submission handler
   const handleSubmit = async (e: React.FormEvent) => {
@@ -144,42 +167,40 @@ const FormSubmissionHandler = ({
         reelUrl: scriptOption === 'ig_reel' ? reelUrl : ''
       });
 
-      // Improved fetch with better error handling and timeout
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
-      
-      console.log(`Sending webhook request to: https://primary-production-ce25.up.railway.app/webhook/trendy?${params.toString()}`);
-      
-      const response = await fetch(`https://primary-production-ce25.up.railway.app/webhook/trendy?${params.toString()}`, {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json',
-          'Cache-Control': 'no-cache',
-          'Pragma': 'no-cache'
+      const webhookUrl = `https://primary-production-ce25.up.railway.app/webhook/trendy?${params.toString()}`;
+      console.log(`Sending webhook request to: ${webhookUrl} (will retry if fails)`);
+
+      // Use fetch with retry
+      const response = await fetchWithRetry(
+        webhookUrl,
+        {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json',
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache'
+          },
+          credentials: 'omit',
+          mode: 'cors'
         },
-        signal: controller.signal,
-        credentials: 'omit', // Don't send cookies with the request
-        mode: 'cors', // Enable CORS
-      });
+        2  // number of retries
+      );
       
-      clearTimeout(timeoutId);
-      
-      if (!response.ok) {
-        // Get error details
-        let errorDetails;
-        try {
-          errorDetails = await response.text();
-        } catch (e) {
-          errorDetails = 'Unable to get error details';
-        }
-        
-        console.error('Webhook response error:', response.status, errorDetails);
-        throw new Error(`Server responded with status: ${response.status}. Details: ${errorDetails}`);
+      // Check for error JSON response even if HTTP is 200
+      let responseData: any = null;
+      try {
+        responseData = await response.clone().json();
+      } catch {
+        // it's ok if JSON parsing fails (may not produce error field)
       }
-      
-      const responseData = await response.json();
+
+      if (responseData && responseData.error) {
+        // Webhook responded with error payload!
+        throw new Error(responseData.error);
+      }
+
       console.log('Webhook response:', responseData);
-      
+
       toast({
         title: "Request sent successfully",
         description: "Your personalized video is being processed. Please check the Results page after 5 minutes to see your video."
@@ -188,9 +209,7 @@ const FormSubmissionHandler = ({
     } catch (error) {
       console.error('Error processing video:', error);
       
-      // Provide more specific error messages based on error type
       let errorMessage = "There was an error processing your request.";
-      
       if (error instanceof DOMException && error.name === 'AbortError') {
         errorMessage = "Request timed out. Please try again later.";
       } else if (error instanceof TypeError && error.message.includes('fetch')) {
@@ -198,13 +217,11 @@ const FormSubmissionHandler = ({
       } else if (error instanceof Error) {
         errorMessage = `Error: ${error.message}`;
       }
-      
+
       // Revert status back to Completed if there was an error
-      await updateProfile({
-        status: 'Completed'
-      });
+      await updateProfile({ status: 'Completed' });
       setUserStatus('Completed');
-      
+
       toast({
         title: "Processing failed",
         description: errorMessage,
