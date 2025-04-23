@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -66,6 +67,15 @@ const VideoSubmitForm = ({
 
   // New: Track whether preview script is generated/visible for ai_find / ig_reel
   const [isScriptPreviewVisible, setIsScriptPreviewVisible] = useState(false);
+  
+  // Reset script preview visibility when script option changes
+  useEffect(() => {
+    if (scriptOption === 'ai_find' || scriptOption === 'ig_reel') {
+      setIsScriptPreviewVisible(false);
+    } else {
+      setIsScriptPreviewVisible(true); // Always true for other options
+    }
+  }, [scriptOption]);
 
   // Save script preview to finalscript column before generating video
   const saveScriptToFinalScript = async () => {
@@ -308,6 +318,13 @@ const VideoSubmitForm = ({
       (scriptOption !== 'ig_reel' || (scriptOption === 'ig_reel' && reelUrl))
     );
 
+  // Debug logging of the script preview state
+  console.log('VideoSubmitForm - Script Preview Status:', {
+    scriptOption,
+    isScriptPreviewVisible,
+    isFormComplete
+  });
+
   return (
     <form
       onSubmit={handleSubmit}
@@ -365,7 +382,10 @@ const VideoSubmitForm = ({
         updateProfile={updateProfile}
         onScriptConfirmed={() => setIsScriptSelected(true)}
         // New: update script preview visibility when preview is generated/shown
-        onScriptPreviewVisible={(visible: boolean) => setIsScriptPreviewVisible(visible)}
+        onScriptPreviewVisible={(visible: boolean) => {
+          console.log('ScriptSelection reporting visibility change:', visible);
+          setIsScriptPreviewVisible(visible);
+        }}
       />
 
       {/* Submit Section - Add isScriptPreviewVisible prop */}

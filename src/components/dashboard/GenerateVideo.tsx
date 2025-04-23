@@ -57,11 +57,21 @@ const GenerateVideo: React.FC<GenerateVideoProps> = ({
 
   // Only enable for ai_find / ig_reel if script preview is visible
   const requiresScriptPreview = scriptOption === 'ai_find' || scriptOption === 'ig_reel';
+  const scriptPreviewOk = !requiresScriptPreview || isScriptPreviewVisible;
+  
+  // Ensure we're logging the state for debugging
+  console.log('GenerateVideo - Script Preview Status:', {
+    scriptOption,
+    requiresScriptPreview,
+    isScriptPreviewVisible,
+    scriptPreviewOk
+  });
+  
   const buttonEnabled =
     isFormComplete &&
     hasCredits &&
     !isProcessing &&
-    (!requiresScriptPreview || isScriptPreviewVisible);
+    scriptPreviewOk;
 
   // Updated list of requirements
   const remainingTasks = [

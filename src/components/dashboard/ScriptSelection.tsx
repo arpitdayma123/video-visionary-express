@@ -54,10 +54,18 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isPreviewVisible, scriptOption]);
 
-  // Effect to handle script option changes
+  // Reset preview visibility when switching script options
   useEffect(() => {
+    // Reset preview visibility when switching to ai_find or ig_reel
+    if (scriptOption === 'ai_find' || scriptOption === 'ig_reel') {
+      setIsPreviewVisible(false);
+      if (typeof onScriptPreviewVisible === 'function') {
+        onScriptPreviewVisible(false);
+      }
+    }
+    
     setShowCustomEditor(true); // Reset visibility when option changes
-  }, [scriptOption]);
+  }, [scriptOption, onScriptPreviewVisible]);
 
   useEffect(() => {
     const words = customScript.trim() ? customScript.trim().split(/\s+/).length : 0;
