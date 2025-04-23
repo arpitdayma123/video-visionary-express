@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { User } from '@supabase/supabase-js';
 import { useToast } from '@/hooks/use-toast';
@@ -17,7 +16,7 @@ export const useScriptPreview = (
   const [wordCount, setWordCount] = useState(0);
   const [isPreviewVisible, setIsPreviewVisible] = useState(false);
   const { toast } = useToast();
-  const { updateWordCount, saveCustomScript } = useScriptUtils();
+  const { updateWordCount, saveCustomScript, saveFinalScript } = useScriptUtils();
   const { checkPreviewStatus, pollingInterval } = useScriptPolling(
     user,
     isLoading,
@@ -110,11 +109,22 @@ export const useScriptPreview = (
     }
   };
 
-  // Regenerate is ALWAYS true here now
+  // NEW: Regenerate saves current script for ai_find/ig_reel before regenerating.
   const handleRegenerateScript = async () => {
     if (!user) return;
+    // Save script prior to regeneration for ai_find/ig_reel only (not other modes)
+    if ((scriptOption === 'ai_find' || scriptOption === 'ig_reel') && script) {
+      try {
+        await saveFinalScript(user, script);
+      } catch (error) {
+        toast({
+          title: "Error",
+          description: "Failed to save the current script before regenerating.",
+          variant: "destructive"
+        });
+      }
+    }
     setIsLoading(true);
-
     try {
       const { error } = await supabase
         .from('profiles')

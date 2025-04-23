@@ -12,6 +12,9 @@ interface ScriptPreviewContentProps {
   onRegenerateScript: (e: React.MouseEvent) => void;
   showChangeScript?: boolean;
   onChangeScript?: (e: React.MouseEvent) => void;
+  showUseScriptButton?: boolean;
+  onUseScript?: (e: React.MouseEvent) => void;
+  useScriptDisabled?: boolean;
 }
 
 const ScriptPreviewContent: React.FC<ScriptPreviewContentProps> = ({
@@ -21,7 +24,10 @@ const ScriptPreviewContent: React.FC<ScriptPreviewContentProps> = ({
   onScriptChange,
   onRegenerateScript,
   showChangeScript,
-  onChangeScript, // provided only when available
+  onChangeScript,
+  showUseScriptButton = false,
+  onUseScript,
+  useScriptDisabled,
 }) => {
   // Keep click handlers for propagation control
   const handleTextareaClick = (e: React.MouseEvent) => {
@@ -75,6 +81,16 @@ const ScriptPreviewContent: React.FC<ScriptPreviewContentProps> = ({
             'Regenerate Script'
           )}
         </Button>
+        {showUseScriptButton && onUseScript && (
+          <Button
+            variant="outline"
+            onClick={onUseScript}
+            disabled={isLoading || useScriptDisabled}
+            type="button"
+          >
+            Use This Script
+          </Button>
+        )}
         {showChangeScript && onChangeScript && (
           <Button
             variant="outline"

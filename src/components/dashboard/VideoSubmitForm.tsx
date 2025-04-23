@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
@@ -71,6 +70,9 @@ const VideoSubmitForm = ({
   // Track whether preview script is generated/visible for ai_find / ig_reel
   const [isScriptPreviewVisible, setIsScriptPreviewVisible] = useState(false);
   
+  // NEW: Track when user has finalized script selection in the preview
+  const [hasFinalizedPreviewScript, setHasFinalizedPreviewScript] = useState(false);
+
   // Reset preview script content and visibility when script option changes
   useEffect(() => {
     console.log('VideoSubmitForm - Script option changed to:', scriptOption);
@@ -79,9 +81,11 @@ const VideoSubmitForm = ({
     if (scriptOption === 'ai_find' || scriptOption === 'ig_reel') {
       setIsScriptPreviewVisible(false);
       setPreviewScriptContent('');
+      setHasFinalizedPreviewScript(false);
     } else {
       setIsScriptPreviewVisible(true);
       setPreviewScriptContent('');
+      setHasFinalizedPreviewScript(true); // For non-preview options; always finalized
     }
   }, [scriptOption]);
 
@@ -91,13 +95,12 @@ const VideoSubmitForm = ({
     setIsScriptSelected(true);
     if (scriptOption === 'ai_find' || scriptOption === 'ig_reel') {
       setPreviewScriptContent(script);
+      setHasFinalizedPreviewScript(true);
     }
   };
 
-  // Also update previewScriptContent when the preview becomes visible (ScriptSelection's loaded handler)
   const handleScriptPreviewVisible = (visible: boolean, scriptValue?: string) => {
     setIsScriptPreviewVisible(visible);
-    // If scriptValue is passed & preview just turned visible, update previewScriptContent
     if (visible && typeof scriptValue === "string" && (scriptOption === 'ai_find' || scriptOption === 'ig_reel')) {
       setPreviewScriptContent(scriptValue);
     }
@@ -164,8 +167,8 @@ const VideoSubmitForm = ({
       voiceFiles.length === 0 ||
       selectedNiches.length === 0 ||
       competitors.length === 0 ||
-      !selectedVideo ||
-      !selectedVoice
+      selectedVideo !== null &&
+      selectedVoice !== null
     ) {
       toast({
         title: "Incomplete form",
@@ -305,6 +308,7 @@ const VideoSubmitForm = ({
     }
   };
 
+  // Change eligibility: For ai_find/ig_reel, require hasFinalizedPreviewScript to be true
   const isFormComplete =
     Boolean(
       videos.length > 0 &&
@@ -314,11 +318,9 @@ const VideoSubmitForm = ({
       selectedVideo !== null &&
       selectedVoice !== null &&
       (
-        // For "custom" or "ai_remake": require just script present, as before
         !["ai_find", "ig_reel"].includes(scriptOption)
           ? customScript
-          // For "ai_find" and "ig_reel": require the preview be generated/shown
-          : isScriptPreviewVisible && previewScriptContent
+          : (isScriptPreviewVisible && previewScriptContent && hasFinalizedPreviewScript) // <== Require confirmed!
       ) &&
       (scriptOption !== 'ig_reel' || (scriptOption === 'ig_reel' && reelUrl))
     );
@@ -404,7 +406,6 @@ const VideoSubmitForm = ({
         selectedNiches={selectedNiches}
         competitors={competitors}
         isScriptSelected={isScriptSelected}
-        // Updated prop
         isScriptPreviewVisible={isScriptPreviewVisible}
         scriptOption={scriptOption}
       />
