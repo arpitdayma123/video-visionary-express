@@ -14,6 +14,8 @@ interface ScriptSelectionProps {
   setCustomScript: (script: string) => void;
   updateProfile: (updates: any) => Promise<void>;
   onScriptConfirmed?: (script: string) => void;
+  // Add new prop for letting parent know about preview visibility
+  onScriptPreviewVisible?: (visible: boolean) => void;
 }
 
 const ScriptSelection: React.FC<ScriptSelectionProps> = ({
@@ -22,7 +24,8 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
   setScriptOption,
   setCustomScript,
   updateProfile,
-  onScriptConfirmed
+  onScriptConfirmed,
+  onScriptPreviewVisible
 }) => {
   const [wordCount, setWordCount] = useState(0);
   const [isExceedingLimit, setIsExceedingLimit] = useState(false);
@@ -34,6 +37,22 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
   const MIN_WORDS = 30;
   const [saveUrlTimeout, setSaveUrlTimeout] = useState<NodeJS.Timeout | null>(null);
   const [showCustomEditor, setShowCustomEditor] = useState(true);
+
+  // New: track state for preview visibility (for ai_find, ig_reel)
+  const [isPreviewVisible, setIsPreviewVisible] = useState(false);
+
+  // Effect: inform parent when preview visibility changes (for ai_find, ig_reel only)
+  useEffect(() => {
+    if (
+      (scriptOption === 'ai_find' || scriptOption === 'ig_reel') &&
+      typeof onScriptPreviewVisible === 'function'
+    ) {
+      onScriptPreviewVisible(isPreviewVisible);
+    } else if (typeof onScriptPreviewVisible === 'function') {
+      onScriptPreviewVisible(true); // Always "enabled" for other types
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isPreviewVisible, scriptOption]);
 
   // Effect to handle script option changes
   useEffect(() => {
@@ -111,7 +130,6 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
           toast({
             title: "Save failed",
             description: "There was an error saving your reel URL.",
-            variant: "destructive"
           });
         }
       }, 500);
@@ -141,7 +159,6 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
       toast({
         title: "Save failed",
         description: "There was an error saving your script.",
-        variant: "destructive"
       });
     } finally {
       setIsSaving(false);
@@ -152,8 +169,14 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
     e.stopPropagation();
   };
 
+  // Callback for ScriptPreview to trigger when preview visible
+  const handleScriptLoaded = () => {
+    setShowCustomEditor(false);
+    setIsPreviewVisible(true);
+  };
+
   return (
-    <ScriptSelectionWrapper handlePreventPropagation={handlePreventPropagation}>
+    <ScriptSelectionWrapper handlePreventPropagation={(e) => e.stopPropagation()}>
       <ScriptSectionHeader />
       
       <ScriptOptions
@@ -183,11 +206,12 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
         />
       )}
 
+      {/* ScriptPreview: now tracks preview visible for ai_find/ig_reel for button enablement */}
       {scriptOption && scriptOption !== 'custom' && (
         <ScriptPreview
           scriptOption={scriptOption}
           onUseScript={onScriptConfirmed || (() => {})}
-          onScriptLoaded={() => setShowCustomEditor(false)}
+          onScriptLoaded={handleScriptLoaded}
         />
       )}
     </ScriptSelectionWrapper>

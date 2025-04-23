@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
@@ -19,6 +20,9 @@ interface GenerateVideoProps {
   selectedNiches: string[];
   competitors: string[];
   isScriptSelected?: boolean;
+  // New props for script preview handling:
+  isScriptPreviewVisible?: boolean;
+  scriptOption?: string;
 }
 
 const GenerateVideo: React.FC<GenerateVideoProps> = ({
@@ -33,7 +37,9 @@ const GenerateVideo: React.FC<GenerateVideoProps> = ({
   selectedVoice,
   selectedNiches,
   competitors,
-  isScriptSelected = true
+  isScriptSelected = true,
+  isScriptPreviewVisible = true,
+  scriptOption = ''
 }) => {
   const isProcessing = userStatus === 'Processing';
 
@@ -49,16 +55,24 @@ const GenerateVideo: React.FC<GenerateVideoProps> = ({
   const hasCompetitors = competitors.length > 0;
   const hasCredits = userCredits >= 1;
 
-  // Updated to remove isScriptSelected from the generation check
-  const isGenerateEnabled = isFormComplete && hasCredits && !isProcessing;
+  // Only enable for ai_find / ig_reel if script preview is visible
+  const requiresScriptPreview = scriptOption === 'ai_find' || scriptOption === 'ig_reel';
+  const buttonEnabled =
+    isFormComplete &&
+    hasCredits &&
+    !isProcessing &&
+    (!requiresScriptPreview || isScriptPreviewVisible);
 
-  // Updated list of requirements to remove script confirmation
+  // Updated list of requirements
   const remainingTasks = [
     { completed: hasVideoSelected, label: 'Select a target video' },
     { completed: hasVoiceSelected, label: 'Select a voice file' },
     { completed: hasNiches, label: 'Choose at least one niche' },
     { completed: hasCompetitors, label: 'Add competitor accounts' },
-    { completed: hasCredits, label: 'Have at least 1 credit' }
+    { completed: hasCredits, label: 'Have at least 1 credit' },
+    ...(requiresScriptPreview
+      ? [{ completed: isScriptPreviewVisible, label: 'Generate Script Preview' }]
+      : []),
   ];
 
   const incompleteTasks = remainingTasks.filter(task => !task.completed);
@@ -66,7 +80,7 @@ const GenerateVideo: React.FC<GenerateVideoProps> = ({
   return (
     <section className="animate-fade-in pb-8">
       <h2 className="text-xl font-medium mb-4">Generate Video</h2>
-      
+
       <div className="flex flex-col space-y-4">
         <div className="p-4 bg-muted rounded-md">
           <p className="font-medium text-sm mb-3">Generation Requirements:</p>
@@ -85,7 +99,7 @@ const GenerateVideo: React.FC<GenerateVideoProps> = ({
             ))}
           </ul>
         </div>
-        
+
         <div className="flex flex-col sm:flex-row gap-4 items-center justify-between p-4 bg-muted rounded-md">
           <div>
             <CreditDisplay userCredits={userCredits} userStatus={userStatus} />
@@ -93,10 +107,10 @@ const GenerateVideo: React.FC<GenerateVideoProps> = ({
               <p className="text-sm text-red-500 mt-1">You need at least 1 credit to generate a video.</p>
             )}
           </div>
-          
-          <Button 
+
+          <Button
             type="submit"
-            disabled={!isGenerateEnabled}
+            disabled={!buttonEnabled}
             className="w-full sm:w-auto"
             onClick={handleSubmit}
           >
@@ -110,7 +124,7 @@ const GenerateVideo: React.FC<GenerateVideoProps> = ({
             )}
           </Button>
         </div>
-        
+
         {incompleteTasks.length > 0 && !isProcessing && (
           <Alert variant="info" className="bg-blue-50 border-blue-200">
             <p className="text-sm text-blue-700">
@@ -118,7 +132,7 @@ const GenerateVideo: React.FC<GenerateVideoProps> = ({
             </p>
           </Alert>
         )}
-        
+
         {isProcessing && (
           <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-md">
             <p className="text-sm text-yellow-700">

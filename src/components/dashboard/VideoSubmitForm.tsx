@@ -64,6 +64,9 @@ const VideoSubmitForm = ({
   const { toast } = useToast();
   const [isScriptSelected, setIsScriptSelected] = useState(false);
 
+  // New: Track whether preview script is generated/visible for ai_find / ig_reel
+  const [isScriptPreviewVisible, setIsScriptPreviewVisible] = useState(false);
+
   // Save script preview to finalscript column before generating video
   const saveScriptToFinalScript = async () => {
     if (userId) {
@@ -286,70 +289,74 @@ const VideoSubmitForm = ({
     }
   };
 
-  // Remove handleScriptConfirmed as it's no longer needed
-  
   // Fix the type issue by ensuring isFormComplete is always a boolean
-  const isFormComplete = Boolean(
-    videos.length > 0 && 
-    voiceFiles.length > 0 && 
-    selectedNiches.length > 0 && 
-    competitors.length > 0 && 
-    selectedVideo !== null && 
-    selectedVoice !== null && 
-    customScript && // Check for script presence instead of isScriptSelected
-    (scriptOption !== 'ig_reel' || (scriptOption === 'ig_reel' && reelUrl))
-  );
+  const isFormComplete =
+    Boolean(
+      videos.length > 0 &&
+      voiceFiles.length > 0 &&
+      selectedNiches.length > 0 &&
+      competitors.length > 0 &&
+      selectedVideo !== null &&
+      selectedVoice !== null &&
+      (
+        // For "custom" or "ai_remake": require just script present, as before
+        !["ai_find", "ig_reel"].includes(scriptOption)
+        ? customScript
+        // For "ai_find" and "ig_reel": require the preview be generated/shown
+        : isScriptPreviewVisible
+      ) &&
+      (scriptOption !== 'ig_reel' || (scriptOption === 'ig_reel' && reelUrl))
+    );
 
   return (
-    <form 
-      onSubmit={handleSubmit} 
+    <form
+      onSubmit={handleSubmit}
       className="space-y-12"
-      // Updated onClick handler - improved event handling
       onClick={(e) => {
         const target = e.target as HTMLElement;
-        // If the click is not directly on the form element or if it's on a button 
-        // that's not the Generate Video button, stop propagation
-        if (e.currentTarget !== e.target || 
-            (target.tagName === 'BUTTON' && !target.textContent?.includes('Generate Video'))) {
+        if (
+          e.currentTarget !== e.target ||
+          (target.tagName === 'BUTTON' && !target.textContent?.includes('Generate Video'))
+        ) {
           e.stopPropagation();
         }
       }}
     >
       {/* Video Upload Section */}
-      <VideoUpload 
-        videos={videos} 
-        setVideos={setVideos} 
-        selectedVideo={selectedVideo} 
-        setSelectedVideo={setSelectedVideo} 
-        userId={userId || ''} 
-        updateProfile={updateProfile} 
+      <VideoUpload
+        videos={videos}
+        setVideos={setVideos}
+        selectedVideo={selectedVideo}
+        setSelectedVideo={setSelectedVideo}
+        userId={userId || ''}
+        updateProfile={updateProfile}
       />
 
       {/* Voice Upload Section */}
-      <VoiceUpload 
-        voiceFiles={voiceFiles} 
-        setVoiceFiles={setVoiceFiles} 
-        selectedVoice={selectedVoice} 
-        setSelectedVoice={setSelectedVoice} 
-        userId={userId || ''} 
-        updateProfile={updateProfile} 
+      <VoiceUpload
+        voiceFiles={voiceFiles}
+        setVoiceFiles={setVoiceFiles}
+        selectedVoice={selectedVoice}
+        setSelectedVoice={setSelectedVoice}
+        userId={userId || ''}
+        updateProfile={updateProfile}
       />
 
       {/* Niche Selection Section */}
-      <NicheSelection 
-        selectedNiches={selectedNiches} 
-        setSelectedNiches={setSelectedNiches} 
-        updateProfile={updateProfile} 
+      <NicheSelection
+        selectedNiches={selectedNiches}
+        setSelectedNiches={setSelectedNiches}
+        updateProfile={updateProfile}
       />
 
       {/* Competitor Section */}
-      <CompetitorInput 
-        competitors={competitors} 
-        setCompetitors={setCompetitors} 
-        updateProfile={updateProfile} 
+      <CompetitorInput
+        competitors={competitors}
+        setCompetitors={setCompetitors}
+        updateProfile={updateProfile}
       />
-      
-      {/* Script Selection Section with updated onUseScript handler */}
+
+      {/* Script Selection Section with updated onScriptPreviewVisible handler */}
       <ScriptSelection
         scriptOption={scriptOption}
         customScript={customScript}
@@ -357,15 +364,17 @@ const VideoSubmitForm = ({
         setCustomScript={setCustomScript}
         updateProfile={updateProfile}
         onScriptConfirmed={() => setIsScriptSelected(true)}
+        // New: update script preview visibility when preview is generated/shown
+        onScriptPreviewVisible={(visible: boolean) => setIsScriptPreviewVisible(visible)}
       />
 
-      {/* Submit Section */}
-      <GenerateVideo 
-        isFormComplete={isFormComplete} 
-        userCredits={userCredits} 
-        userStatus={userStatus} 
+      {/* Submit Section - Add isScriptPreviewVisible prop */}
+      <GenerateVideo
+        isFormComplete={isFormComplete}
+        userCredits={userCredits}
+        userStatus={userStatus}
         userId={userId}
-        onSubmit={handleSubmit} 
+        onSubmit={handleSubmit}
         videos={videos}
         voiceFiles={voiceFiles}
         selectedVideo={selectedVideo}
@@ -373,6 +382,9 @@ const VideoSubmitForm = ({
         selectedNiches={selectedNiches}
         competitors={competitors}
         isScriptSelected={isScriptSelected}
+        // New prop:
+        isScriptPreviewVisible={isScriptPreviewVisible}
+        scriptOption={scriptOption}
       />
     </form>
   );
