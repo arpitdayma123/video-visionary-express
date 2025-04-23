@@ -4,8 +4,9 @@ import ScriptOptions from './script/ScriptOptions';
 import CustomScriptSection from './script/CustomScriptSection';
 import ReelSection from './script/ReelSection';
 import ScriptPreview from './ScriptPreview';
-import ScriptSelectionWrapper from './script/ScriptSelectionWrapper';
+import ScriptSelectionWrapper from './ScriptSelectionWrapper';
 import ScriptSectionHeader from './script/ScriptSectionHeader';
+import ScriptWebhookError from './script/ScriptWebhookError';
 
 interface ScriptSelectionProps {
   scriptOption: string;
@@ -14,7 +15,6 @@ interface ScriptSelectionProps {
   setCustomScript: (script: string) => void;
   updateProfile: (updates: any) => Promise<void>;
   onScriptConfirmed?: (script: string) => void;
-  // Add new prop for letting parent know about preview visibility
   onScriptPreviewVisible?: (visible: boolean, scriptValue?: string) => void;
 }
 
@@ -45,6 +45,9 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
 
   // NEW: track finalized status for script preview handoff
   const [hasFinalizedScript, setHasFinalizedScript] = useState(false);
+
+  // [ADD] State hook for webhook error
+  const [webhookError, setWebhookError] = useState<string | null>(null);
 
   // Effect: inform parent when preview visibility changes (for ai_find, ig_reel only)
   useEffect(() => {
@@ -210,15 +213,31 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
     }
   };
 
+  // [CHANGED] Track webhook error from child ScriptPreview
+  // Capture and forward error state using a wrapper function
+  const handleScriptPreviewError = (err?: string | null) => {
+    setWebhookError(err ?? null);
+  };
+
+  // Pass-through callback: set error state from ScriptPreview hook results
+  const ScriptPreviewWithWebhookError = (props: any) => (
+    <ScriptPreview {...props} onWebhookError={handleScriptPreviewError} />
+  );
+
   return (
     <ScriptSelectionWrapper handlePreventPropagation={(e) => e.stopPropagation()}>
       <ScriptSectionHeader />
-      
+
       <ScriptOptions
         scriptOption={scriptOption}
         onScriptOptionChange={handleScriptOptionChange}
       />
-      
+
+      {/* Show webhook error box if present */}
+      {webhookError && (
+        <ScriptWebhookError error={webhookError} />
+      )}
+
       {scriptOption === 'custom' && (
         <CustomScriptSection
           customScript={customScript}
@@ -241,12 +260,13 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
         />
       )}
 
-      {/* ScriptPreview: pass onScriptConfirmed for Use This Script click */}
       {scriptOption && scriptOption !== 'custom' && (
         <ScriptPreview
           scriptOption={scriptOption}
           onUseScript={handleScriptConfirmedLocal}
           onScriptLoaded={() => handleScriptLoaded(latestPreviewScript)}
+          webhookError={webhookError}
+          setWebhookError={setWebhookError}
         />
       )}
     </ScriptSelectionWrapper>

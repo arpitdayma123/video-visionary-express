@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { User } from '@supabase/supabase-js';
 import { useToast } from '@/hooks/use-toast';
@@ -15,6 +16,7 @@ export const useScriptPreview = (
   const [script, setScript] = useState('');
   const [wordCount, setWordCount] = useState(0);
   const [isPreviewVisible, setIsPreviewVisible] = useState(false);
+  const [webhookError, setWebhookError] = useState<string | null>(null);
   const { toast } = useToast();
   const { updateWordCount, saveCustomScript, saveFinalScript } = useScriptUtils();
   const { checkPreviewStatus, pollingInterval } = useScriptPolling(
@@ -28,22 +30,21 @@ export const useScriptPreview = (
   // Use AI Remake hook if that option is selected
   const aiRemake = useAiRemake(user, onScriptGenerated);
   if (scriptOption === 'ai_remake') {
+    // Pass webhookError through in ai_remake mode as well, if needed in future.
     return {
       ...aiRemake,
       isPreviewVisible,
       setIsPreviewVisible,
+      webhookError,
+      setWebhookError,
       handleGeneratePreview: aiRemake.handleRegenerateScript
     };
   }
 
   function handleScriptGenerated(newScript: string) {
+    setWebhookError(null); // clear errors on successful script
     setScript(newScript);
     setWordCount(updateWordCount(newScript));
-    
-    // Do not save to finalscript here anymore - only update local state
-    // This will be saved only when Generate Video is clicked
-    
-    // Make sure to set preview visible when script is generated
     setIsPreviewVisible(true);
     console.log('useScriptPreview - Script generated, setting preview visible to true');
     onScriptGenerated(newScript);
@@ -53,16 +54,11 @@ export const useScriptPreview = (
     const newScript = e.target.value;
     setScript(newScript);
     setWordCount(updateWordCount(newScript));
-    
-    // Save to custom_script for ai_remake mode only
     if (user && scriptOption === 'ai_remake') {
       saveCustomScript(user, newScript);
     }
-    
-    // We no longer automatically save to finalscript here
   };
 
-  // Main preview generation: regenerate is always false here
   const handleGeneratePreview = async () => {
     if (!user) return;
     setIsLoading(true);
@@ -85,22 +81,35 @@ export const useScriptPreview = (
         }
       );
 
-      if (!webhookResponse.ok) {
-        throw new Error(`Webhook failed with status ${webhookResponse.status}`);
+      let responseJson: any = null;
+      try {
+        responseJson = await webhookResponse.clone().json();
+      } catch { /* ignore */ }
+
+      // If error in webhook payload, show error, stop, don't run polling.
+      if (responseJson && responseJson.error) {
+        setIsLoading(false);
+        setWebhookError(responseJson.error);
+        setIsPreviewVisible(false);
+        toast({
+          title: "Script generation error",
+          description: responseJson.error,
+          variant: "destructive"
+        });
+        return;
+      } else {
+        setWebhookError(null);
       }
 
       setIsPreviewVisible(true);
-      console.log('useScriptPreview - Generate Preview initiated, setting preview visible to true');
-
       if (pollingInterval.current) {
         clearInterval(pollingInterval.current);
       }
-
       const interval = setInterval(checkPreviewStatus, 2000);
       pollingInterval.current = interval;
     } catch (error) {
-      console.error('Error starting preview generation:', error);
       setIsLoading(false);
+      setWebhookError("Failed to start preview generation. Please try again.");
       toast({
         title: "Error",
         description: "Failed to start preview generation. Please try again.",
@@ -109,10 +118,8 @@ export const useScriptPreview = (
     }
   };
 
-  // NEW: Regenerate saves current script for ai_find/ig_reel before regenerating.
   const handleRegenerateScript = async () => {
     if (!user) return;
-    // Save script prior to regeneration for ai_find/ig_reel only (not other modes)
     if ((scriptOption === 'ai_find' || scriptOption === 'ig_reel') && script) {
       try {
         await saveFinalScript(user, script);
@@ -144,22 +151,35 @@ export const useScriptPreview = (
         }
       );
 
-      if (!webhookResponse.ok) {
-        throw new Error(`Webhook failed with status ${webhookResponse.status}`);
+      let responseJson: any = null;
+      try {
+        responseJson = await webhookResponse.clone().json();
+      } catch { /* ignore */ }
+
+      if (responseJson && responseJson.error) {
+        setIsLoading(false);
+        setWebhookError(responseJson.error);
+        setIsPreviewVisible(false);
+        toast({
+          title: "Script regeneration error",
+          description: responseJson.error,
+          variant: "destructive"
+        });
+        return;
+      } else {
+        setWebhookError(null);
       }
 
       setIsPreviewVisible(true);
-      console.log('useScriptPreview - Regenerate Script initiated, setting preview visible to true');
 
       if (pollingInterval.current) {
         clearInterval(pollingInterval.current);
       }
-
       const interval = setInterval(checkPreviewStatus, 2000);
       pollingInterval.current = interval;
     } catch (error) {
-      console.error('Error starting regeneration:', error);
       setIsLoading(false);
+      setWebhookError("Failed to regenerate script. Please try again.");
       toast({
         title: "Error",
         description: "Failed to regenerate script. Please try again.",
@@ -168,7 +188,6 @@ export const useScriptPreview = (
     }
   };
 
-  // Change Script handler -- sends changescript=true
   const handleChangeScript = async () => {
     if (!user) return;
     setIsLoading(true);
@@ -192,22 +211,35 @@ export const useScriptPreview = (
         }
       );
 
-      if (!webhookResponse.ok) {
-        throw new Error(`Webhook failed with status ${webhookResponse.status}`);
+      let responseJson: any = null;
+      try {
+        responseJson = await webhookResponse.clone().json();
+      } catch { /* ignore */ }
+      
+      if (responseJson && responseJson.error) {
+        setIsLoading(false);
+        setWebhookError(responseJson.error);
+        setIsPreviewVisible(false);
+        toast({
+          title: "Change script error",
+          description: responseJson.error,
+          variant: "destructive"
+        });
+        return;
+      } else {
+        setWebhookError(null);
       }
 
       setIsPreviewVisible(true);
-      console.log('useScriptPreview - Change Script initiated, setting preview visible to true');
 
       if (pollingInterval.current) {
         clearInterval(pollingInterval.current);
       }
-
       const interval = setInterval(checkPreviewStatus, 2000);
       pollingInterval.current = interval;
     } catch (error) {
-      console.error('Error starting change script generation:', error);
       setIsLoading(false);
+      setWebhookError("Failed to request a new script. Please try again.");
       toast({
         title: "Error",
         description: "Failed to request a new script. Please try again.",
@@ -226,5 +258,7 @@ export const useScriptPreview = (
     handleGeneratePreview,
     handleRegenerateScript,
     handleChangeScript,
+    webhookError,
+    setWebhookError,
   };
 };

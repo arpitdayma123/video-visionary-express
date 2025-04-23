@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useScriptPreview } from '@/hooks/useScriptPreview';
@@ -10,15 +9,18 @@ import { useScriptUtils } from '@/hooks/script/useScriptUtils';
 
 interface ScriptPreviewProps {
   scriptOption: string;
-  // Called whenever "Use This Script" is clicked and script is confirmed/saved
   onUseScript: (script: string) => void;
   onScriptLoaded?: (scriptValue?: string) => void;
+  webhookError?: string | null;
+  setWebhookError?: (err: string | null) => void;
 }
 
 const ScriptPreview: React.FC<ScriptPreviewProps> = ({
   scriptOption,
   onUseScript,
-  onScriptLoaded
+  onScriptLoaded,
+  webhookError,
+  setWebhookError
 }) => {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -27,7 +29,6 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
   const [generationStartTime, setGenerationStartTime] = useState<number | null>(null);
   const [waitTimeExpired, setWaitTimeExpired] = useState(false);
 
-  // For ai_find/ig_reel: track if "Use This Script" was ever clicked
   const [hasUsedScript, setHasUsedScript] = useState(false);
 
   const {
@@ -40,9 +41,15 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
     handleGeneratePreview,
     handleRegenerateScript,
     handleChangeScript,
+    webhookError: previewError,
+    setWebhookError: setPreviewWebhookError,
   } = useScriptPreview(user, onUseScript, scriptOption);
 
-  // Reset on script option change
+  useEffect(() => {
+    if (setWebhookError) setWebhookError(previewError ?? null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [previewError, setWebhookError]);
+
   useEffect(() => {
     setIsPreviewVisible(scriptOption === 'ai_remake');
     setHasUsedScript(false);
@@ -52,22 +59,20 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
     });
   }, [scriptOption, setIsPreviewVisible]);
 
-  // Each time user clicks "Use This Script", always save the script and notify parent
   const handleUseScript = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     if (!user) return;
     try {
       await saveFinalScript(user, script);
-      setHasUsedScript(true); // For this session
-      if (onUseScript) onUseScript(script); // update parent state
+      setHasUsedScript(true);
+      if (onUseScript) onUseScript(script);
       toast({ title: "Script Confirmed", description: "This script will be used for video generation." });
     } catch (error) {
       toast({ title: "Error", description: "Failed to confirm script. Please try again.", variant: "destructive" });
     }
   };
 
-  // For ai_find/ig_reel: Save script to Supabase before regenerating
   const handleRegenerateWithSave = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -81,12 +86,11 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
       } catch (error) {
         toast({ title: "Error", description: "Failed to save current script before regenerating.", variant: "destructive" });
       }
-      setHasUsedScript(false); // Require Use Script again after regeneration
+      setHasUsedScript(false);
     }
     handleRegenerateScript();
   };
 
-  // set isPreviewVisible to true when script loaded/generated & inform parent
   useEffect(() => {
     if (!isLoading && script) {
       setIsPreviewVisible(true);
@@ -140,8 +144,12 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
                 : undefined
             }
             showUseScriptButton={showUseScriptButton}
-            onUseScript={showUseScriptButton ? handleUseScript : undefined}
-            useScriptDisabled={false} // Button always enabled
+            onUseScript={
+              (scriptOption === 'ai_find' || scriptOption === 'ig_reel')
+                ? handleUseScript
+                : undefined
+            }
+            useScriptDisabled={false}
           />
         </div>
       ))
