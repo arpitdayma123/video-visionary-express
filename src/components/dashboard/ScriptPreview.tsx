@@ -11,17 +11,12 @@ interface ScriptPreviewProps {
   scriptOption: string;
   onUseScript: (script: string) => void;
   onScriptLoaded?: (scriptValue?: string) => void; // allow loading script value out
-  // NEW (optional): finalizeScript state and setter passed by parent if desired
-  onScriptFinalized?: () => void;
-  scriptFinalized?: boolean;
 }
 
 const ScriptPreview: React.FC<ScriptPreviewProps> = ({
   scriptOption,
   onUseScript,
-  onScriptLoaded,
-  onScriptFinalized,
-  scriptFinalized = false,
+  onScriptLoaded
 }) => {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -64,14 +59,17 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
   const handleStartGeneration = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    
     try {
-      // For ai_remake, extra load logic. (Kept for compatibility)
+      // First save the script to custom_script if in ai_remake mode
       if (scriptOption === 'ai_remake' && user) {
+        // Fetch the current script from the hook
         const { data, error } = await supabase
           .from('profiles')
           .select('custom_script')
           .eq('id', user.id)
           .single();
+        
         if (error) {
           console.error('Error fetching script before generation:', error);
           toast({
@@ -81,7 +79,12 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
           });
           return;
         }
+        
+        // Use the fetched script for generation
+        console.log('Current script before generation:', data.custom_script);
       }
+      
+      // Continue with normal generation flow
       setGenerationStartTime(Date.now());
       setWaitTimeExpired(false);
       handleGeneratePreview();
@@ -112,41 +115,7 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
     }
   }, [isLoading, script, onScriptLoaded, setIsPreviewVisible]);
 
-  // New: Handle "Use This Script" action for ai_find / ig_reel
-  const handleUseScript = async (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (!user) return;
-    try {
-      // Save to finalscript in profiles
-      const { error } = await supabase
-        .from('profiles')
-        .update({ finalscript: script })
-        .eq('id', user.id);
-      if (error) throw error;
-
-      toast({
-        title: "Script Confirmed",
-        description: "Your script is ready for video generation.",
-      });
-
-      // Inform parent that script has been finalized/confirmed
-      if (onScriptFinalized) onScriptFinalized();
-      // Also notify script usage upstream
-      onUseScript(script);
-    } catch (err) {
-      console.error("Error saving final script:", err);
-      toast({
-        title: "Error",
-        description: "Failed to save your script. Please try again.",
-        variant: "destructive"
-      });
-    }
-  };
-
-  // Pass showChangeScript and showUseScript for ai_find/ig_reel only
-  const showUseScript = scriptOption === 'ai_find' || scriptOption === 'ig_reel';
-
+  // Pass showChangeScript for ai_find option only
   return (
     scriptOption === 'ai_remake'
       ? (
@@ -184,9 +153,6 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
                 ? (e) => { e.preventDefault(); e.stopPropagation(); handleChangeScript(); }
                 : undefined
             }
-            showUseScript={showUseScript}
-            onUseScript={showUseScript ? handleUseScript : undefined}
-            scriptFinalized={scriptFinalized}
           />
         </div>
       ))
@@ -194,4 +160,3 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
 };
 
 export default ScriptPreview;
-

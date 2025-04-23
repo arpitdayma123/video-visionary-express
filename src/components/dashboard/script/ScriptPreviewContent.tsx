@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -13,10 +12,6 @@ interface ScriptPreviewContentProps {
   onRegenerateScript: (e: React.MouseEvent) => void;
   showChangeScript?: boolean;
   onChangeScript?: (e: React.MouseEvent) => void;
-  // NEW:
-  showUseScript?: boolean;
-  onUseScript?: (e: React.MouseEvent) => void;
-  scriptFinalized?: boolean;
 }
 
 const ScriptPreviewContent: React.FC<ScriptPreviewContentProps> = ({
@@ -27,10 +22,6 @@ const ScriptPreviewContent: React.FC<ScriptPreviewContentProps> = ({
   onRegenerateScript,
   showChangeScript,
   onChangeScript, // provided only when available
-  // NEW:
-  showUseScript = false,
-  onUseScript,
-  scriptFinalized = false,
 }) => {
   // Keep click handlers for propagation control
   const handleTextareaClick = (e: React.MouseEvent) => {
@@ -94,21 +85,9 @@ const ScriptPreviewContent: React.FC<ScriptPreviewContentProps> = ({
             Change Script
           </Button>
         )}
-        {/* NEW: "Use This Script" button */}
-        {showUseScript && onUseScript && (
-          <Button
-            variant="default"
-            onClick={onUseScript}
-            disabled={isLoading || scriptFinalized}
-            type="button"
-          >
-            {scriptFinalized ? "Script Selected" : "Use This Script"}
-          </Button>
-        )}
       </div>
     </div>
   );
 };
 
 export default ScriptPreviewContent;
-

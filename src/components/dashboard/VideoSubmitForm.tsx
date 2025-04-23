@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
@@ -69,25 +70,23 @@ const VideoSubmitForm = ({
 
   // Track whether preview script is generated/visible for ai_find / ig_reel
   const [isScriptPreviewVisible, setIsScriptPreviewVisible] = useState(false);
-
-  // New: Track if the script has been finalized for ai_find/ig_reel
-  const [isScriptFinalized, setIsScriptFinalized] = useState(false);
-
+  
+  // Reset preview script content and visibility when script option changes
   useEffect(() => {
     console.log('VideoSubmitForm - Script option changed to:', scriptOption);
-    // On switch to ai_find/ig_reel, reset preview script and visibility and finalization
+    
+    // On switch to ai_find/ig_reel, reset preview script and visibility
     if (scriptOption === 'ai_find' || scriptOption === 'ig_reel') {
       setIsScriptPreviewVisible(false);
       setPreviewScriptContent('');
-      setIsScriptFinalized(false);
     } else {
       setIsScriptPreviewVisible(true);
       setPreviewScriptContent('');
-      setIsScriptFinalized(false);
     }
   }, [scriptOption]);
 
   // Update previewScriptContent when script is generated/shown via ScriptSelection
+  // This will rely on ScriptSelection invoking onScriptConfirmed with the generated script
   const handleScriptConfirmed = (script: string) => {
     setIsScriptSelected(true);
     if (scriptOption === 'ai_find' || scriptOption === 'ig_reel') {
@@ -95,26 +94,22 @@ const VideoSubmitForm = ({
     }
   };
 
-  // This is called when script is finalized; used by ScriptSelection
-  const handleScriptFinalized = () => {
-    setIsScriptFinalized(true);
-  };
-
   // Also update previewScriptContent when the preview becomes visible (ScriptSelection's loaded handler)
   const handleScriptPreviewVisible = (visible: boolean, scriptValue?: string) => {
     setIsScriptPreviewVisible(visible);
+    // If scriptValue is passed & preview just turned visible, update previewScriptContent
     if (visible && typeof scriptValue === "string" && (scriptOption === 'ai_find' || scriptOption === 'ig_reel')) {
       setPreviewScriptContent(scriptValue);
     }
   };
 
-  // Only save to finalscript in Supabase on Generate Video for custom/ai_remake, for ai_find/ig_reel it's already saved on "Use This Script"
+  // Save the script to finalscript ONLY when "Generate Video" is clicked
   const saveScriptForGeneration = async () => {
-    // For ai_find/ig_reel, skip saving here as it's already done in Use This Script
-    if (scriptOption === "ai_find" || scriptOption === "ig_reel") {
-      return !!previewScriptContent;
-    }
-    const scriptToSave = customScript;
+    const scriptToSave =
+      (scriptOption === "ai_find" || scriptOption === "ig_reel")
+        ? previewScriptContent
+        : customScript;
+    
     if (!scriptToSave) {
       toast({
         title: "Script Error",
@@ -123,13 +118,16 @@ const VideoSubmitForm = ({
       });
       return false;
     }
+
     if (!userId) return false;
+
     try {
       console.log("Saving finalscript before video generation:", scriptToSave);
       const { error } = await supabase
         .from('profiles')
         .update({ finalscript: scriptToSave })
         .eq('id', userId);
+      
       if (error) throw error;
       return true;
     } catch (error) {
@@ -154,7 +152,8 @@ const VideoSubmitForm = ({
     }
     
     e.preventDefault();
-    // Always use script from Script Preview for ai_find/ig_reel
+
+    // For all scriptOptions, fetch script for webhook from "previewScriptContent" (ai_find, ig_reel) or "customScript"
     const scriptForWebhook =
       (scriptOption === "ai_find" || scriptOption === "ig_reel")
         ? previewScriptContent
@@ -176,20 +175,20 @@ const VideoSubmitForm = ({
       return;
     }
 
-    // New: require script FINALIZED for ai_find/ig_reel, just script present for others
+    // Check if script has been selected and preview is visible for ai_find/ig_reel
     const scriptReady = (scriptOption === 'ai_find' || scriptOption === 'ig_reel') 
-      ? (isScriptFinalized && !!previewScriptContent)
+      ? (isScriptPreviewVisible && !!previewScriptContent)
       : !!customScript;
-
+      
     if (!scriptReady) {
       toast({
         title: "Script not ready",
-        description: "Please generate and select a script before proceeding.",
+        description: "Please generate and confirm a script before proceeding.",
         variant: "destructive"
       });
       return;
     }
-
+    
     // Check if user has at least 1 credit
     if (userCredits < 1) {
       toast({
@@ -220,10 +219,10 @@ const VideoSubmitForm = ({
       return;
     }
     
-    // Save script only for custom/ai_remake
+    // Save the script to finalscript right before sending webhook
     const savedOk = await saveScriptForGeneration();
     if (!savedOk) return;
-
+    
     try {
       if (!userId) throw new Error('User not authenticated');
 
@@ -233,7 +232,7 @@ const VideoSubmitForm = ({
       const params = new URLSearchParams({
         userId: userId,
         scriptOption: scriptOption,
-        customScript: scriptForWebhook, // Always send from preview content
+        customScript: scriptForWebhook, // Always send current script content
         reelUrl: scriptOption === 'ig_reel' ? reelUrl : ''
       });
 
@@ -306,7 +305,6 @@ const VideoSubmitForm = ({
     }
   };
 
-  // ELIGIBILITY: require finalization for ai_find/ig_reel, else just presence of script
   const isFormComplete =
     Boolean(
       videos.length > 0 &&
@@ -316,10 +314,11 @@ const VideoSubmitForm = ({
       selectedVideo !== null &&
       selectedVoice !== null &&
       (
-        // ai_find/ig_reel: require finalized, others: script present
+        // For "custom" or "ai_remake": require just script present, as before
         !["ai_find", "ig_reel"].includes(scriptOption)
           ? customScript
-          : isScriptPreviewVisible && previewScriptContent && isScriptFinalized
+          // For "ai_find" and "ig_reel": require the preview be generated/shown
+          : isScriptPreviewVisible && previewScriptContent
       ) &&
       (scriptOption !== 'ig_reel' || (scriptOption === 'ig_reel' && reelUrl))
     );
@@ -332,7 +331,6 @@ const VideoSubmitForm = ({
     isFormComplete
   });
 
-  // Pass down finalized callback to ScriptSelection:
   return (
     <form
       onSubmit={handleSubmit}
@@ -387,12 +385,12 @@ const VideoSubmitForm = ({
         setScriptOption={setScriptOption}
         setCustomScript={setCustomScript}
         updateProfile={updateProfile}
+        // Updated handlers
         onScriptConfirmed={handleScriptConfirmed}
         onScriptPreviewVisible={(visible: boolean, scriptValue?: string) => 
           handleScriptPreviewVisible(visible, scriptValue)}
-        // Pass down scriptFinalized callback!
-        onScriptFinalized={handleScriptFinalized}
       />
+
       <GenerateVideo
         isFormComplete={isFormComplete}
         userCredits={userCredits}
@@ -406,6 +404,7 @@ const VideoSubmitForm = ({
         selectedNiches={selectedNiches}
         competitors={competitors}
         isScriptSelected={isScriptSelected}
+        // Updated prop
         isScriptPreviewVisible={isScriptPreviewVisible}
         scriptOption={scriptOption}
       />
