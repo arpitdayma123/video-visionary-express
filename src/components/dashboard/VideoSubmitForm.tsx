@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
@@ -70,14 +69,17 @@ const VideoSubmitForm = ({
   
   // Reset script preview visibility when script option changes
   useEffect(() => {
+    console.log('VideoSubmitForm - Script option changed to:', scriptOption);
+    
     if (scriptOption === 'ai_find' || scriptOption === 'ig_reel') {
+      console.log('VideoSubmitForm - Resetting preview visibility to FALSE');
       setIsScriptPreviewVisible(false);
     } else {
+      console.log('VideoSubmitForm - Setting preview visibility to TRUE (non-AI option)');
       setIsScriptPreviewVisible(true); // Always true for other options
     }
   }, [scriptOption]);
 
-  // Save script preview to finalscript column before generating video
   const saveScriptToFinalScript = async () => {
     if (userId) {
       try {
@@ -380,7 +382,10 @@ const VideoSubmitForm = ({
         setScriptOption={setScriptOption}
         setCustomScript={setCustomScript}
         updateProfile={updateProfile}
-        onScriptConfirmed={() => setIsScriptSelected(true)}
+        onScriptConfirmed={() => {
+          console.log('VideoSubmitForm - Script confirmed by user');
+          setIsScriptSelected(true);
+        }}
         // New: update script preview visibility when preview is generated/shown
         onScriptPreviewVisible={(visible: boolean) => {
           console.log('ScriptSelection reporting visibility change:', visible);

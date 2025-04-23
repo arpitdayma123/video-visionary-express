@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { User } from '@supabase/supabase-js';
 import { useToast } from '@/hooks/use-toast';
@@ -40,6 +41,9 @@ export const useScriptPreview = (
     setScript(newScript);
     setWordCount(updateWordCount(newScript));
     saveFinalScript(user, newScript);
+    // Make sure to set preview visible when script is generated
+    setIsPreviewVisible(true);
+    console.log('useScriptPreview - Script generated, setting preview visible to true');
     onScriptGenerated(newScript);
   }
 
@@ -81,6 +85,7 @@ export const useScriptPreview = (
       }
 
       setIsPreviewVisible(true);
+      console.log('useScriptPreview - Generate Preview initiated, setting preview visible to true');
 
       if (pollingInterval.current) {
         clearInterval(pollingInterval.current);
@@ -128,6 +133,7 @@ export const useScriptPreview = (
       }
 
       setIsPreviewVisible(true);
+      console.log('useScriptPreview - Regenerate Script initiated, setting preview visible to true');
 
       if (pollingInterval.current) {
         clearInterval(pollingInterval.current);
@@ -175,6 +181,7 @@ export const useScriptPreview = (
       }
 
       setIsPreviewVisible(true);
+      console.log('useScriptPreview - Change Script initiated, setting preview visible to true');
 
       if (pollingInterval.current) {
         clearInterval(pollingInterval.current);
@@ -202,6 +209,6 @@ export const useScriptPreview = (
     handleScriptChange,
     handleGeneratePreview,
     handleRegenerateScript,
-    handleChangeScript, // expose new handler
+    handleChangeScript,
   };
 };

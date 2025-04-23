@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useScriptPreview } from '@/hooks/useScriptPreview';
@@ -31,12 +32,18 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
     handleScriptChange,
     handleGeneratePreview,
     handleRegenerateScript,
-    handleChangeScript, // new
+    handleChangeScript,
   } = useScriptPreview(user, onUseScript, scriptOption);
 
   // Reset preview visibility when script option changes, but show immediately for ai_remake
   useEffect(() => {
     setIsPreviewVisible(scriptOption === 'ai_remake');
+    
+    // Log visibility status after setting
+    console.log('ScriptPreview - Initial visibility set:', { 
+      scriptOption, 
+      isVisible: scriptOption === 'ai_remake'
+    });
   }, [scriptOption, setIsPreviewVisible]);
 
   // Handle regenerate with the same pattern as generate preview
@@ -97,11 +104,19 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
     e.stopPropagation();
   };
 
+  // Critical: Set isPreviewVisible to true when a script is successfully loaded
   useEffect(() => {
-    if (!isLoading && script && onScriptLoaded) {
-      onScriptLoaded();
+    if (!isLoading && script) {
+      // Script is loaded and not in loading state
+      console.log('ScriptPreview - Script loaded successfully, setting visible to true');
+      setIsPreviewVisible(true);
+      
+      // Call the onScriptLoaded callback if provided
+      if (onScriptLoaded) {
+        onScriptLoaded();
+      }
     }
-  }, [isLoading, script, onScriptLoaded]);
+  }, [isLoading, script, onScriptLoaded, setIsPreviewVisible]);
 
   // For ai_remake, always show the preview content
   if (scriptOption === 'ai_remake') {

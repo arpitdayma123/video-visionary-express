@@ -20,7 +20,7 @@ interface GenerateVideoProps {
   selectedNiches: string[];
   competitors: string[];
   isScriptSelected?: boolean;
-  // New props for script preview handling:
+  // Props for script preview handling:
   isScriptPreviewVisible?: boolean;
   scriptOption?: string;
 }
@@ -64,7 +64,10 @@ const GenerateVideo: React.FC<GenerateVideoProps> = ({
     scriptOption,
     requiresScriptPreview,
     isScriptPreviewVisible,
-    scriptPreviewOk
+    scriptPreviewOk,
+    isFormComplete,
+    hasCredits,
+    isProcessing
   });
   
   const buttonEnabled =
