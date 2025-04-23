@@ -73,7 +73,8 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
       }
     }
     
-    setShowCustomEditor(true); // Reset visibility when option changes
+    // Always show custom editor for ig_reel, otherwise reset to true on option change
+    setShowCustomEditor(scriptOption === 'ig_reel' ? true : true);
   }, [scriptOption, onScriptPreviewVisible, latestPreviewScript]);
 
   useEffect(() => {
@@ -186,9 +187,12 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
     e.stopPropagation();
   };
 
-  // Pass through callback so ScriptPreview sets latestPreviewScript and updates both local and parent state
+  // Modified to handle IG Reel special case
   const handleScriptLoaded = (scriptValue?: string) => {
-    setShowCustomEditor(false);
+    // Only hide custom editor for non-ig_reel options
+    if (scriptOption !== 'ig_reel') {
+      setShowCustomEditor(false);
+    }
     setIsPreviewVisible(true);
     if ((scriptOption === 'ai_find' || scriptOption === 'ig_reel') && scriptValue) {
       setLatestPreviewScript(scriptValue);
@@ -233,7 +237,6 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
         onScriptOptionChange={handleScriptOptionChange}
       />
 
-      {/* Show webhook error box if present */}
       {webhookError && (
         <ScriptWebhookError error={webhookError} />
       )}
@@ -272,4 +275,5 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
     </ScriptSelectionWrapper>
   );
 };
+
 export default ScriptSelection;
