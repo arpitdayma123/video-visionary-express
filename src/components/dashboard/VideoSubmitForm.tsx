@@ -34,6 +34,7 @@ interface VideoSubmitFormProps {
   setReelUrl: (url: string) => void;
   setUserStatus: (status: string) => void;
   updateProfile: (updates: any) => Promise<void>;
+  onScriptConfirmed?: (script: string) => void;
 }
 
 const VideoSubmitForm = ({
@@ -59,7 +60,8 @@ const VideoSubmitForm = ({
   setCustomScript,
   setReelUrl,
   setUserStatus,
-  updateProfile
+  updateProfile,
+  onScriptConfirmed,
 }: VideoSubmitFormProps) => {
   const { toast } = useToast();
   const [isScriptSelected, setIsScriptSelected] = useState(false);
