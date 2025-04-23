@@ -197,7 +197,7 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
 
   // Callback so that finalization state stays in sync with "Use This Script" button
   const handleScriptConfirmedLocal = (script: string) => {
-    setHasFinalizedScript(true);
+    setHasFinalizedScript(true); // Always true after at least one click for ai_find/ig_reel
     if ((scriptOption === 'ai_find' || scriptOption === 'ig_reel')) {
       setLatestPreviewScript(script);
       if (typeof onScriptConfirmed === 'function') {

@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
@@ -55,36 +54,25 @@ const GenerateVideo: React.FC<GenerateVideoProps> = ({
   const hasCompetitors = competitors.length > 0;
   const hasCredits = userCredits >= 1;
 
-  // Only require script preview is visible for ai_find / ig_reel
-  const requiresScriptPreview = scriptOption === 'ai_find' || scriptOption === 'ig_reel';
-  const scriptPreviewOk = !requiresScriptPreview || isScriptPreviewVisible;
-  
-  // Ensure we're logging the state for debugging
-  console.log('GenerateVideo - Script Preview Status:', {
-    scriptOption,
-    requiresScriptPreview,
-    isScriptPreviewVisible,
-    scriptPreviewOk,
-    isFormComplete,
-    hasCredits,
-    isProcessing
-  });
-  
+  // Eligibility logic for generate button has changed:
+  // For ai_find/ig_reel, "Generate Video" is enabled only if "Use This Script" was clicked
+  const requiresFinalizedScript = scriptOption === 'ai_find' || scriptOption === 'ig_reel';
+
+  // For ai_find/ig_reel, rely solely on isFormComplete (which now reflects "Use This Script" clicked)
   const buttonEnabled =
     isFormComplete &&
     hasCredits &&
-    !isProcessing &&
-    scriptPreviewOk;
+    !isProcessing;
 
-  // Updated list of requirements
+  // Updated requirements for visual checklist
   const remainingTasks = [
     { completed: hasVideoSelected, label: 'Select a target video' },
     { completed: hasVoiceSelected, label: 'Select a voice file' },
     { completed: hasNiches, label: 'Choose at least one niche' },
     { completed: hasCompetitors, label: 'Add competitor accounts' },
     { completed: hasCredits, label: 'Have at least 1 credit' },
-    ...(requiresScriptPreview
-      ? [{ completed: isScriptPreviewVisible, label: 'Generate Script Preview' }]
+    ...(requiresFinalizedScript
+      ? [{ completed: isFormComplete, label: 'Finalize Script Selection (click "Use This Script")' }]
       : []),
   ];
 

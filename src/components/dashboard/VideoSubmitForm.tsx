@@ -67,10 +67,10 @@ const VideoSubmitForm = ({
   // Track the latest generated script preview text for ai_find/ig_reel cases
   const [previewScriptContent, setPreviewScriptContent] = useState('');
 
-  // Track whether preview script is generated/visible for ai_find / ig_reel
+  // Preview visibility state
   const [isScriptPreviewVisible, setIsScriptPreviewVisible] = useState(false);
   
-  // NEW: Track when user has finalized script selection in the preview
+  // Track if user clicked "Use This Script" at least once for ai_find/ig_reel
   const [hasFinalizedPreviewScript, setHasFinalizedPreviewScript] = useState(false);
 
   // Reset preview script content and visibility when script option changes
@@ -89,13 +89,16 @@ const VideoSubmitForm = ({
     }
   }, [scriptOption]);
 
-  // Update previewScriptContent when script is generated/shown via ScriptSelection
-  // This will rely on ScriptSelection invoking onScriptConfirmed with the generated script
+  // Update previewScriptContent AND hasFinalizedPreviewScript when user confirms (use) the script
   const handleScriptConfirmed = (script: string) => {
     setIsScriptSelected(true);
     if (scriptOption === 'ai_find' || scriptOption === 'ig_reel') {
       setPreviewScriptContent(script);
-      setHasFinalizedPreviewScript(true);
+      setHasFinalizedPreviewScript(true); // Every click sets to true
+    } else {
+      if (onScriptConfirmed) {
+        onScriptConfirmed(script);
+      }
     }
   };
 
@@ -308,7 +311,9 @@ const VideoSubmitForm = ({
     }
   };
 
-  // Change eligibility: For ai_find/ig_reel, require hasFinalizedPreviewScript to be true
+  // Eligibility for "Generate Video" button:
+  // For ai_find/ig_reel: require "Use This Script" has been clicked at least once (hasFinalizedPreviewScript)
+  // For other options: customScript as before
   const isFormComplete =
     Boolean(
       videos.length > 0 &&
@@ -318,9 +323,9 @@ const VideoSubmitForm = ({
       selectedVideo !== null &&
       selectedVoice !== null &&
       (
-        !["ai_find", "ig_reel"].includes(scriptOption)
-          ? customScript
-          : (isScriptPreviewVisible && previewScriptContent && hasFinalizedPreviewScript) // <== Require confirmed!
+        (scriptOption === 'ai_find' || scriptOption === 'ig_reel')
+          ? hasFinalizedPreviewScript
+          : customScript
       ) &&
       (scriptOption !== 'ig_reel' || (scriptOption === 'ig_reel' && reelUrl))
     );
@@ -387,7 +392,6 @@ const VideoSubmitForm = ({
         setScriptOption={setScriptOption}
         setCustomScript={setCustomScript}
         updateProfile={updateProfile}
-        // Updated handlers
         onScriptConfirmed={handleScriptConfirmed}
         onScriptPreviewVisible={(visible: boolean, scriptValue?: string) => 
           handleScriptPreviewVisible(visible, scriptValue)}
