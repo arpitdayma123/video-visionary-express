@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
@@ -48,17 +47,18 @@ const GenerateVideo: React.FC<GenerateVideoProps> = ({
     onSubmit(e);
   };
 
-  // Check individual requirements
+  // keep requirement checks
   const hasVideoSelected = selectedVideo !== null;
   const hasVoiceSelected = selectedVoice !== null;
   const hasNiches = selectedNiches.length > 0;
   const hasCompetitors = competitors.length > 0;
   const hasCredits = userCredits >= 1;
 
-  // Only require script preview is visible for ai_find / ig_reel
+  // Only require script preview/confirm for ai_find / ig_reel
   const requiresScriptPreview = scriptOption === 'ai_find' || scriptOption === 'ig_reel';
+  // For eligibility in this component, just trust isFormComplete (already checked for finalized script if needed)
   const scriptPreviewOk = !requiresScriptPreview || isScriptPreviewVisible;
-  
+
   // Ensure we're logging the state for debugging
   console.log('GenerateVideo - Script Preview Status:', {
     scriptOption,
@@ -69,14 +69,14 @@ const GenerateVideo: React.FC<GenerateVideoProps> = ({
     hasCredits,
     isProcessing
   });
-  
+
+  // Button is enabled iff form is complete, user has credits, not processing, script finalized if needed
   const buttonEnabled =
     isFormComplete &&
     hasCredits &&
-    !isProcessing &&
-    scriptPreviewOk;
+    !isProcessing;
 
-  // Updated list of requirements
+  // Add extra requirements for script finalization for ai_find/ig_reel
   const remainingTasks = [
     { completed: hasVideoSelected, label: 'Select a target video' },
     { completed: hasVoiceSelected, label: 'Select a voice file' },
@@ -86,6 +86,9 @@ const GenerateVideo: React.FC<GenerateVideoProps> = ({
     ...(requiresScriptPreview
       ? [{ completed: isScriptPreviewVisible, label: 'Generate Script Preview' }]
       : []),
+    ...(requiresScriptPreview
+      ? [{ completed: isFormComplete, label: 'Select script with "Use This Script"' }]
+      : []),
   ];
 
   const incompleteTasks = remainingTasks.filter(task => !task.completed);
@@ -93,7 +96,6 @@ const GenerateVideo: React.FC<GenerateVideoProps> = ({
   return (
     <section className="animate-fade-in pb-8">
       <h2 className="text-xl font-medium mb-4">Generate Video</h2>
-
       <div className="flex flex-col space-y-4">
         <div className="p-4 bg-muted rounded-md">
           <p className="font-medium text-sm mb-3">Generation Requirements:</p>
@@ -112,7 +114,6 @@ const GenerateVideo: React.FC<GenerateVideoProps> = ({
             ))}
           </ul>
         </div>
-
         <div className="flex flex-col sm:flex-row gap-4 items-center justify-between p-4 bg-muted rounded-md">
           <div>
             <CreditDisplay userCredits={userCredits} userStatus={userStatus} />
@@ -120,7 +121,6 @@ const GenerateVideo: React.FC<GenerateVideoProps> = ({
               <p className="text-sm text-red-500 mt-1">You need at least 1 credit to generate a video.</p>
             )}
           </div>
-
           <Button
             type="submit"
             disabled={!buttonEnabled}
@@ -137,7 +137,6 @@ const GenerateVideo: React.FC<GenerateVideoProps> = ({
             )}
           </Button>
         </div>
-
         {incompleteTasks.length > 0 && !isProcessing && (
           <Alert variant="info" className="bg-blue-50 border-blue-200">
             <p className="text-sm text-blue-700">
@@ -145,7 +144,6 @@ const GenerateVideo: React.FC<GenerateVideoProps> = ({
             </p>
           </Alert>
         )}
-
         {isProcessing && (
           <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-md">
             <p className="text-sm text-yellow-700">

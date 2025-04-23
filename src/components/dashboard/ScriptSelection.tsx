@@ -16,6 +16,7 @@ interface ScriptSelectionProps {
   onScriptConfirmed?: (script: string) => void;
   // Add new prop for letting parent know about preview visibility
   onScriptPreviewVisible?: (visible: boolean, scriptValue?: string) => void;
+  onScriptFinalized?: () => void;
 }
 
 const ScriptSelection: React.FC<ScriptSelectionProps> = ({
@@ -25,7 +26,8 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
   setCustomScript,
   updateProfile,
   onScriptConfirmed,
-  onScriptPreviewVisible
+  onScriptPreviewVisible,
+  onScriptFinalized
 }) => {
   const [wordCount, setWordCount] = useState(0);
   const [isExceedingLimit, setIsExceedingLimit] = useState(false);
@@ -43,6 +45,9 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
   // New: track state for preview visibility (for ai_find, ig_reel)
   const [isPreviewVisible, setIsPreviewVisible] = useState(false);
 
+  // New for tracking "Use This Script" button:
+  const [isScriptFinalized, setIsScriptFinalized] = useState(false);
+
   // Effect: inform parent when preview visibility changes (for ai_find, ig_reel only)
   useEffect(() => {
     if (
@@ -59,6 +64,7 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
 
   // Reset preview visibility when switching script options
   useEffect(() => {
+    setIsScriptFinalized(false);
     // Reset preview visibility when switching to ai_find or ig_reel
     if (scriptOption === 'ai_find' || scriptOption === 'ig_reel') {
       setIsPreviewVisible(false);
@@ -207,6 +213,12 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
     }
   };
 
+  // Pass down "onScriptFinalized" and "scriptFinalized" for ScriptPreview
+  // In handleScriptFinalized, call parent callback(s) as needed
+  const handleScriptFinalized = () => {
+    setIsScriptFinalized(true);
+  };
+
   return (
     <ScriptSelectionWrapper handlePreventPropagation={(e) => e.stopPropagation()}>
       <ScriptSectionHeader />
@@ -238,17 +250,17 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
         />
       )}
 
-      {/* ScriptPreview: now tracks preview visible for ai_find/ig_reel for button enablement */}
       {scriptOption && scriptOption !== 'custom' && (
         <ScriptPreview
           scriptOption={scriptOption}
-          // Call this when using script or confirming script selection in the preview
           onUseScript={handleScriptConfirmedLocal}
-          // Modified: always pass loaded script (if available) to parent
           onScriptLoaded={() => handleScriptLoaded(latestPreviewScript)}
+          onScriptFinalized={handleScriptFinalized}
+          scriptFinalized={isScriptFinalized}
         />
       )}
     </ScriptSelectionWrapper>
   );
 };
+
 export default ScriptSelection;
