@@ -16,7 +16,8 @@ interface ScriptHandlerProps {
   onScriptConfirmed?: (script: string) => void;
 }
 
-const ScriptHandler: React.FC<ScriptHandlerProps> = ({
+// Create a custom hook instead of a component
+export const useScriptHandler = ({
   userId,
   scriptOption,
   customScript,
@@ -27,7 +28,7 @@ const ScriptHandler: React.FC<ScriptHandlerProps> = ({
   setHasFinalizedPreviewScript,
   setIsScriptSelected,
   onScriptConfirmed
-}) => {
+}: ScriptHandlerProps) => {
   const { toast } = useToast();
   
   // Handle script confirmed from ScriptSelection component
@@ -95,4 +96,4 @@ const ScriptHandler: React.FC<ScriptHandlerProps> = ({
   };
 };
 
-export default ScriptHandler;
+// Remove the default export of ScriptHandler as a component

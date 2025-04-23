@@ -9,7 +9,7 @@ import CompetitorInput from './CompetitorInput';
 import GenerateVideo from './GenerateVideo';
 import ScriptSelection from './ScriptSelection';
 import FormContainer from './form/FormContainer';
-import ScriptHandler from './form/ScriptHandler';
+import { useScriptHandler } from './form/ScriptHandler';
 import FormSubmissionHandler from './form/FormSubmissionHandler';
 
 interface VideoSubmitFormProps {
@@ -87,8 +87,8 @@ const VideoSubmitForm = ({
     }
   }, [scriptOption]);
 
-  // Use the ScriptHandler hooks
-  const scriptHandler = ScriptHandler({
+  // Use the ScriptHandler hooks - Now using the hook instead of the component
+  const scriptHandler = useScriptHandler({
     userId,
     scriptOption,
     customScript,
