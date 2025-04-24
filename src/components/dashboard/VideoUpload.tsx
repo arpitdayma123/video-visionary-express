@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Upload, Trash2, Check, Video, AlertTriangle } from 'lucide-react';
 import { Card } from '@/components/ui/card';
@@ -6,7 +7,6 @@ import { useToast } from '@/hooks/use-toast';
 import { v4 as uuidv4 } from 'uuid';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { uploadToBunny, deleteFromBunny, getPathFromBunnyUrl } from '@/integrations/bunny/client';
-import { shouldCompress, compressVideo } from '@/utils/videoCompression';
 
 type UploadedFile = {
   id: string;
@@ -62,7 +62,6 @@ const VideoUpload = ({
       });
       return;
     }
-
     let files: FileList | null = null;
     if ('dataTransfer' in e) {
       e.preventDefault();
@@ -71,25 +70,21 @@ const VideoUpload = ({
     } else if (e.target.files) {
       files = e.target.files;
     }
-
     if (files && files.length > 0) {
       const fileArray = Array.from(files);
-      
-      // Basic validation checks
       const invalidFiles = fileArray.filter(file => {
         const isValidType = file.type === 'video/mp4';
-        return !isValidType;
+        const isValidSize = file.size <= 30 * 1024 * 1024;
+        return !isValidType || !isValidSize;
       });
-
       if (invalidFiles.length > 0) {
         toast({
           title: "Invalid files detected",
-          description: "Please upload MP4 videos only.",
+          description: "Please upload MP4 videos under 30MB.",
           variant: "destructive"
         });
         return;
       }
-
       if (videos.length + fileArray.length > 5) {
         toast({
           title: "Too many videos",
@@ -102,108 +97,92 @@ const VideoUpload = ({
       // Process each valid file
       for (const file of fileArray) {
         try {
-          const uploadId = uuidv4();
-          let fileToUpload = file;
-          
-          // Check if compression is needed
-          if (shouldCompress(file)) {
-            try {
-              setUploadingVideos(prev => ({
-                ...prev,
-                [uploadId]: 0
-              }));
+          // Check video duration
+          const duration = await getMediaDuration(file);
 
-              // Show compression start toast
-              toast({
-                title: "Compressing video",
-                description: "Your video is being compressed to optimize upload size...",
-              });
-
-              // Compress the video
-              fileToUpload = await compressVideo(
-                file,
-                (progress) => {
-                  setUploadingVideos(current => ({
-                    ...current,
-                    [uploadId]: Math.round(progress * 0.5) // First 50% for compression
-                  }));
-                }
-              ) as File;
-
-              toast({
-                title: "Compression complete",
-                description: `Reduced from ${(file.size / (1024 * 1024)).toFixed(1)}MB to ${(fileToUpload.size / (1024 * 1024)).toFixed(1)}MB`,
-              });
-            } catch (compressionError) {
-              console.error('Compression error:', compressionError);
-              toast({
-                title: "Compression failed",
-                description: "Could not compress the video. Please try a smaller file.",
-                variant: "destructive"
-              });
-              continue;
-            }
-          }
-
-          // Check duration
-          const duration = await getMediaDuration(fileToUpload);
+          // Validate duration (between 50 and 100 seconds)
           if (duration < 50 || duration > 100) {
             toast({
               title: "Invalid video duration",
               description: `Video must be between 50 and 100 seconds (current: ${Math.round(duration)} seconds).`,
               variant: "destructive"
             });
-            continue;
+            continue; // Skip this file but process others
           }
-
-          // Upload process
-          const fileExt = fileToUpload.name.split('.').pop();
+          const uploadId = uuidv4();
+          const uploadingProgress = {
+            ...uploadingVideos
+          };
+          uploadingProgress[uploadId] = 0;
+          setUploadingVideos(uploadingProgress);
+          
+          const fileExt = file.name.split('.').pop();
           const fileName = `${uuidv4()}.${fileExt}`;
           const filePath = `videos/${userId}/${fileName}`;
-
-          // Update progress for upload phase
-          const updateUploadProgress = (progress: number) => {
+          
+          // Update progress
+          const progressCallback = (progress: number) => {
             setUploadingVideos(current => ({
               ...current,
-              [uploadId]: 50 + Math.round(progress * 0.5) // Last 50% for upload
+              [uploadId]: progress
             }));
           };
-
+          
+          progressCallback(1);
+          const progressInterval = setInterval(() => {
+            setUploadingVideos(current => {
+              const currentProgress = current[uploadId] || 0;
+              if (currentProgress >= 90) {
+                clearInterval(progressInterval);
+                return current;
+              }
+              return {
+                ...current,
+                [uploadId]: Math.min(90, currentProgress + 10)
+              };
+            });
+          }, 500);
+          
           // Upload to BunnyCDN
           console.log(`Uploading file to BunnyCDN path: ${filePath}`);
-          const bunnyUrl = await uploadToBunny(fileToUpload, filePath);
+          const bunnyUrl = await uploadToBunny(file, filePath);
+          
+          clearInterval(progressInterval);
+          progressCallback(100);
 
-          // Create new video object
+          // Include duration in the new video object
           const newVideo = {
             id: uuidv4(),
             name: file.name,
-            size: fileToUpload.size,
-            type: fileToUpload.type,
+            size: file.size,
+            type: file.type,
             url: bunnyUrl,
             duration: duration
           };
-
-          // Update state and profile
+          
+          console.log("Video uploaded successfully to BunnyCDN:", newVideo);
+          
           const newVideos = [...videos, newVideo];
           setVideos(newVideos);
           setSelectedVideo(newVideo);
           
-          // Remove progress indicator
           setTimeout(() => {
             setUploadingVideos(current => {
-              const updated = { ...current };
+              const updated = {
+                ...current
+              };
               delete updated[uploadId];
               return updated;
             });
           }, 1000);
 
-          // Show success toast
+          // Update success message to include duration
           toast({
             title: "Video uploaded",
             description: `Successfully uploaded ${file.name} (${Math.round(duration)} seconds).`
           });
-
-          // Update profile
+          
+          // Important: Only update the profile with the JSON data, not the actual File object
           await updateProfile({
             videos: newVideos.map(video => ({
               id: video.id,
@@ -222,7 +201,7 @@ const VideoUpload = ({
               duration: newVideo.duration
             }
           });
-
+          
         } catch (error) {
           console.error('Error uploading video:', error);
           toast({
