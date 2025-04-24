@@ -18,16 +18,83 @@ const loadFFmpeg = async () => {
 
 export type CompressionProgress = (progress: number) => void;
 
-/**
- * Compresses a video file to target a specific file size
- */
+// Helper function to check if video needs compression
+export const shouldCompress = (fileSize: number, maxSizeMB: number = 30): boolean => {
+  return fileSize > maxSizeMB * 1024 * 1024;
+};
+
+// Helper function to estimate compressed size
+export const estimateCompressedSize = (
+  originalSize: number,
+  duration: number,
+  targetBitrate?: number
+): number => {
+  // If no target bitrate specified, estimate based on original size
+  if (!targetBitrate) {
+    // Aim for 70% of original size as a rough estimate
+    return originalSize * 0.7;
+  }
+  // Calculate estimated size based on bitrate (in MB)
+  return (targetBitrate * duration) / (8 * 1024);
+};
+
+// Get video dimensions
+export const getVideoDimensions = (file: File): Promise<{ width: number; height: number }> => {
+  return new Promise((resolve) => {
+    const video = document.createElement('video');
+    video.preload = 'metadata';
+    
+    video.onloadedmetadata = () => {
+      window.URL.revokeObjectURL(video.src);
+      resolve({
+        width: video.videoWidth,
+        height: video.videoHeight
+      });
+    };
+    
+    video.src = URL.createObjectURL(file);
+  });
+};
+
+// Create video thumbnail
+export const createVideoThumbnail = async (file: File): Promise<string> => {
+  return new Promise((resolve) => {
+    const video = document.createElement('video');
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+    
+    video.onloadeddata = () => {
+      // Set canvas size to match video dimensions
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      
+      // Draw video frame at 1 second or at the start
+      video.currentTime = 1;
+    };
+    
+    video.onseeked = () => {
+      if (context) {
+        // Draw the video frame
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+        // Convert to base64
+        const thumbnail = canvas.toDataURL('image/jpeg', 0.7);
+        window.URL.revokeObjectURL(video.src);
+        resolve(thumbnail);
+      }
+    };
+    
+    video.src = URL.createObjectURL(file);
+  });
+};
+
+// Main compression function
 export const compressVideo = async (
   videoFile: File,
   targetSizeMB: number = 25,
   onProgress: CompressionProgress = () => {}
 ): Promise<File> => {
   // If video is already smaller than target size, return the original
-  if (videoFile.size <= targetSizeMB * 1024 * 1024) {
+  if (!shouldCompress(videoFile.size, targetSizeMB)) {
     return videoFile;
   }
 
@@ -39,10 +106,11 @@ export const compressVideo = async (
     
     ffmpeg.FS('writeFile', inputFileName, await fetchFile(videoFile));
     
-    // Get original video duration
+    // Get original video duration and dimensions
     const duration = await getVideoDuration(videoFile);
+    const { width, height } = await getVideoDimensions(videoFile);
     
-    // Target bitrate calculation (in kbps)
+    // Calculate target bitrate (in kbps) - aim for slightly lower than max to account for overhead
     const targetBitrate = Math.floor((targetSizeMB * 8192) / duration * 0.9);
     
     // Set up progress tracking
@@ -50,7 +118,9 @@ export const compressVideo = async (
       onProgress(Math.round(ratio * 100));
     });
     
-    // Start compression
+    // Start compression with smart resolution handling
+    const scaleFilter = width > 1920 ? '-vf "scale=1920:-2"' : ''; // Only scale down if larger than 1080p
+    
     await ffmpeg.run(
       '-i', inputFileName,
       '-c:v', 'libx264',
@@ -60,6 +130,7 @@ export const compressVideo = async (
       '-c:a', 'aac',
       '-b:a', '128k',
       '-movflags', '+faststart',
+      ...(scaleFilter ? scaleFilter.split(' ') : []),
       outputFileName
     );
     
@@ -84,9 +155,7 @@ export const compressVideo = async (
   }
 };
 
-/**
- * Get the duration of a video file in seconds
- */
+// Get video duration helper
 export const getVideoDuration = (videoFile: File): Promise<number> => {
   return new Promise((resolve) => {
     const video = document.createElement('video');

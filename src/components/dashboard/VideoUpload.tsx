@@ -19,6 +19,15 @@ type UploadedFile = {
   thumbnail?: string;
 };
 
+interface VideoUploadProps {
+  videos: UploadedFile[];
+  setVideos: React.Dispatch<React.SetStateAction<UploadedFile[]>>;
+  selectedVideo: UploadedFile | null;
+  setSelectedVideo: React.Dispatch<React.SetStateAction<UploadedFile | null>>;
+  userId: string;
+  updateProfile: (updates: any) => Promise<void>;
+}
+
 interface CompressionState {
   id: string;
   originalFile: File;
@@ -27,15 +36,6 @@ interface CompressionState {
   progress: number;
   status: 'pending' | 'compressing' | 'uploading' | 'done' | 'error';
   error?: string;
-}
-
-interface VideoUploadProps {
-  videos: UploadedFile[];
-  setVideos: React.Dispatch<React.SetStateAction<UploadedFile[]>>;
-  selectedVideo: UploadedFile | null;
-  setSelectedVideo: React.Dispatch<React.SetStateAction<UploadedFile | null>>;
-  userId: string;
-  updateProfile: (updates: any) => Promise<void>;
 }
 
 const VideoUpload = ({
@@ -59,62 +59,19 @@ const VideoUpload = ({
   // Worker reference
   const workerRef = useRef<Worker | null>(null);
 
-  const handleVideoUpload = async (event: React.DragEvent<HTMLDivElement> | React.ChangeEvent<HTMLInputElement>) => {
-    event.preventDefault();
-    
-    let files: FileList | null = null;
-    if (event instanceof DragEvent) {
-      files = event.dataTransfer?.files;
-    } else {
-      files = (event.target as HTMLInputElement).files;
-    }
-    
-    if (!files || files.length === 0) return;
-    
-    // Process each video file
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      if (!file.type.startsWith('video/')) continue;
-      
-      // Check if we need compression (> 30MB)
-      if (file.size > 30 * 1024 * 1024) {
-        // Add to compression queue
-        const duration = await getVideoDuration(file);
-        const estimatedSize = Math.min(25, file.size / (1024 * 1024) * 0.7); // Estimate 70% reduction
-        
-        setCompressionQueue(prev => [...prev, {
-          id: uuidv4(),
-          originalFile: file,
-          originalSize: file.size / (1024 * 1024),
-          estimatedCompressedSize: estimatedSize,
-          progress: 0,
-          status: 'pending'
-        }]);
-        
-        // Start compression if not already processing
-        if (!isCompressing) {
-          processCompressionQueue();
-        }
-      } else {
-        // Upload directly if small enough
-        await uploadWithoutCompression(file);
-      }
-    }
-  };
-
-  // Initialize worker on component mount
+  // Initialize worker
   const initializeWorker = () => {
-    // Check if workers are supported
     if (typeof Worker === 'undefined') {
       console.warn('Web Workers are not supported in this browser. Compression will be disabled.');
       return null;
     }
     
     try {
-      // Create worker
-      const worker = new Worker(new URL('../workers/compressionWorker.ts', import.meta.url), { type: 'module' });
+      const worker = new Worker(
+        new URL('../workers/compressionWorker.ts', import.meta.url),
+        { type: 'module' }
+      );
       
-      // Set up message handlers
       worker.onmessage = (e) => {
         const { data } = e;
         
@@ -129,7 +86,7 @@ const VideoUpload = ({
       
       worker.onerror = (error) => {
         console.error('Worker error:', error);
-        handleCompressionError('Worker error: ' + (error as Error).message);
+        handleCompressionError((error as unknown as Error).message);
       };
       
       return worker;
@@ -143,7 +100,7 @@ const VideoUpload = ({
       return null;
     }
   };
-  
+
   // Update progress for current compression task
   const updateCompressionProgress = (progress: number) => {
     setCompressionQueue(queue => {
@@ -151,12 +108,12 @@ const VideoUpload = ({
       if (!currentTask) return queue;
       
       return [
-        { ...currentTask, progress },
+        { ...currentTask, progress, status: 'compressing' as const },
         ...queue.slice(1)
       ];
     });
   };
-  
+
   // Handle successful compression
   const handleCompressionComplete = async (compressedFile: File) => {
     setCompressionQueue(queue => {
@@ -590,6 +547,46 @@ const VideoUpload = ({
       });
     }
   };
+
+  // Modified handleVideoUpload to include compression logic
+  const handleVideoUpload = async (event: React.DragEvent<HTMLDivElement> | React.ChangeEvent<HTMLInputElement>) => {
+    event.preventDefault();
+    
+    let files: FileList | null = null;
+    if (event instanceof DragEvent) {
+      files = event.dataTransfer?.files;
+    } else {
+      files = (event.target as HTMLInputElement).files;
+    }
+    
+    if (!files || files.length === 0) return;
+    
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      if (!file.type.startsWith('video/')) continue;
+      
+      if (shouldCompress(file.size)) {
+        const duration = await getVideoDuration(file);
+        const estimatedSize = await estimateCompressedSize(file.size, duration);
+        
+        setCompressionQueue(prev => [...prev, {
+          id: uuidv4(),
+          originalFile: file,
+          originalSize: file.size / (1024 * 1024),
+          estimatedCompressedSize: estimatedSize,
+          progress: 0,
+          status: 'pending' as const
+        }]);
+        
+        if (!isCompressing) {
+          processCompressionQueue();
+        }
+      } else {
+        await uploadWithoutCompression(file);
+      }
+    }
+  };
+
   return (
     <section className="animate-fade-in">
       <div className="flex items-center mb-4">
