@@ -27,7 +27,7 @@ type WorkerMessage = CompressionRequest;
 type WorkerResponse = ProgressMessage | CompletionMessage | ErrorMessage;
 
 // Handle messages from the main thread
-self.onmessage = async (e: MessageEvent<WorkerRequest>) => {
+self.onmessage = async (e: MessageEvent<WorkerMessage>) => {
   const { data } = e;
 
   if (data.type === 'compress') {

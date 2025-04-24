@@ -59,6 +59,49 @@ const VideoUpload = ({
   // Worker reference
   const workerRef = useRef<Worker | null>(null);
 
+  const handleVideoUpload = async (event: React.DragEvent<HTMLDivElement> | React.ChangeEvent<HTMLInputElement>) => {
+    event.preventDefault();
+    
+    let files: FileList | null = null;
+    if (event instanceof DragEvent) {
+      files = event.dataTransfer?.files;
+    } else {
+      files = (event.target as HTMLInputElement).files;
+    }
+    
+    if (!files || files.length === 0) return;
+    
+    // Process each video file
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      if (!file.type.startsWith('video/')) continue;
+      
+      // Check if we need compression (> 30MB)
+      if (file.size > 30 * 1024 * 1024) {
+        // Add to compression queue
+        const duration = await getVideoDuration(file);
+        const estimatedSize = Math.min(25, file.size / (1024 * 1024) * 0.7); // Estimate 70% reduction
+        
+        setCompressionQueue(prev => [...prev, {
+          id: uuidv4(),
+          originalFile: file,
+          originalSize: file.size / (1024 * 1024),
+          estimatedCompressedSize: estimatedSize,
+          progress: 0,
+          status: 'pending'
+        }]);
+        
+        // Start compression if not already processing
+        if (!isCompressing) {
+          processCompressionQueue();
+        }
+      } else {
+        // Upload directly if small enough
+        await uploadWithoutCompression(file);
+      }
+    }
+  };
+
   // Initialize worker on component mount
   const initializeWorker = () => {
     // Check if workers are supported
@@ -86,7 +129,7 @@ const VideoUpload = ({
       
       worker.onerror = (error) => {
         console.error('Worker error:', error);
-        handleCompressionError('Worker error: ' + error.message);
+        handleCompressionError('Worker error: ' + (error as Error).message);
       };
       
       return worker;
