@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Button } from '@/components/ui/button';
-import { Save, Loader } from 'lucide-react';
+import { Save, Loader2 } from 'lucide-react';
 
 interface TrimmerActionsProps {
   onSave: (e: React.MouseEvent<HTMLButtonElement>) => void;
@@ -36,7 +36,7 @@ const TrimmerActions: React.FC<TrimmerActionsProps> = ({
       >
         {isSaving ? (
           <>
-            <Loader className="h-4 w-4 animate-spin" />
+            <Loader2 className="h-4 w-4 animate-spin" />
             Processing...
           </>
         ) : (
@@ -51,3 +51,4 @@ const TrimmerActions: React.FC<TrimmerActionsProps> = ({
 };
 
 export default TrimmerActions;
+
