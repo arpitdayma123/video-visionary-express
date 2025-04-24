@@ -16,7 +16,7 @@ const TrimmerActions: React.FC<TrimmerActionsProps> = ({
   isSaving,
   trimDuration
 }) => {
-  const isValidDuration = trimDuration >= 8 && trimDuration <= 20; // Updated max duration
+  const isValidDuration = trimDuration >= 8 && trimDuration <= 20;
   
   return (
     <div className="flex justify-end gap-2">
@@ -31,13 +31,15 @@ const TrimmerActions: React.FC<TrimmerActionsProps> = ({
       <Button 
         onClick={onSave}
         disabled={!isValidDuration || isSaving}
-        className="gap-2"
+        className="gap-2 relative" // Added relative positioning
         type="button"
       >
         {isSaving ? (
           <>
-            <Loader2 className="h-4 w-4 animate-spin" />
-            Processing...
+            <div className="absolute inset-0 flex items-center justify-center">
+              <Loader2 className="h-4 w-4 animate-spin text-primary-foreground" />
+            </div>
+            <span className="opacity-0">Save Trimmed Audio</span>
           </>
         ) : (
           <>
