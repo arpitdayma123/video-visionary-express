@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Info, Loader } from 'lucide-react';
@@ -16,13 +15,15 @@ interface AudioTrimmerProps {
   onSave: (trimmedBlob: Blob, duration: number) => void;
   onCancel: () => void;
   autoDetectSilence?: boolean;
+  maxDuration?: number; // Add optional max duration prop
 }
 
 const AudioTrimmer: React.FC<AudioTrimmerProps> = ({ 
   audioFile, 
   onSave, 
   onCancel,
-  autoDetectSilence = true
+  autoDetectSilence = true,
+  maxDuration = 20 // Default to 20 seconds
 }) => {
   const {
     audioUrl,
@@ -50,7 +51,11 @@ const AudioTrimmer: React.FC<AudioTrimmerProps> = ({
     skipBackward,
     saveTrimmedAudio,
     setTrimRange
-  } = useAudioTrimmer({ audioFile, autoDetectSilence });
+  } = useAudioTrimmer({ 
+    audioFile, 
+    autoDetectSilence, 
+    maxDuration // Pass max duration to hook
+  });
 
   // Handle save button click
   const handleSaveTrim = async (e: React.MouseEvent<HTMLButtonElement>) => {
@@ -139,7 +144,7 @@ const AudioTrimmer: React.FC<AudioTrimmerProps> = ({
           <p className="flex items-start gap-2">
             <Info className="h-4 w-4 mt-0.5 flex-shrink-0" />
             <span>
-              Trim your audio to between 8 and 40 seconds by dragging the slider handles or the circular trim points.
+              Trim your audio to between 8 and 20 seconds by dragging the slider handles or the circular trim points. 
               We recommend trimming any silent sections at the beginning or end of your recording for better quality.
             </span>
           </p>

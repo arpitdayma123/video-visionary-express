@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Save, Loader } from 'lucide-react';
@@ -15,7 +16,7 @@ const TrimmerActions: React.FC<TrimmerActionsProps> = ({
   isSaving,
   trimDuration
 }) => {
-  const isValidDuration = trimDuration >= 8 && trimDuration <= 40;
+  const isValidDuration = trimDuration >= 8 && trimDuration <= 20; // Updated max duration
   
   return (
     <div className="flex justify-end gap-2">

@@ -453,6 +453,7 @@ const VoiceUpload = ({
           onSave={handleSaveTrimmedAudio}
           onCancel={handleCancelTrim}
           autoDetectSilence={true}
+          maxDuration={20} // Add max duration constraint
         />
       ) : (
         <>
@@ -476,6 +477,7 @@ const VoiceUpload = ({
                 <li>Minimize background noise</li>
                 <li>Avoid filler words like "um" or "ah"</li>
                 <li>Speak naturally and confidently</li>
+                <li><strong>Record between 8-20 seconds</strong></li> {/* Updated max duration */}
               </ul>
             </AlertDescription>
           </Alert>
@@ -571,13 +573,13 @@ const VoiceUpload = ({
                         </span>
                         <span className={`${
                           recordingTime < 8 ? 'text-destructive' : 
-                          recordingTime > 40 ? 'text-destructive' : 'text-primary'
+                          recordingTime > 20 ? 'text-destructive' : 'text-primary'
                         }`}>
                           {recordingTime < 8 ? `${8 - recordingTime}s more needed` : 
-                           recordingTime > 40 ? 'Recording too long' : 'Good length'}
+                           recordingTime > 20 ? 'Recording too long' : 'Good length'}
                         </span>
                       </div>
-                      <Progress value={(recordingTime / 40) * 100} className="h-2" />
+                      <Progress value={(recordingTime / 20) * 100} className="h-2" />
                     </div>
                     
                     <div className="flex gap-4">
@@ -595,7 +597,7 @@ const VoiceUpload = ({
                     <p className="mt-4 text-sm text-muted-foreground">
                       {recordingTime < 8 
                         ? "Keep recording until you reach at least 8 seconds" 
-                        : recordingTime > 40 
+                        : recordingTime > 20 
                           ? "Your recording is too long, please finish now" 
                           : "Recording sounds good! You can finish when ready"}
                     </p>
@@ -614,7 +616,7 @@ const VoiceUpload = ({
                       <ul className="list-disc pl-5 space-y-2 text-muted-foreground text-left">
                         <li>Find a quiet environment</li>
                         <li>Speak clearly at a consistent volume</li>
-                        <li>Record between 8-40 seconds</li>
+                        <li>Record between 8-20 seconds</li>
                         <li>You'll be able to trim your recording afterward</li>
                       </ul>
                     </div>

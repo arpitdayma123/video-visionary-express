@@ -5,9 +5,14 @@ import { bufferToWave } from '@/components/dashboard/audio/trimmerUtils';
 interface UseAudioTrimmerOptions {
   audioFile: File;
   autoDetectSilence?: boolean;
+  maxDuration?: number; // Add max duration option
 }
 
-export function useAudioTrimmer({ audioFile, autoDetectSilence = true }: UseAudioTrimmerOptions) {
+export function useAudioTrimmer({ 
+  audioFile, 
+  autoDetectSilence = true,
+  maxDuration = 20 // Default to 20 seconds
+}: UseAudioTrimmerOptions) {
   const [audioUrl, setAudioUrl] = useState<string>('');
   const [isPlaying, setIsPlaying] = useState(false);
   const [duration, setDuration] = useState(0);
@@ -78,17 +83,25 @@ export function useAudioTrimmer({ audioFile, autoDetectSilence = true }: UseAudi
               duration: buffer.duration * 1000
             });
             
-            // Auto-set the trim range
-            setTrimRange([startTime * 1000, endTime * 1000]);
+            // Modify to respect maxDuration
+            const finalEndTime = Math.min(endTime, maxDuration);
+            const finalStartTime = Math.max(0, finalEndTime - maxDuration);
+            
+            setTrimRange([
+              finalStartTime * 1000, 
+              finalEndTime * 1000
+            ]);
           } else {
-            // Initial trim range is full audio
-            setTrimRange([0, buffer.duration * 1000]);
+            // Ensure initial trim range doesn't exceed maxDuration
+            const initialEnd = Math.min(buffer.duration, maxDuration);
+            setTrimRange([0, initialEnd * 1000]);
           }
           
           setIsAnalyzing(false);
         } else {
-          // Initial trim range is full audio
-          setTrimRange([0, buffer.duration * 1000]);
+          // Ensure initial trim range doesn't exceed maxDuration
+          const initialEnd = Math.min(buffer.duration, maxDuration);
+          setTrimRange([0, initialEnd * 1000]);
         }
         
         // Generate waveform data
@@ -124,7 +137,7 @@ export function useAudioTrimmer({ audioFile, autoDetectSilence = true }: UseAudi
         audioContext.current.close();
       }
     };
-  }, [audioFile, autoDetectSilence]);
+  }, [audioFile, autoDetectSilence, maxDuration]); // Add maxDuration to dependencies
   
   // Handle time update for audio playback
   const handleTimeUpdate = () => {
@@ -247,7 +260,7 @@ export function useAudioTrimmer({ audioFile, autoDetectSilence = true }: UseAudi
     }
   };
   
-  // Create the trimmed audio blob
+  // Modify saveTrimmedAudio to enforce max duration
   const saveTrimmedAudio = async (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
     e.stopPropagation();
@@ -261,6 +274,11 @@ export function useAudioTrimmer({ audioFile, autoDetectSilence = true }: UseAudi
       const startSec = trimRange[0] / 1000;
       const endSec = trimRange[1] / 1000;
       const trimmedDuration = endSec - startSec;
+      
+      // Enforce max duration
+      if (trimmedDuration > maxDuration) {
+        throw new Error(`Audio must be between 8 and ${maxDuration} seconds`);
+      }
       
       // Create new buffer for the trimmed audio
       const sampleRate = audioBuffer.current.sampleRate;
@@ -350,6 +368,7 @@ export function useAudioTrimmer({ audioFile, autoDetectSilence = true }: UseAudi
     skipForward,
     skipBackward,
     saveTrimmedAudio,
-    setTrimRange
+    setTrimRange,
+    maxDuration, // Expose maxDuration in the return object
   };
 }
