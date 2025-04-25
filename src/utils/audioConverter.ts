@@ -41,9 +41,22 @@ export async function convertToWav(audioFile: File): Promise<File> {
         
         // Convert to WAV
         const wavBlob = audioBufferToWav(renderedBuffer);
-        const fileName = audioFile.name.replace(/\.[^/.]+$/, "") + ".wav";
+        
+        // Create a file name with .wav extension
+        let fileName = audioFile.name;
+        if (!fileName.toLowerCase().endsWith('.wav')) {
+          fileName = fileName.replace(/\.[^/.]+$/, "") + ".wav";
+        }
+        
         const wavFile = new File([wavBlob], fileName, { type: "audio/wav" });
-        console.log(`WAV conversion complete: ${fileName}, size: ${wavFile.size} bytes`);
+        console.log(`WAV conversion complete: ${fileName}, size: ${wavFile.size} bytes, type: ${wavFile.type}`);
+        
+        // Verify the file by logging its contents
+        console.log("Converted file metadata:", {
+          name: wavFile.name,
+          type: wavFile.type,
+          size: wavFile.size
+        });
         
         resolve(wavFile);
       } catch (error) {
@@ -93,7 +106,7 @@ function audioBufferToWav(buffer: AudioBuffer): Blob {
     channels.push(buffer.getChannelData(i));
   }
 
-  while (pos < length) {
+  while (sample < buffer.length) {
     for (let i = 0; i < numOfChan; i++) {
       if (sample >= buffer.length) break;
       let val = Math.max(-1, Math.min(1, channels[i][sample]));
@@ -102,9 +115,6 @@ function audioBufferToWav(buffer: AudioBuffer): Blob {
       pos += 2;
     }
     sample++;
-    
-    // Break the loop if we've processed all samples to avoid infinite loops
-    if (sample >= buffer.length) break;
   }
 
   function setUint16(data: number) {

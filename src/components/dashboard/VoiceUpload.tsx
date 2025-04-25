@@ -237,6 +237,20 @@ const VoiceUpload = ({
         const wavFile = await convertToWav(file);
         console.log(`Conversion completed: ${wavFile.name} (${wavFile.size} bytes)`);
         
+        // Create a temporary URL for the file
+        const tempUrl = URL.createObjectURL(wavFile);
+        console.log(`Created temporary URL for preview: ${tempUrl}`);
+        
+        // Play a short section to verify audio works
+        try {
+          const audio = new Audio(tempUrl);
+          audio.volume = 0.1; // Low volume
+          await audio.play();
+          setTimeout(() => audio.pause(), 500); // Play for half a second
+        } catch (audioError) {
+          console.warn("Could not play audio preview:", audioError);
+        }
+        
         // Set the file for preview/trimming
         setSelectedFile(wavFile);
         setShowTrimmer(true);
@@ -394,6 +408,7 @@ const VoiceUpload = ({
     setRecordedBlob(null);
   };
 
+  // Functions to handle voice file removal and selection
   const handleRemoveVoiceFile = async (id: string) => {
     try {
       const fileToRemove = voiceFiles.find(file => file.id === id);
