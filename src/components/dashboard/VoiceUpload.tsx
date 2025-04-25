@@ -11,6 +11,7 @@ import { uploadToBunny, deleteFromBunny, getPathFromBunnyUrl } from '@/integrati
 import AudioRecorder, { RecordingStatus } from '@/utils/audioRecorder';
 import AudioTrimmer from './AudioTrimmer';
 import LoadingOverlay from './audio/LoadingOverlay';
+import { convertToWav } from '@/utils/audioConverter';
 
 type UploadedFile = {
   id: string;
@@ -168,10 +169,6 @@ const VoiceUpload = ({
 
   // File upload handler now just prepares the file for preview/trimming
   const handleVoiceUpload = async (e: React.ChangeEvent<HTMLInputElement> | React.DragEvent<HTMLDivElement>) => {
-    // Prevent default actions and form submission
-    e.preventDefault();
-    e.stopPropagation();
-    
     if (!userId) {
       toast({
         title: "Authentication Error",
@@ -202,23 +199,41 @@ const VoiceUpload = ({
     if (files && files.length > 0) {
       const fileArray = Array.from(files);
       const invalidFiles = fileArray.filter(file => {
-        const isValidType = file.type === 'audio/mpeg' || file.type === 'audio/wav';
+        const isAudioFile = file.type.startsWith('audio/');
         const isValidSize = file.size <= 8 * 1024 * 1024;
-        return !isValidType || !isValidSize;
+        return !isAudioFile || !isValidSize;
       });
       
       if (invalidFiles.length > 0) {
         toast({
           title: "Invalid files detected",
-          description: "Please upload MP3 or WAV files under 8MB.",
+          description: "Please upload audio files under 8MB.",
           variant: "destructive"
         });
         return;
       }
       
-      // Just select the first file for preview/trimming
-      setSelectedFile(fileArray[0]);
-      setShowTrimmer(true);
+      try {
+        // Convert the audio file to WAV format
+        const file = fileArray[0];
+        const wavFile = await convertToWav(file);
+        
+        // Set the file for preview/trimming
+        setSelectedFile(wavFile);
+        setShowTrimmer(true);
+        
+        toast({
+          title: "Audio Converted",
+          description: "Your audio file has been converted to WAV format. You can now trim it before uploading."
+        });
+      } catch (error) {
+        console.error('Error converting audio:', error);
+        toast({
+          title: "Conversion Error",
+          description: "Failed to convert your audio file. Please try again.",
+          variant: "destructive"
+        });
+      }
     }
   };
 
