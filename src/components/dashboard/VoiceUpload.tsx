@@ -11,7 +11,6 @@ import { uploadToBunny, deleteFromBunny, getPathFromBunnyUrl } from '@/integrati
 import AudioRecorder, { RecordingStatus } from '@/utils/audioRecorder';
 import AudioTrimmer from './AudioTrimmer';
 import LoadingOverlay from './audio/LoadingOverlay';
-import { convertToWav } from '@/utils/audioConverter';
 
 type UploadedFile = {
   id: string;
@@ -51,8 +50,6 @@ const VoiceUpload = ({
   const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [showTrimmer, setShowTrimmer] = useState(false);
-  const [isConverting, setIsConverting] = useState(false);
-  const [conversionError, setConversionError] = useState<string | null>(null);
 
   // Check if the maximum limit of voice files has been reached
   const hasReachedVoiceLimit = voiceFiles.length >= 5;
@@ -171,6 +168,10 @@ const VoiceUpload = ({
 
   // File upload handler now just prepares the file for preview/trimming
   const handleVoiceUpload = async (e: React.ChangeEvent<HTMLInputElement> | React.DragEvent<HTMLDivElement>) => {
+    // Prevent default actions and form submission
+    e.preventDefault();
+    e.stopPropagation();
+    
     if (!userId) {
       toast({
         title: "Authentication Error",
@@ -200,78 +201,24 @@ const VoiceUpload = ({
     
     if (files && files.length > 0) {
       const fileArray = Array.from(files);
-      const file = fileArray[0];
+      const invalidFiles = fileArray.filter(file => {
+        const isValidType = file.type === 'audio/mpeg' || file.type === 'audio/wav';
+        const isValidSize = file.size <= 8 * 1024 * 1024;
+        return !isValidType || !isValidSize;
+      });
       
-      // Check file size only (not type)
-      if (file.size > 8 * 1024 * 1024) {
+      if (invalidFiles.length > 0) {
         toast({
-          title: "File too large",
-          description: "Please upload audio files under 8MB.",
+          title: "Invalid files detected",
+          description: "Please upload MP3 or WAV files under 8MB.",
           variant: "destructive"
         });
         return;
       }
       
-      // Check if it's an audio file
-      if (!file.type.startsWith('audio/')) {
-        toast({
-          title: "Invalid file type",
-          description: "Please upload an audio file.",
-          variant: "destructive"
-        });
-        return;
-      }
-      
-      try {
-        setIsConverting(true);
-        setConversionError(null);
-        
-        // Inform the user about conversion
-        toast({
-          title: "Converting Audio",
-          description: "Converting your audio to the required format...",
-        });
-        
-        // Convert the audio file to WAV format
-        console.log(`Starting conversion of file: ${file.name} (${file.type})`);
-        const wavFile = await convertToWav(file);
-        console.log(`Conversion completed: ${wavFile.name} (${wavFile.size} bytes)`);
-        
-        // Create a temporary URL for the file
-        const tempUrl = URL.createObjectURL(wavFile);
-        console.log(`Created temporary URL for preview: ${tempUrl}`);
-        
-        // Play a short section to verify audio works
-        try {
-          const audio = new Audio(tempUrl);
-          audio.volume = 0.1; // Low volume
-          await audio.play();
-          setTimeout(() => audio.pause(), 500); // Play for half a second
-        } catch (audioError) {
-          console.warn("Could not play audio preview:", audioError);
-        }
-        
-        // Set the file for preview/trimming
-        setSelectedFile(wavFile);
-        setShowTrimmer(true);
-        
-        setIsConverting(false);
-        
-        toast({
-          title: "Audio Converted",
-          description: "Your audio file has been converted to WAV format. You can now trim it before uploading."
-        });
-      } catch (error) {
-        console.error('Error converting audio:', error);
-        setIsConverting(false);
-        setConversionError(error instanceof Error ? error.message : "Unknown error");
-        
-        toast({
-          title: "Conversion Error",
-          description: "Failed to convert your audio file. Please try a different file or format.",
-          variant: "destructive"
-        });
-      }
+      // Just select the first file for preview/trimming
+      setSelectedFile(fileArray[0]);
+      setShowTrimmer(true);
     }
   };
 
@@ -408,7 +355,6 @@ const VoiceUpload = ({
     setRecordedBlob(null);
   };
 
-  // Functions to handle voice file removal and selection
   const handleRemoveVoiceFile = async (id: string) => {
     try {
       const fileToRemove = voiceFiles.find(file => file.id === id);
@@ -507,7 +453,7 @@ const VoiceUpload = ({
           onSave={handleSaveTrimmedAudio}
           onCancel={handleCancelTrim}
           autoDetectSilence={true}
-          maxDuration={20}
+          maxDuration={20} // Add max duration constraint
         />
       ) : (
         <>
@@ -531,7 +477,7 @@ const VoiceUpload = ({
                 <li>Minimize background noise</li>
                 <li>Avoid filler words like "um" or "ah"</li>
                 <li>Speak naturally and confidently</li>
-                <li><strong>Record between 8-20 seconds</strong></li>
+                <li><strong>Record between 8-20 seconds</strong></li> {/* Updated max duration */}
               </ul>
             </AlertDescription>
           </Alert>
@@ -542,18 +488,6 @@ const VoiceUpload = ({
               <AlertTriangle className="h-4 w-4 text-amber-500" />
               <AlertDescription className="text-amber-600">
                 You've reached the maximum limit of 5 voice files. To add more, please delete existing files.
-              </AlertDescription>
-            </Alert>
-          )}
-          
-          {/* Display conversion error if there is one */}
-          {conversionError && (
-            <Alert variant="destructive" className="mb-4">
-              <AlertTriangle className="h-4 w-4" />
-              <AlertDescription>
-                <strong>Conversion failed:</strong> {conversionError}
-                <br />
-                Please try a different audio file or format.
               </AlertDescription>
             </Alert>
           )}
@@ -574,51 +508,43 @@ const VoiceUpload = ({
             {/* Upload Tab Content */}
             <TabsContent value="upload">
               <Card className="p-6">
-                {isConverting ? (
-                  <div className="p-8 flex flex-col items-center justify-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mb-4"></div>
-                    <h3 className="text-lg font-medium mb-2">Converting Audio...</h3>
-                    <p className="text-muted-foreground">Please wait while we process your file.</p>
-                  </div>
-                ) : (
-                  <div 
-                    className={`file-drop-area p-8 border-2 border-dashed rounded-lg ${
-                      isDraggingVoice ? 'border-primary bg-primary/5' : 'border-muted'
-                    } ${hasReachedVoiceLimit ? 'opacity-50 pointer-events-none' : ''}`} 
-                    onDragOver={e => {
-                      e.preventDefault();
-                      setIsDraggingVoice(true);
-                    }} 
-                    onDragLeave={() => setIsDraggingVoice(false)} 
-                    onDrop={handleVoiceUpload}
-                  >
-                    <div className="flex flex-col items-center justify-center text-center">
-                      <Upload className="h-12 w-12 text-muted-foreground mb-4" />
-                      <h3 className="text-lg font-medium mb-2">Drag audio files here</h3>
-                      <p className="text-muted-foreground mb-4">Max 8MB, any audio format, you'll be able to trim it next</p>
-                      <label className={`button-hover-effect px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors ${
-                        hasReachedVoiceLimit ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
-                      }`}>
-                        <input 
-                          type="file" 
-                          accept="audio/*" 
-                          className="hidden" 
-                          onChange={handleVoiceUpload} 
-                          disabled={hasReachedVoiceLimit} 
-                        />
-                        Select File
-                      </label>
-                      <p className="mt-3 text-sm text-muted-foreground">
-                        Files will be converted to WAV, previewed and can be trimmed before uploading
+                <div 
+                  className={`file-drop-area p-8 border-2 border-dashed rounded-lg ${
+                    isDraggingVoice ? 'border-primary bg-primary/5' : 'border-muted'
+                  } ${hasReachedVoiceLimit ? 'opacity-50 pointer-events-none' : ''}`} 
+                  onDragOver={e => {
+                    e.preventDefault();
+                    setIsDraggingVoice(true);
+                  }} 
+                  onDragLeave={() => setIsDraggingVoice(false)} 
+                  onDrop={handleVoiceUpload}
+                >
+                  <div className="flex flex-col items-center justify-center text-center">
+                    <Upload className="h-12 w-12 text-muted-foreground mb-4" />
+                    <h3 className="text-lg font-medium mb-2">Drag MP3 or WAV files here</h3>
+                    <p className="text-muted-foreground mb-4">Max 8MB, you'll be able to trim it next</p>
+                    <label className={`button-hover-effect px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors ${
+                      hasReachedVoiceLimit ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
+                    }`}>
+                      <input 
+                        type="file" 
+                        accept="audio/mpeg,audio/wav" 
+                        className="hidden" 
+                        onChange={handleVoiceUpload} 
+                        disabled={hasReachedVoiceLimit} 
+                      />
+                      Select File
+                    </label>
+                    <p className="mt-3 text-sm text-muted-foreground">
+                      Files will be previewed and can be trimmed before uploading
+                    </p>
+                    {hasReachedVoiceLimit && (
+                      <p className="mt-3 text-amber-600 text-sm">
+                        Delete existing voices to upload more
                       </p>
-                      {hasReachedVoiceLimit && (
-                        <p className="mt-3 text-amber-600 text-sm">
-                          Delete existing voices to upload more
-                        </p>
-                      )}
-                    </div>
+                    )}
                   </div>
-                )}
+                </div>
               </Card>
             </TabsContent>
             

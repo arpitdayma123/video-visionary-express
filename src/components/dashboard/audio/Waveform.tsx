@@ -36,17 +36,10 @@ const Waveform: React.FC<WaveformProps> = ({
 
   // Draw waveform visualization on canvas
   useEffect(() => {
-    if (canvasRef.current && waveformData.length > 0 && duration > 0) {
+    if (canvasRef.current && waveformData.length > 0) {
       const canvas = canvasRef.current;
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
-      
-      // Set canvas size to match container for proper scaling
-      if (containerRef.current) {
-        const rect = containerRef.current.getBoundingClientRect();
-        canvas.width = rect.width;
-        canvas.height = rect.height;
-      }
       
       // Clear canvas
       ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -86,7 +79,7 @@ const Waveform: React.FC<WaveformProps> = ({
         ctx.stroke();
       }
     }
-  }, [waveformData, trimRange, currentTime, duration, canvasRef.current, containerRef.current?.offsetWidth]);
+  }, [waveformData, trimRange, currentTime, duration]);
 
   // Touch event handlers
   const handleTouchStart = (position: 'start' | 'end') => (e: React.TouchEvent) => {
@@ -142,6 +135,8 @@ const Waveform: React.FC<WaveformProps> = ({
       >
         <canvas 
           ref={canvasRef} 
+          width={600} 
+          height={120} 
           className="w-full h-full bg-muted rounded-md"
         />
         
