@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { User } from '@supabase/supabase-js';
 import { useToast } from '@/hooks/use-toast';
@@ -39,6 +40,7 @@ export const useScriptPreview = (
       setIsPreviewVisible,
       webhookError,
       setWebhookError,
+      setIsLoading, // Add this to expose it to the parent component
       handleGeneratePreview: aiRemake.handleRegenerateScript
     };
   }
@@ -263,6 +265,7 @@ export const useScriptPreview = (
 
   return {
     isLoading,
+    setIsLoading, // Expose this to the parent component
     script,
     wordCount,
     isPreviewVisible,

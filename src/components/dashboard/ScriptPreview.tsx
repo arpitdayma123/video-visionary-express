@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useScriptPreview } from '@/hooks/useScriptPreview';
@@ -33,12 +34,13 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
 
   const {
     isLoading,
+    setIsLoading,
     script,
     wordCount,
     isPreviewVisible,
     setIsPreviewVisible,
     handleScriptChange,
-    handleGeneratePreview,
+    handleGeneratePreview: originalHandleGeneratePreview,
     handleRegenerateScript,
     handleChangeScript,
     webhookError: previewError,
@@ -100,7 +102,10 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
 
   const showUseScriptButton = scriptOption === 'ai_find' || scriptOption === 'ig_reel';
 
-  const handleGeneratePreview = async () => {
+  // Enhanced version of handleGeneratePreview that handles the Instagram username error
+  const handleGeneratePreview = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
     if (!user) return;
     setIsLoading(true);
     try {
@@ -154,7 +159,8 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
         setWebhookError?.(null);
       }
 
-      setIsPreviewVisible(true);
+      // Call the original handler for further processing if no special error
+      originalHandleGeneratePreview();
       
     } catch (error) {
       setIsLoading(false);
@@ -189,7 +195,7 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
               e.stopPropagation();
               setGenerationStartTime(Date.now());
               setWaitTimeExpired(false);
-              handleGeneratePreview();
+              handleGeneratePreview(e);
             }}
             scriptOption={scriptOption}
             generationStartTime={generationStartTime}
