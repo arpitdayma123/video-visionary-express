@@ -10,6 +10,9 @@ export const useAiRemake = (
   user: User | null,
   onScriptGenerated: (script: string) => void
 ) => {
+  // Update webhook URL to use N8N endpoint
+  const SCRIPT_REMAKE_WEBHOOK = "https://n8n.latestfreegames.online/webhook/scriptfind";
+
   const [isLoading, setIsLoading] = useState(false);
   const [script, setScript] = useState('');
   const [wordCount, setWordCount] = useState(0);
@@ -95,8 +98,9 @@ export const useAiRemake = (
 
       if (error) throw error;
 
+      // Use the new N8N webhook URL
       const webhookResponse = await fetch(
-        `https://primary-production-ce25.up.railway.app/webhook/scriptfind?userId=${user.id}&regenerate=true`,
+        `${SCRIPT_REMAKE_WEBHOOK}?userId=${user.id}&scriptOption=ai_remake&regenerate=true`,
         {
           method: 'GET',
           headers: {
