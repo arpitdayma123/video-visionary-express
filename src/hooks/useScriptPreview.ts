@@ -64,6 +64,8 @@ export const useScriptPreview = (
   const handleGeneratePreview = async () => {
     if (!user) return;
     setIsLoading(true);
+    setWebhookError(null);
+    
     try {
       const { error } = await supabase
         .from('profiles')
@@ -88,6 +90,15 @@ export const useScriptPreview = (
         responseJson = await webhookResponse.clone().json();
       } catch { /* ignore */ }
 
+      // Handle the specific error case
+      if (responseJson?.error && responseJson.error.includes("The Instagram username you entered either does not provide valuable content")) {
+        setIsLoading(false);
+        setIsPreviewVisible(false);
+        setScript('');
+        setWebhookError(responseJson.error);
+        return;
+      }
+
       // If error in webhook payload, show error, stop, don't run polling.
       if (responseJson && responseJson.error) {
         setIsLoading(false);
@@ -111,10 +122,10 @@ export const useScriptPreview = (
       pollingInterval.current = interval;
     } catch (error) {
       setIsLoading(false);
-      setWebhookError("Failed to start preview generation. Please try again.");
+      setWebhookError(error instanceof Error ? error.message : "An error occurred");
       toast({
         title: "Error",
-        description: "Failed to start preview generation. Please try again.",
+        description: "Failed to generate script preview. Please try again.",
         variant: "destructive"
       });
     }
