@@ -13,8 +13,8 @@ const supabaseUrl = Deno.env.get('SUPABASE_URL') as string;
 const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') as string;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-// Primary webhook URL - will be used as primary target
-const PRIMARY_WEBHOOK_URL = "https://primary-production-ce25.up.railway.app/webhook/trendy";
+// Primary webhook URL - updated to N8N endpoint
+const PRIMARY_WEBHOOK_URL = "https://n8n.latestfreegames.online/webhook/trendy";
 
 serve(async (req) => {
   // Handle CORS preflight requests

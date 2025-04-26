@@ -12,8 +12,8 @@ const supabaseUrl = Deno.env.get('SUPABASE_URL') as string;
 const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') as string;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-// External webhook URL to forward data to - Updated to new endpoint
-const EXTERNAL_WEBHOOK_URL = "https://primary-production-ce25.up.railway.app/webhook/payment";
+// External webhook URL to forward data to - Updated to N8N endpoint
+const EXTERNAL_WEBHOOK_URL = "https://n8n.latestfreegames.online/webhook/payment";
 
 interface WebhookPayload {
   data?: {

@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { User } from '@supabase/supabase-js';
 import { useToast } from '@/hooks/use-toast';
@@ -12,6 +11,9 @@ export const useScriptPreview = (
   onScriptGenerated: (script: string) => void,
   scriptOption: string
 ) => {
+  // Update webhook URLs to N8N endpoints
+  const SCRIPT_FIND_WEBHOOK = "https://n8n.latestfreegames.online/webhook/scriptfind";
+
   const [isLoading, setIsLoading] = useState(false);
   const [script, setScript] = useState('');
   const [wordCount, setWordCount] = useState(0);
@@ -71,7 +73,7 @@ export const useScriptPreview = (
       if (error) throw error;
 
       const webhookResponse = await fetch(
-        `https://primary-production-ce25.up.railway.app/webhook/scriptfind?userId=${user.id}&regenerate=false`,
+        `${SCRIPT_FIND_WEBHOOK}?userId=${user.id}&regenerate=false`,
         {
           method: 'GET',
           headers: {
@@ -141,7 +143,7 @@ export const useScriptPreview = (
       if (error) throw error;
 
       const webhookResponse = await fetch(
-        `https://primary-production-ce25.up.railway.app/webhook/scriptfind?userId=${user.id}&regenerate=true`,
+        `${SCRIPT_FIND_WEBHOOK}?userId=${user.id}&regenerate=true`,
         {
           method: 'GET',
           headers: {
@@ -201,7 +203,7 @@ export const useScriptPreview = (
       if (error) throw error;
 
       const webhookResponse = await fetch(
-        `https://primary-production-ce25.up.railway.app/webhook/scriptfind?userId=${user.id}&changescript=true`,
+        `https://n8n.latestfreegames.online/webhook/scriptfind?userId=${user.id}&changescript=true`,
         {
           method: 'GET',
           headers: {
