@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -6,11 +5,15 @@ import { useToast } from '@/hooks/use-toast';
 import MainLayout from '@/components/layout/MainLayout';
 import AuthForm from '@/components/auth/AuthForm';
 import { sendWelcomeEmail } from '@/utils/emailService';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { AlertCircle, Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 const Auth = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const [showResendAlert, setShowResendAlert] = useState(false);
 
   // Function to add user to Resend audience
   const addUserToResendAudience = async (email: string, name?: string) => {
@@ -190,6 +193,35 @@ const Auth = () => {
     };
   }, [navigate, toast]);
 
+  const handleResendEmail = async (email: string) => {
+    try {
+      setLoading(true);
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email,
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      toast({
+        title: "Email sent",
+        description: "Please check your inbox for the verification link.",
+      });
+      setShowResendAlert(true);
+    } catch (error: any) {
+      console.error('Error resending email:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to resend verification email.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <MainLayout title="Account Access" subtitle="Sign in or create an account" showNav={false}>
       <div className="max-w-md mx-auto px-4 py-8">
@@ -198,23 +230,61 @@ const Auth = () => {
             <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
           </div>
         ) : (
-          <AuthForm onSignUp={async (email, name) => {
-            console.log("Sign-up callback triggered for:", email);
-            // Add new user to Resend audience on sign up
-            try {
-              console.log("Adding new signup user to Resend audience:", email);
-              await addUserToResendAudience(email, name);
-            } catch (e) {
-              console.error("Failed to add new signup user to audience:", e);
-            }
+          <>
+            {showResendAlert && (
+              <Alert className="mb-6 bg-green-50 border-green-200">
+                <AlertCircle className="h-4 w-4 text-green-600" />
+                <AlertDescription className="text-green-700">
+                  Verification email sent! Please check your inbox and spam folder.
+                </AlertDescription>
+              </Alert>
+            )}
             
-            try {
-              await sendWelcomeEmail(email, name);
-            } catch (error) {
-              console.error('Failed to send welcome email:', error);
-              // Continue with sign-up flow even if email fails
-            }
-          }} />
+            <AuthForm onSignUp={async (email, name) => {
+              console.log("Sign-up callback triggered for:", email);
+              // Add new user to Resend audience on sign up
+              try {
+                console.log("Adding new signup user to Resend audience:", email);
+                await addUserToResendAudience(email, name);
+              } catch (e) {
+                console.error("Failed to add new signup user to audience:", e);
+              }
+              
+              try {
+                await sendWelcomeEmail(email, name);
+                console.log('Welcome email sent to:', email);
+              } catch (error) {
+                console.error('Failed to send welcome email:', error);
+                // Continue with sign-up flow even if email fails
+              }
+              
+              // Show option to resend email after a delay
+              setTimeout(() => {
+                setShowResendAlert(true);
+              }, 10000);
+            }} />
+
+            {showResendAlert && (
+              <div className="mt-4 text-center">
+                <p className="text-sm text-gray-600 mb-2">Didn't receive the email?</p>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => handleResendEmail(email)}
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                      Sending...
+                    </>
+                  ) : (
+                    "Resend verification email"
+                  )}
+                </Button>
+              </div>
+            )}
+          </>
         )}
       </div>
     </MainLayout>
