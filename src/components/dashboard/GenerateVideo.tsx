@@ -58,23 +58,6 @@ const GenerateVideo: React.FC<GenerateVideoProps> = ({
   // Button is enabled based solely on the isFormComplete prop from parent
   const buttonEnabled = isFormComplete && hasCredits && !isProcessing;
 
-  // Script requirements text based on script option
-  const getScriptRequirementLabel = () => {
-    if (scriptOption === 'ai_find' || scriptOption === 'ig_reel' || scriptOption === 'script_from_prompt') {
-      if (!isScriptPreviewVisible) {
-        return 'Generate a script preview';
-      }
-      return 'Finalize Script Selection (click "Use This Script")';
-    } else if (scriptOption === 'custom') {
-      return 'Save your custom script';
-    } else if (scriptOption === 'ai_remake') {
-      return 'Generate a script';
-    } else {
-      return 'Provide a script';
-    }
-  };
-
-  // Log state for debugging
   console.log('GenerateVideo component - Button enabled:', {
     isFormComplete,
     hasCredits,
@@ -84,6 +67,19 @@ const GenerateVideo: React.FC<GenerateVideoProps> = ({
     isScriptPreviewVisible,
     isScriptSelected
   });
+
+  // Script requirements text based on script option
+  const getScriptRequirementLabel = () => {
+    if (scriptOption === 'ai_find' || scriptOption === 'ig_reel' || scriptOption === 'script_from_prompt') {
+      return 'Finalize Script Selection (click "Use This Script")';
+    } else if (scriptOption === 'custom') {
+      return 'Save your custom script';
+    } else if (scriptOption === 'ai_remake') {
+      return 'Generate a script';
+    } else {
+      return 'Provide a script';
+    }
+  };
 
   // Updated requirements for visual checklist
   const remainingTasks = [

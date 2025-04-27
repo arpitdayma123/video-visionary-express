@@ -55,7 +55,7 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
   // Effect: inform parent when preview visibility changes
   useEffect(() => {
     if (
-      (scriptOption === 'ai_find' || scriptOption === 'ig_reel' || scriptOption === 'script_from_prompt') &&
+      (scriptOption === 'ai_find' || scriptOption === 'ig_reel') &&
       typeof onScriptPreviewVisible === 'function'
     ) {
       onScriptPreviewVisible(isPreviewVisible, latestPreviewScript);
@@ -100,40 +100,10 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
     setIsUnderMinimumLimit(words > 0 && words < MIN_WORDS);
   }, [customScript]);
 
-  // Script option change handler with proper reset
-  const handleScriptOptionChangeWithReset = async (value: string) => {
+  const handleScriptOptionChange = async (value: string) => {
     try {
-      // First update the database
       await updateProfile({ script_option: value });
-      
-      console.log('ScriptSelection - Script option changing to:', value);
-      
-      // Then reset all related state
       setScriptOption(value);
-      setIsPreviewVisible(false);
-      setLatestPreviewScript('');
-      setHasFinalizedScript(false);
-      setWebhookError(null);
-      
-      // Reset UI state based on the new option
-      if (value === 'custom') {
-        setShowCustomEditor(true);
-        // For custom script, notify parent about preview visibility
-        if (typeof onScriptPreviewVisible === 'function') {
-          onScriptPreviewVisible(true, customScript);
-        }
-      } else if (value === 'ai_remake') {
-        setShowCustomEditor(true);
-        setIsPreviewVisible(true);
-      } else {
-        setShowCustomEditor(false);
-        setIsPreviewVisible(false);
-        // For AI options, notify parent about preview visibility (hidden)
-        if (typeof onScriptPreviewVisible === 'function') {
-          onScriptPreviewVisible(false, '');
-        }
-      }
-      
     } catch (error) {
       console.error('Error updating script option:', error);
       toast({
@@ -233,9 +203,9 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
     e.stopPropagation();
   };
 
-  // Improved script loaded handler with logging
+  // Modified to handle script loaded properly
   const handleScriptLoaded = (scriptValue?: string) => {
-    console.log('ScriptSelection - Script loaded for option:', scriptOption, 'script value:', !!scriptValue);
+    console.log('ScriptSelection - Script loaded for option:', scriptOption);
     
     // Only hide custom editor for non-custom options
     if (scriptOption !== 'custom') {
@@ -291,15 +261,42 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
     }
   };
 
-  console.log('ScriptSelection render:', {
-    scriptOption,
-    isPreviewVisible,
-    showCustomEditor,
-    hasScript: !!latestPreviewScript
-  });
+  // Script option change handler with proper reset
+  const handleScriptOptionChangeWithReset = async (value: string) => {
+    try {
+      // First update the database
+      await updateProfile({ script_option: value });
+      
+      // Then reset all related state
+      setScriptOption(value);
+      setIsPreviewVisible(false);
+      setLatestPreviewScript('');
+      setHasFinalizedScript(false);
+      setWebhookError(null);
+      
+      // Reset UI state based on the new option
+      if (value === 'custom') {
+        setShowCustomEditor(true);
+      } else if (value === 'ai_remake') {
+        setShowCustomEditor(true);
+        setIsPreviewVisible(true);
+      } else {
+        setShowCustomEditor(false);
+        setIsPreviewVisible(false);
+      }
+      
+    } catch (error) {
+      console.error('Error updating script option:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update script option. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
 
   return (
-    <ScriptSelectionWrapper handlePreventPropagation={handlePreventPropagation}>
+    <ScriptSelectionWrapper handlePreventPropagation={(e) => e.stopPropagation()}>
       <ScriptSectionHeader />
 
       <ScriptOptions
@@ -343,7 +340,6 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
 
       {scriptOption !== 'custom' && (
         <ScriptPreview
-          key={scriptOption} /* Force re-render on option change */
           scriptOption={scriptOption}
           onUseScript={handleScriptConfirmedLocal}
           onScriptLoaded={handleScriptLoaded}
