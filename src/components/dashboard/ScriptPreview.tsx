@@ -46,7 +46,7 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
     setWebhookError: setPreviewWebhookError,
   } = useScriptPreview(user, onUseScript, scriptOption);
 
-  // Comprehensive reset when script option changes
+  // Enhanced reset when script option changes
   useEffect(() => {
     console.log('ScriptPreview - Script option changed to:', scriptOption);
     // Reset UI state
@@ -54,28 +54,37 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
     setWaitTimeExpired(false);
     setHasUsedScript(false);
     
-    // Force visibility based on script option
+    // Force visibility based on script option - always hide preview when switching options
+    // Only ai_remake should show preview immediately
     setIsPreviewVisible(scriptOption === 'ai_remake');
     
     // Reset error state
     if (setWebhookError) setWebhookError(null);
-  }, [scriptOption, setIsPreviewVisible, setWebhookError]);
+    
+    // Force reset any script content in the parent
+    if (onScriptLoaded) onScriptLoaded('');
+    
+    // Reset the preview state in the database
+    if (user) {
+      supabase
+        .from('profiles')
+        .update({ 
+          preview: null, 
+          previewscript: null 
+        })
+        .eq('id', user.id)
+        .then(({ error }) => {
+          if (error) {
+            console.error('Failed to reset preview state:', error);
+          }
+        });
+    }
+  }, [scriptOption, setIsPreviewVisible, setWebhookError, user, onScriptLoaded]);
 
   // Propagate webhook errors up to parent if needed
   useEffect(() => {
     if (setWebhookError) setWebhookError(previewError ?? null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [previewError, setWebhookError]);
-
-  // Set initial visibility based on script option
-  useEffect(() => {
-    setIsPreviewVisible(scriptOption === 'ai_remake');
-    setHasUsedScript(false);
-    console.log('ScriptPreview - Initial visibility set:', { 
-      scriptOption, 
-      isVisible: scriptOption === 'ai_remake'
-    });
-  }, [scriptOption, setIsPreviewVisible]);
 
   const handleUseScript = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -106,7 +115,7 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
     }
   }, [isLoading, script, onScriptLoaded, setIsPreviewVisible]);
 
-  const showUseScriptButton = scriptOption === 'ai_find' || scriptOption === 'ig_reel';
+  const showUseScriptButton = scriptOption === 'ai_find' || scriptOption === 'ig_reel' || scriptOption === 'script_from_prompt';
 
   // Fixed handler to prevent double webhook calls
   const handleGeneratePreviewClick = async (e: React.MouseEvent) => {
@@ -120,53 +129,59 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
     handleGeneratePreview();
   };
 
-  return (
-    scriptOption === 'ai_remake'
-      ? (
-        <div onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
-          <ScriptPreviewContent
-            isLoading={isLoading}
-            script={script}
-            wordCount={wordCount}
-            onScriptChange={handleScriptChange}
-            onRegenerateScript={handleRegenerateScript}
-          />
-        </div>
-      ) : 
-      (!isPreviewVisible ? (
-        <div onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
-          <GeneratePreviewButton
-            isLoading={isLoading}
-            onGenerate={handleGeneratePreviewClick}
-            scriptOption={scriptOption}
-            generationStartTime={generationStartTime}
-            waitTimeExpired={waitTimeExpired}
-          />
-        </div>
-      ) : (
-        <div onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
-          <ScriptPreviewContent
-            isLoading={isLoading}
-            script={script}
-            wordCount={wordCount}
-            onScriptChange={handleScriptChange}
-            onRegenerateScript={handleRegenerateWithSave}
-            showChangeScript={scriptOption === 'ai_find'}
-            onChangeScript={
-              scriptOption === 'ai_find'
-                ? (e) => { e.preventDefault(); e.stopPropagation(); handleChangeScript(); }
-                : undefined
-            }
-            showUseScriptButton={showUseScriptButton}
-            onUseScript={
-              (scriptOption === 'ai_find' || scriptOption === 'ig_reel')
-                ? handleUseScript
-                : undefined
-            }
-            useScriptDisabled={false}
-          />
-        </div>
-      ))
+  // Log the current state for debugging
+  console.log('ScriptPreview render:', {
+    scriptOption,
+    isPreviewVisible,
+    isLoading,
+    hasScript: !!script
+  });
+
+  // For ai_remake, always show content immediately
+  if (scriptOption === 'ai_remake') {
+    return (
+      <div onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
+        <ScriptPreviewContent
+          isLoading={isLoading}
+          script={script}
+          wordCount={wordCount}
+          onScriptChange={handleScriptChange}
+          onRegenerateScript={handleRegenerateScript}
+        />
+      </div>
+    );
+  }
+  
+  // For other options, show button first, then preview after generation
+  return !isPreviewVisible ? (
+    <div onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
+      <GeneratePreviewButton
+        isLoading={isLoading}
+        onGenerate={handleGeneratePreviewClick}
+        scriptOption={scriptOption}
+        generationStartTime={generationStartTime}
+        waitTimeExpired={waitTimeExpired}
+      />
+    </div>
+  ) : (
+    <div onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
+      <ScriptPreviewContent
+        isLoading={isLoading}
+        script={script}
+        wordCount={wordCount}
+        onScriptChange={handleScriptChange}
+        onRegenerateScript={handleRegenerateWithSave}
+        showChangeScript={scriptOption === 'ai_find'}
+        onChangeScript={
+          scriptOption === 'ai_find'
+            ? (e) => { e.preventDefault(); e.stopPropagation(); handleChangeScript(); }
+            : undefined
+        }
+        showUseScriptButton={showUseScriptButton}
+        onUseScript={handleUseScript}
+        useScriptDisabled={false}
+      />
+    </div>
   );
 };
 
