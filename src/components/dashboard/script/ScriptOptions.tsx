@@ -49,6 +49,14 @@ const ScriptOptions: React.FC<ScriptOptionsProps> = ({
           <p className="text-sm text-muted-foreground">Provide an Instagram reel URL to recreate its content</p>
         </div>
       </div>
+
+      <div className="flex items-start space-x-2">
+        <RadioGroupItem value="script_from_prompt" id="script_from_prompt" />
+        <div className="grid gap-1.5">
+          <Label htmlFor="script_from_prompt" className="font-medium">Script from Prompt</Label>
+          <p className="text-sm text-muted-foreground">Simply type a topic, idea, or keywords, and our AI will instantly generate a customized viral script for you</p>
+        </div>
+      </div>
     </RadioGroup>
   );
 };

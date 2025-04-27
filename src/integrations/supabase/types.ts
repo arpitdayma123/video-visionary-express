@@ -100,6 +100,7 @@ export type Database = {
           selected_voice: Json | null
           status: string | null
           updated_at: string | null
+          user_query: string | null
           videos: Json[] | null
           voice_files: Json[] | null
         }
@@ -125,6 +126,7 @@ export type Database = {
           selected_voice?: Json | null
           status?: string | null
           updated_at?: string | null
+          user_query?: string | null
           videos?: Json[] | null
           voice_files?: Json[] | null
         }
@@ -150,6 +152,7 @@ export type Database = {
           selected_voice?: Json | null
           status?: string | null
           updated_at?: string | null
+          user_query?: string | null
           videos?: Json[] | null
           voice_files?: Json[] | null
         }

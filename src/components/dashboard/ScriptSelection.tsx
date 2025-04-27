@@ -7,6 +7,7 @@ import ScriptPreview from './ScriptPreview';
 import ScriptSelectionWrapper from './ScriptSelectionWrapper';
 import ScriptSectionHeader from './script/ScriptSectionHeader';
 import ScriptWebhookError from './script/ScriptWebhookError';
+import PromptSection from './script/PromptSection';
 
 interface ScriptSelectionProps {
   scriptOption: string;
@@ -48,6 +49,8 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
 
   // [ADD] State hook for webhook error
   const [webhookError, setWebhookError] = useState<string | null>(null);
+
+  const [userQuery, setUserQuery] = useState('');
 
   // Effect: inform parent when preview visibility changes (for ai_find, ig_reel only)
   useEffect(() => {
@@ -223,6 +226,22 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
     setWebhookError(err ?? null);
   };
 
+  const handleUserQueryChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const query = e.target.value;
+    setUserQuery(query);
+    
+    try {
+      await updateProfile({ user_query: query });
+    } catch (error) {
+      console.error('Error saving user query:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save your query. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
   // Pass-through callback: set error state from ScriptPreview hook results
   const ScriptPreviewWithWebhookError = (props: any) => (
     <ScriptPreview {...props} onWebhookError={handleScriptPreviewError} />
@@ -260,6 +279,14 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
           isValidReelUrl={isValidReelUrl}
           isSaving={isSaving}
           onReelUrlChange={handleReelUrlChange}
+        />
+      )}
+
+      {scriptOption === 'script_from_prompt' && (
+        <PromptSection
+          userQuery={userQuery}
+          onQueryChange={handleUserQueryChange}
+          isSaving={isSaving}
         />
       )}
 

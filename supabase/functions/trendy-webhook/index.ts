@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
 
@@ -28,8 +27,9 @@ serve(async (req) => {
     const userId = url.searchParams.get('userId');
     const scriptOption = url.searchParams.get('scriptOption');
     const customScript = url.searchParams.get('customScript');
+    const userQuery = url.searchParams.get('user_query'); // Add this line
     
-    console.log(`Request received for user ${userId}, script option: ${scriptOption}`);
+    console.log(`Request received for user ${userId}, script option: ${scriptOption}, query: ${userQuery}`);
 
     if (!userId) {
       return new Response(
@@ -66,7 +66,8 @@ serve(async (req) => {
     const paramsToForward = new URLSearchParams({
       userId,
       scriptOption: scriptOption || 'ai_find',
-      customScript: customScript || ''
+      customScript: customScript || '',
+      user_query: userQuery || '' // Add this line
     });
 
     // Try to call the primary webhook first
