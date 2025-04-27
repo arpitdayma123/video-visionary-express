@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -7,9 +6,10 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Label } from '@/components/ui/label';
-import { Mail, Lock, Loader2, AlertCircle } from 'lucide-react';
+import { Mail, Lock, Loader2 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { AlertTriangle } from 'lucide-react';
 
 type AuthMode = 'sign-in' | 'sign-up';
 
@@ -25,8 +25,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onSignUp }) => {
   const [loading, setLoading] = useState(false);
   const [socialLoading, setSocialLoading] = useState<string | null>(null);
   const [mode, setMode] = useState<AuthMode>('sign-in');
-  const [emailSent, setEmailSent] = useState(false);
-  
+
   const validateInputs = () => {
     if (!email || !email.includes('@')) {
       toast({
@@ -49,50 +48,16 @@ const AuthForm: React.FC<AuthFormProps> = ({ onSignUp }) => {
     return true;
   };
 
-  const checkEmailExists = async (email: string) => {
-    try {
-      const { data, error } = await supabase.auth.signInWithOtp({
-        email,
-        options: {
-          shouldCreateUser: false,
-        }
-      });
-      
-      // If there's no error with code "user_not_found", the email exists
-      if (error && error.message.includes('user not found')) {
-        return false; // Email doesn't exist
-      }
-      return true; // Email exists
-    } catch (error) {
-      console.error('Error checking email:', error);
-      return false; // Assume email doesn't exist on error
-    }
-  };
-
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!validateInputs()) return;
     
     setLoading(true);
-    setEmailSent(false);
 
     try {
       if (mode === 'sign-up') {
         console.log('Attempting to sign up with:', { email, name });
-        
-        // Check if the email already exists
-        const emailExists = await checkEmailExists(email);
-        if (emailExists) {
-          toast({
-            title: "Email already registered",
-            description: "This email is already registered. Please sign in instead.",
-            variant: "destructive",
-          });
-          setMode('sign-in');
-          setLoading(false);
-          return;
-        }
         
         const { data, error } = await supabase.auth.signUp({
           email,
@@ -113,7 +78,6 @@ const AuthForm: React.FC<AuthFormProps> = ({ onSignUp }) => {
           await onSignUp(email, name);
         }
 
-        setEmailSent(true);
         toast({
           title: "Account created",
           description: "Please check your email to verify your account.",
@@ -143,7 +107,6 @@ const AuthForm: React.FC<AuthFormProps> = ({ onSignUp }) => {
       // Provide more user-friendly error messages for common errors
       if (errorMessage.includes('User already registered')) {
         errorMessage = "This email is already registered. Please sign in instead.";
-        setMode('sign-in');
       } else if (errorMessage.includes('Invalid login credentials')) {
         errorMessage = "Invalid email or password. Please try again.";
       }
@@ -182,7 +145,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onSignUp }) => {
       
       toast({
         title: "Authentication error",
-        description: error.message || "An error occurred during authentication.",
+        description: error.message || "An occurred during authentication.",
         variant: "destructive",
       });
       setSocialLoading(null);
@@ -305,16 +268,6 @@ const AuthForm: React.FC<AuthFormProps> = ({ onSignUp }) => {
           </CardHeader>
           <form onSubmit={handleAuth}>
             <CardContent className="space-y-4">
-              {emailSent && (
-                <Alert className="bg-green-50 border-green-200">
-                  <AlertCircle className="h-4 w-4 text-green-600" />
-                  <AlertDescription className="text-green-700">
-                    Verification email sent! Please check your inbox and click the link to verify your account.
-                    If you don't see the email, check your spam folder.
-                  </AlertDescription>
-                </Alert>
-              )}
-            
               <div className="space-y-2">
                 <Label htmlFor="name">Full Name (Optional)</Label>
                 <div className="relative">
