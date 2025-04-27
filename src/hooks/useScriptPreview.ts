@@ -29,9 +29,9 @@ export const useScriptPreview = (
     setIsLoading
   );
 
-  // Enhanced reset state when script option changes
+  // Force a complete reset when script option changes
   useEffect(() => {
-    console.log('Script option changed, resetting state:', scriptOption);
+    console.log('useScriptPreview - Script option changed, resetting state:', scriptOption);
     // Always reset script state to empty when changing options
     setScript('');
     setWordCount(0);
@@ -66,7 +66,7 @@ export const useScriptPreview = (
           }
         });
     }
-  }, [scriptOption, user]);
+  }, [scriptOption, user, pollingInterval]);
 
   // Use AI Remake hook if that option is selected
   const aiRemake = useAiRemake(user, onScriptGenerated);
@@ -83,6 +83,11 @@ export const useScriptPreview = (
   }
 
   function handleScriptGenerated(newScript: string) {
+    if (!newScript) {
+      console.log('useScriptPreview - Empty script received, not updating preview');
+      return;
+    }
+    
     setWebhookError(null); // clear errors on successful script
     setScript(newScript);
     setWordCount(updateWordCount(newScript));
@@ -100,8 +105,13 @@ export const useScriptPreview = (
     }
   };
 
+  // Fixed handleGeneratePreview to properly reset state
   const handleGeneratePreview = async () => {
     if (!user) return;
+    
+    // Reset any previous script and visibility state
+    setScript('');
+    setWordCount(0);
     setIsLoading(true);
     setWebhookError(null);
     
@@ -153,7 +163,9 @@ export const useScriptPreview = (
         setWebhookError(null);
       }
 
-      setIsPreviewVisible(true);
+      // Don't set preview visible until script is actually loaded via polling
+      // setIsPreviewVisible(true); 
+      
       if (pollingInterval.current) {
         clearInterval(pollingInterval.current);
       }
@@ -170,6 +182,7 @@ export const useScriptPreview = (
     }
   };
 
+  // Fixed handleRegenerateScript to properly reset state and save current script
   const handleRegenerateScript = async () => {
     if (!user) return;
     
@@ -189,7 +202,11 @@ export const useScriptPreview = (
       }
     }
     
+    // Reset the script content and word count
+    setScript('');
+    setWordCount(0);
     setIsLoading(true);
+    
     try {
       const { error } = await supabase
         .from('profiles')
@@ -228,8 +245,9 @@ export const useScriptPreview = (
         setWebhookError(null);
       }
 
-      setIsPreviewVisible(true);
-
+      // Keep preview visible during regeneration
+      // Only show preview after script is loaded via polling
+      
       if (pollingInterval.current) {
         clearInterval(pollingInterval.current);
       }
@@ -248,6 +266,9 @@ export const useScriptPreview = (
 
   const handleChangeScript = async () => {
     if (!user) return;
+    // Reset the script content and word count
+    setScript('');
+    setWordCount(0);
     setIsLoading(true);
 
     try {
@@ -288,7 +309,7 @@ export const useScriptPreview = (
         setWebhookError(null);
       }
 
-      setIsPreviewVisible(true);
+      // Keep preview visible during script change
 
       if (pollingInterval.current) {
         clearInterval(pollingInterval.current);
