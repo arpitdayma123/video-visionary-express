@@ -14,6 +14,7 @@ const Auth = () => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [showResendAlert, setShowResendAlert] = useState(false);
+  const [email, setEmail] = useState(''); // Add email state
 
   // Function to add user to Resend audience
   const addUserToResendAudience = async (email: string, name?: string) => {
@@ -193,7 +194,16 @@ const Auth = () => {
     };
   }, [navigate, toast]);
 
-  const handleResendEmail = async (email: string) => {
+  const handleResendEmail = async () => {
+    if (!email) {
+      toast({
+        title: "Email Required",
+        description: "Please provide an email address to resend verification.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       setLoading(true);
       const { error } = await supabase.auth.resend({
@@ -209,7 +219,6 @@ const Auth = () => {
         title: "Email sent",
         description: "Please check your inbox for the verification link.",
       });
-      setShowResendAlert(true);
     } catch (error: any) {
       console.error('Error resending email:', error);
       toast({
@@ -240,29 +249,33 @@ const Auth = () => {
               </Alert>
             )}
             
-            <AuthForm onSignUp={async (email, name) => {
-              console.log("Sign-up callback triggered for:", email);
-              // Add new user to Resend audience on sign up
-              try {
-                console.log("Adding new signup user to Resend audience:", email);
-                await addUserToResendAudience(email, name);
-              } catch (e) {
-                console.error("Failed to add new signup user to audience:", e);
-              }
-              
-              try {
-                await sendWelcomeEmail(email, name);
-                console.log('Welcome email sent to:', email);
-              } catch (error) {
-                console.error('Failed to send welcome email:', error);
-                // Continue with sign-up flow even if email fails
-              }
-              
-              // Show option to resend email after a delay
-              setTimeout(() => {
-                setShowResendAlert(true);
-              }, 10000);
-            }} />
+            <AuthForm 
+              onSignUp={async (signUpEmail, name) => {
+                // Update email state when sign up occurs
+                setEmail(signUpEmail);
+                console.log("Sign-up callback triggered for:", signUpEmail);
+                // Add new user to Resend audience on sign up
+                try {
+                  console.log("Adding new signup user to Resend audience:", signUpEmail);
+                  await addUserToResendAudience(signUpEmail, name);
+                } catch (e) {
+                  console.error("Failed to add new signup user to audience:", e);
+                }
+                
+                try {
+                  await sendWelcomeEmail(signUpEmail, name);
+                  console.log('Welcome email sent to:', signUpEmail);
+                } catch (error) {
+                  console.error('Failed to send welcome email:', error);
+                  // Continue with sign-up flow even if email fails
+                }
+                
+                // Show option to resend email after a delay
+                setTimeout(() => {
+                  setShowResendAlert(true);
+                }, 10000);
+              }} 
+            />
 
             {showResendAlert && (
               <div className="mt-4 text-center">
@@ -270,7 +283,7 @@ const Auth = () => {
                 <Button 
                   variant="outline" 
                   size="sm"
-                  onClick={() => handleResendEmail(email)}
+                  onClick={handleResendEmail}
                   disabled={loading}
                 >
                   {loading ? (
