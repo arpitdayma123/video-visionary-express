@@ -76,6 +76,7 @@ export const useScriptPreview = (
 
       if (error) throw error;
 
+      // Main webhook call - consolidated to avoid duplicate calls
       const webhookResponse = await fetch(
         `${SCRIPT_FIND_WEBHOOK}?userId=${user.id}&regenerate=false`,
         {

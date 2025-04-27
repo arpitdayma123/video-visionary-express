@@ -40,7 +40,7 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
     isPreviewVisible,
     setIsPreviewVisible,
     handleScriptChange,
-    handleGeneratePreview: originalHandleGeneratePreview,
+    handleGeneratePreview,
     handleRegenerateScript,
     handleChangeScript,
     webhookError: previewError,
@@ -102,75 +102,16 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
 
   const showUseScriptButton = scriptOption === 'ai_find' || scriptOption === 'ig_reel';
 
-  // Enhanced version of handleGeneratePreview that handles the Instagram username error
-  const handleGeneratePreview = async (e: React.MouseEvent) => {
+  // Fixed handler to prevent double webhook calls
+  const handleGeneratePreviewClick = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (!user) return;
-    setIsLoading(true);
-    try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({ preview: 'generating' })
-        .eq('id', user.id);
-
-      if (error) throw error;
-
-      const webhookResponse = await fetch(
-        `https://n8n.latestfreegames.online/webhook/scriptfind?userId=${user.id}&regenerate=false`,
-        {
-          method: 'GET',
-          headers: {
-            'Accept': 'application/json',
-            'Cache-Control': 'no-cache'
-          }
-        }
-      );
-
-      let responseJson: any = null;
-      try {
-        responseJson = await webhookResponse.clone().json();
-      } catch { /* ignore */ }
-
-      // Check for the specific error message and reset UI state
-      if (responseJson?.error && responseJson.error.includes("The Instagram username you entered either does not provide valuable content")) {
-        setIsLoading(false);
-        setIsPreviewVisible(false);
-        setWebhookError?.(responseJson.error);
-        toast({
-          title: "Content Error",
-          description: "Please update your Instagram competitors and try again.",
-          variant: "destructive"
-        });
-        return;
-      }
-
-      if (responseJson && responseJson.error) {
-        setIsLoading(false);
-        setWebhookError?.(responseJson.error);
-        setIsPreviewVisible(false);
-        toast({
-          title: "Script generation error",
-          description: responseJson.error,
-          variant: "destructive"
-        });
-        return;
-      } else {
-        setWebhookError?.(null);
-      }
-
-      // Call the original handler for further processing if no special error
-      originalHandleGeneratePreview();
-      
-    } catch (error) {
-      setIsLoading(false);
-      setWebhookError?.("Failed to start preview generation. Please try again.");
-      toast({
-        title: "Error",
-        description: "Failed to start preview generation. Please try again.",
-        variant: "destructive"
-      });
-    }
+    setGenerationStartTime(Date.now());
+    setWaitTimeExpired(false);
+    
+    // Simply call the handler from useScriptPreview hook
+    // which will handle the webhook call properly
+    handleGeneratePreview();
   };
 
   return (
@@ -190,13 +131,7 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
         <div onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
           <GeneratePreviewButton
             isLoading={isLoading}
-            onGenerate={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              setGenerationStartTime(Date.now());
-              setWaitTimeExpired(false);
-              handleGeneratePreview(e);
-            }}
+            onGenerate={handleGeneratePreviewClick}
             scriptOption={scriptOption}
             generationStartTime={generationStartTime}
             waitTimeExpired={waitTimeExpired}

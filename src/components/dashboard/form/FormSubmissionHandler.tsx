@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { UploadedFile } from '@/hooks/useDashboardData';
@@ -21,6 +22,7 @@ interface FormSubmissionHandlerProps {
   setUserStatus: (status: string) => void;
   updateProfile: (updates: any) => Promise<void>;
   saveScriptForGeneration: () => Promise<boolean>;
+  userQuery?: string; // Add this line for the user query
 }
 
 const FormSubmissionHandler = ({
@@ -41,7 +43,8 @@ const FormSubmissionHandler = ({
   userStatus,
   setUserStatus,
   updateProfile,
-  saveScriptForGeneration
+  saveScriptForGeneration,
+  userQuery = '' // Add default value
 }: FormSubmissionHandlerProps) => {
   const { toast } = useToast();
 
@@ -84,7 +87,7 @@ const FormSubmissionHandler = ({
 
     // For all scriptOptions, fetch script for webhook from "previewScriptContent" (ai_find, ig_reel) or "customScript"
     const scriptForWebhook =
-      (scriptOption === "ai_find" || scriptOption === "ig_reel")
+      (scriptOption === "ai_find" || scriptOption === "ig_reel" || scriptOption === "script_from_prompt")
         ? previewScriptContent
         : customScript;
 
@@ -106,8 +109,8 @@ const FormSubmissionHandler = ({
       return;
     }
 
-    // Check if script has been selected and preview is visible for ai_find/ig_reel
-    const scriptReady = (scriptOption === 'ai_find' || scriptOption === 'ig_reel') 
+    // Check if script has been selected and preview is visible for ai_find/ig_reel/script_from_prompt
+    const scriptReady = (scriptOption === 'ai_find' || scriptOption === 'ig_reel' || scriptOption === 'script_from_prompt') 
       ? (hasFinalizedPreviewScript)
       : !!customScript;
       
@@ -149,6 +152,16 @@ const FormSubmissionHandler = ({
       });
       return;
     }
+
+    // Special validation for script_from_prompt option
+    if (scriptOption === 'script_from_prompt' && !userQuery) {
+      toast({
+        title: "Missing Topic/Prompt",
+        description: "Please provide a topic, idea, or keywords to proceed.",
+        variant: "destructive"
+      });
+      return;
+    }
     
     // Save the script to finalscript right before sending webhook
     const savedOk = await saveScriptForGeneration();
@@ -164,8 +177,12 @@ const FormSubmissionHandler = ({
         userId: userId,
         scriptOption: scriptOption,
         customScript: scriptForWebhook, // Always send current script content
-        reelUrl: scriptOption === 'ig_reel' ? reelUrl : ''
+        user_query: userQuery || '' // Include the user query parameter
       });
+
+      if (scriptOption === 'ig_reel') {
+        params.append('reelUrl', reelUrl);
+      }
 
       const webhookUrl = `https://primary-production-ce25.up.railway.app/webhook/trendy?${params.toString()}`;
       console.log(`Sending webhook request to: ${webhookUrl} (will retry if fails)`);
