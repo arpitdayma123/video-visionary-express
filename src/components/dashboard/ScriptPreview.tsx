@@ -78,19 +78,10 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
   const handleRegenerateWithSave = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (
-      (scriptOption === 'ai_find' || scriptOption === 'ig_reel') &&
-      user &&
-      script
-    ) {
-      try {
-        await saveFinalScript(user, script);
-      } catch (error) {
-        toast({ title: "Error", description: "Failed to save current script before regenerating.", variant: "destructive" });
-      }
-      setHasUsedScript(false);
-    }
+    // We no longer need to check script option here since handleRegenerateScript now
+    // automatically saves the current script for all script options
     handleRegenerateScript();
+    setHasUsedScript(false);
   };
 
   useEffect(() => {

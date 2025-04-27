@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { User } from '@supabase/supabase-js';
 import { useToast } from '@/hooks/use-toast';
@@ -135,10 +136,15 @@ export const useScriptPreview = (
 
   const handleRegenerateScript = async () => {
     if (!user) return;
-    if ((scriptOption === 'ai_find' || scriptOption === 'ig_reel') && script) {
+    
+    // First, save the current script to finalscript column if script exists
+    // This applies for all script options, including script_from_prompt
+    if (script) {
       try {
+        console.log(`Saving current script to finalscript before regeneration. Script option: ${scriptOption}`);
         await saveFinalScript(user, script);
       } catch (error) {
+        console.error('Error saving finalscript before regenerating:', error);
         toast({
           title: "Error",
           description: "Failed to save the current script before regenerating.",
@@ -146,6 +152,7 @@ export const useScriptPreview = (
         });
       }
     }
+    
     setIsLoading(true);
     try {
       const { error } = await supabase

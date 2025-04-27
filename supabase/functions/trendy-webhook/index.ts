@@ -68,7 +68,7 @@ serve(async (req) => {
       userId,
       scriptOption: scriptOption || 'ai_find',
       customScript: customScript || '',
-      user_query: userQuery || '' // Add this line
+      user_query: userQuery || '' // Make sure we forward the user_query
     });
 
     // Try to call the primary webhook first
