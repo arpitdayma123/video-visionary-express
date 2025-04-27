@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useScriptPreview } from '@/hooks/useScriptPreview';
@@ -30,6 +29,7 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
   const [generationStartTime, setGenerationStartTime] = useState<number | null>(null);
   const [waitTimeExpired, setWaitTimeExpired] = useState(false);
   const [hasUsedScript, setHasUsedScript] = useState(false);
+  const [previousScriptOption, setPreviousScriptOption] = useState<string>(scriptOption);
 
   const {
     isLoading,
@@ -46,40 +46,46 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
     setWebhookError: setPreviewWebhookError,
   } = useScriptPreview(user, onUseScript, scriptOption);
 
-  // Enhanced reset when script option changes
+  // Only reset when the script option actually changes
   useEffect(() => {
-    console.log('ScriptPreview - Script option changed to:', scriptOption);
-    // Reset UI state
-    setGenerationStartTime(null);
-    setWaitTimeExpired(false);
-    setHasUsedScript(false);
-    
-    // Force visibility based on script option - always hide preview when switching options
-    // Only ai_remake should show preview immediately
-    setIsPreviewVisible(scriptOption === 'ai_remake');
-    
-    // Reset error state
-    if (setWebhookError) setWebhookError(null);
-    
-    // Force reset any script content in the parent
-    if (onScriptLoaded) onScriptLoaded('');
-    
-    // Reset the preview state in the database
-    if (user) {
-      supabase
-        .from('profiles')
-        .update({ 
-          preview: null, 
-          previewscript: null 
-        })
-        .eq('id', user.id)
-        .then(({ error }) => {
-          if (error) {
-            console.error('Failed to reset preview state:', error);
-          }
-        });
+    if (previousScriptOption !== scriptOption) {
+      console.log('ScriptPreview - Script option changed from:', previousScriptOption, 'to:', scriptOption);
+      
+      // Reset UI state
+      setGenerationStartTime(null);
+      setWaitTimeExpired(false);
+      setHasUsedScript(false);
+      
+      // Force visibility based on script option - always hide preview when switching options
+      // Only ai_remake should show preview immediately
+      setIsPreviewVisible(scriptOption === 'ai_remake');
+      
+      // Reset error state
+      if (setWebhookError) setWebhookError(null);
+      
+      // Force reset any script content in the parent
+      if (onScriptLoaded) onScriptLoaded('');
+      
+      // Reset the preview state in the database
+      if (user) {
+        supabase
+          .from('profiles')
+          .update({ 
+            preview: null, 
+            previewscript: null 
+          })
+          .eq('id', user.id)
+          .then(({ error }) => {
+            if (error) {
+              console.error('Failed to reset preview state:', error);
+            }
+          });
+      }
+      
+      // Update the previous script option
+      setPreviousScriptOption(scriptOption);
     }
-  }, [scriptOption, setIsPreviewVisible, setWebhookError, user, onScriptLoaded]);
+  }, [scriptOption, setIsPreviewVisible, setWebhookError, user, onScriptLoaded, previousScriptOption]);
 
   // Propagate webhook errors up to parent if needed
   useEffect(() => {
@@ -132,6 +138,7 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
   // Log the current state for debugging
   console.log('ScriptPreview render:', {
     scriptOption,
+    previousScriptOption,
     isPreviewVisible,
     isLoading,
     hasScript: !!script

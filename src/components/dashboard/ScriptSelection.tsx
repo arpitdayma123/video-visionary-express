@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import ScriptOptions from './script/ScriptOptions';
 import CustomScriptSection from './script/CustomScriptSection';
@@ -51,6 +51,9 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
   const [webhookError, setWebhookError] = useState<string | null>(null);
 
   const [userQuery, setUserQuery] = useState('');
+  
+  // Track previous script option to detect real changes
+  const previousScriptOptionRef = useRef(scriptOption);
 
   // Effect: inform parent when preview visibility changes
   useEffect(() => {
@@ -66,31 +69,36 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isPreviewVisible, latestPreviewScript, scriptOption, customScript, onScriptPreviewVisible]);
 
-  // Enhanced reset when switching script options
+  // Enhanced reset when switching script options (only when option actually changes)
   useEffect(() => {
-    console.log('ScriptSelection - Script option changed to:', scriptOption);
-    
-    // Reset preview state for AI-generated script options
-    if (scriptOption === 'ai_find' || scriptOption === 'ig_reel' || scriptOption === 'script_from_prompt') {
-      setIsPreviewVisible(false);
-      setLatestPreviewScript('');
-      setHasFinalizedScript(false);
+    if (previousScriptOptionRef.current !== scriptOption) {
+      console.log('ScriptSelection - Script option changed from:', previousScriptOptionRef.current, 'to:', scriptOption);
       
-      if (typeof onScriptPreviewVisible === 'function') {
-        onScriptPreviewVisible(false, '');
+      // Reset preview state for AI-generated script options
+      if (scriptOption === 'ai_find' || scriptOption === 'ig_reel' || scriptOption === 'script_from_prompt') {
+        setIsPreviewVisible(false);
+        setLatestPreviewScript('');
+        setHasFinalizedScript(false);
+        
+        if (typeof onScriptPreviewVisible === 'function') {
+          onScriptPreviewVisible(false, '');
+        }
+      } else if (scriptOption === 'custom') {
+        // For custom script, always make form visible
+        if (typeof onScriptPreviewVisible === 'function') {
+          onScriptPreviewVisible(true, customScript);
+        }
       }
-    } else if (scriptOption === 'custom') {
-      // For custom script, always make form visible
-      if (typeof onScriptPreviewVisible === 'function') {
-        onScriptPreviewVisible(true, customScript);
-      }
+      
+      // Reset webhook errors
+      setWebhookError(null);
+      
+      // Configure custom editor visibility based on script option
+      setShowCustomEditor(scriptOption === 'custom' || scriptOption === 'ai_remake');
+      
+      // Update reference
+      previousScriptOptionRef.current = scriptOption;
     }
-    
-    // Reset webhook errors
-    setWebhookError(null);
-    
-    // Configure custom editor visibility based on script option
-    setShowCustomEditor(scriptOption === 'custom' || scriptOption === 'ai_remake');
   }, [scriptOption, onScriptPreviewVisible, customScript]);
 
   useEffect(() => {
@@ -102,6 +110,11 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
 
   // Script option change handler with proper reset
   const handleScriptOptionChangeWithReset = async (value: string) => {
+    if (value === scriptOption) {
+      console.log('ScriptSelection - Script option unchanged:', value);
+      return; // Don't do anything if option is the same
+    }
+    
     try {
       // First update the database
       await updateProfile({ script_option: value });
@@ -133,6 +146,9 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
           onScriptPreviewVisible(false, '');
         }
       }
+      
+      // Update reference immediately to prevent double resets
+      previousScriptOptionRef.current = value;
       
     } catch (error) {
       console.error('Error updating script option:', error);
@@ -293,6 +309,7 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
 
   console.log('ScriptSelection render:', {
     scriptOption,
+    previousScriptOption: previousScriptOptionRef.current,
     isPreviewVisible,
     showCustomEditor,
     hasScript: !!latestPreviewScript
@@ -343,7 +360,7 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
 
       {scriptOption !== 'custom' && (
         <ScriptPreview
-          key={scriptOption} /* Force re-render on option change */
+          key={`${scriptOption}-preview`} /* Use unique key pattern */
           scriptOption={scriptOption}
           onUseScript={handleScriptConfirmedLocal}
           onScriptLoaded={handleScriptLoaded}

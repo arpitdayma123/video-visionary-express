@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { User } from '@supabase/supabase-js';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -18,6 +18,7 @@ export const useScriptPreview = (
   const [wordCount, setWordCount] = useState(0);
   const [isPreviewVisible, setIsPreviewVisible] = useState(false);
   const [webhookError, setWebhookError] = useState<string | null>(null);
+  const previousScriptOptionRef = useRef(scriptOption);
   
   const { toast } = useToast();
   const { updateWordCount, saveCustomScript, saveFinalScript } = useScriptUtils();
@@ -29,44 +30,50 @@ export const useScriptPreview = (
     setIsLoading
   );
 
-  // Force a complete reset when script option changes
+  // Only reset state when script option actually changes, not on component remount
   useEffect(() => {
-    console.log('useScriptPreview - Script option changed, resetting state:', scriptOption);
-    // Always reset script state to empty when changing options
-    setScript('');
-    setWordCount(0);
-    
-    // Only show preview immediately for ai_remake
-    setIsPreviewVisible(scriptOption === 'ai_remake');
-    
-    // Clear any errors
-    setWebhookError(null);
-    
-    // Make sure we're not in loading state
-    setIsLoading(false);
-    
-    // Clear any ongoing polling
-    if (pollingInterval.current) {
-      clearInterval(pollingInterval.current);
-      pollingInterval.current = null;
+    if (previousScriptOptionRef.current !== scriptOption) {
+      console.log('useScriptPreview - Script option changed from:', previousScriptOptionRef.current, 'to:', scriptOption);
+      
+      // Always reset script state to empty when changing options
+      setScript('');
+      setWordCount(0);
+      
+      // Only show preview immediately for ai_remake
+      setIsPreviewVisible(scriptOption === 'ai_remake');
+      
+      // Clear any errors
+      setWebhookError(null);
+      
+      // Make sure we're not in loading state
+      setIsLoading(false);
+      
+      // Clear any ongoing polling
+      if (pollingInterval.current) {
+        clearInterval(pollingInterval.current);
+        pollingInterval.current = null;
+      }
+      
+      // Update database to reset preview state
+      if (user) {
+        supabase
+          .from('profiles')
+          .update({ 
+            preview: null, 
+            previewscript: null 
+          })
+          .eq('id', user.id)
+          .then(({ error }) => {
+            if (error) {
+              console.error('Failed to reset preview state:', error);
+            }
+          });
+      }
+      
+      // Update the reference
+      previousScriptOptionRef.current = scriptOption;
     }
-    
-    // Update database to reset preview state
-    if (user) {
-      supabase
-        .from('profiles')
-        .update({ 
-          preview: null, 
-          previewscript: null 
-        })
-        .eq('id', user.id)
-        .then(({ error }) => {
-          if (error) {
-            console.error('Failed to reset preview state:', error);
-          }
-        });
-    }
-  }, [scriptOption, user, pollingInterval]);
+  }, [scriptOption, user, pollingInterval, setIsLoading]);
 
   // Use AI Remake hook if that option is selected
   const aiRemake = useAiRemake(user, onScriptGenerated);
@@ -78,7 +85,8 @@ export const useScriptPreview = (
       webhookError,
       setWebhookError,
       setIsLoading,
-      handleGeneratePreview: aiRemake.handleRegenerateScript
+      handleGeneratePreview: aiRemake.handleRegenerateScript,
+      previousScriptOptionRef
     };
   }
 
@@ -105,7 +113,6 @@ export const useScriptPreview = (
     }
   };
 
-  // Fixed handleGeneratePreview to properly reset state
   const handleGeneratePreview = async () => {
     if (!user) return;
     
@@ -162,9 +169,6 @@ export const useScriptPreview = (
       } else {
         setWebhookError(null);
       }
-
-      // Don't set preview visible until script is actually loaded via polling
-      // setIsPreviewVisible(true); 
       
       if (pollingInterval.current) {
         clearInterval(pollingInterval.current);
@@ -182,7 +186,6 @@ export const useScriptPreview = (
     }
   };
 
-  // Fixed handleRegenerateScript to properly reset state and save current script
   const handleRegenerateScript = async () => {
     if (!user) return;
     
@@ -244,9 +247,6 @@ export const useScriptPreview = (
       } else {
         setWebhookError(null);
       }
-
-      // Keep preview visible during regeneration
-      // Only show preview after script is loaded via polling
       
       if (pollingInterval.current) {
         clearInterval(pollingInterval.current);
@@ -309,8 +309,6 @@ export const useScriptPreview = (
         setWebhookError(null);
       }
 
-      // Keep preview visible during script change
-
       if (pollingInterval.current) {
         clearInterval(pollingInterval.current);
       }
@@ -340,5 +338,6 @@ export const useScriptPreview = (
     handleChangeScript,
     webhookError,
     setWebhookError,
+    previousScriptOptionRef
   };
 };
