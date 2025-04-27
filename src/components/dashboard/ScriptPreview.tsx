@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useScriptPreview } from '@/hooks/useScriptPreview';
@@ -29,7 +28,6 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
 
   const [generationStartTime, setGenerationStartTime] = useState<number | null>(null);
   const [waitTimeExpired, setWaitTimeExpired] = useState(false);
-
   const [hasUsedScript, setHasUsedScript] = useState(false);
 
   const {
@@ -46,6 +44,14 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
     webhookError: previewError,
     setWebhookError: setPreviewWebhookError,
   } = useScriptPreview(user, onUseScript, scriptOption);
+
+  // Reset state when script option changes
+  useEffect(() => {
+    setGenerationStartTime(null);
+    setWaitTimeExpired(false);
+    setHasUsedScript(false);
+    // isPreviewVisible is now handled in useScriptPreview hook
+  }, [scriptOption]);
 
   useEffect(() => {
     if (setWebhookError) setWebhookError(previewError ?? null);

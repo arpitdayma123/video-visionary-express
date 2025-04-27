@@ -1,5 +1,4 @@
-
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { User } from '@supabase/supabase-js';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -12,7 +11,6 @@ export const useScriptPreview = (
   onScriptGenerated: (script: string) => void,
   scriptOption: string
 ) => {
-  // Update webhook URLs to N8N endpoints
   const SCRIPT_FIND_WEBHOOK = "https://n8n.latestfreegames.online/webhook/scriptfind";
 
   const [isLoading, setIsLoading] = useState(false);
@@ -20,6 +18,7 @@ export const useScriptPreview = (
   const [wordCount, setWordCount] = useState(0);
   const [isPreviewVisible, setIsPreviewVisible] = useState(false);
   const [webhookError, setWebhookError] = useState<string | null>(null);
+  
   const { toast } = useToast();
   const { updateWordCount, saveCustomScript, saveFinalScript } = useScriptUtils();
   const { checkPreviewStatus, pollingInterval } = useScriptPolling(
@@ -30,17 +29,32 @@ export const useScriptPreview = (
     setIsLoading
   );
 
+  // Reset state when script option changes
+  useEffect(() => {
+    console.log('Script option changed, resetting state:', scriptOption);
+    setScript('');
+    setWordCount(0);
+    setIsPreviewVisible(scriptOption === 'ai_remake');
+    setWebhookError(null);
+    setIsLoading(false);
+    
+    // Clear any ongoing polling
+    if (pollingInterval.current) {
+      clearInterval(pollingInterval.current);
+      pollingInterval.current = null;
+    }
+  }, [scriptOption]);
+
   // Use AI Remake hook if that option is selected
   const aiRemake = useAiRemake(user, onScriptGenerated);
   if (scriptOption === 'ai_remake') {
-    // Pass webhookError through in ai_remake mode as well, if needed in future.
     return {
       ...aiRemake,
       isPreviewVisible,
       setIsPreviewVisible,
       webhookError,
       setWebhookError,
-      setIsLoading, // Add this to expose it to the parent component
+      setIsLoading,
       handleGeneratePreview: aiRemake.handleRegenerateScript
     };
   }
@@ -76,7 +90,6 @@ export const useScriptPreview = (
 
       if (error) throw error;
 
-      // Main webhook call - consolidated to avoid duplicate calls
       const webhookResponse = await fetch(
         `${SCRIPT_FIND_WEBHOOK}?userId=${user.id}&regenerate=false`,
         {
@@ -223,7 +236,7 @@ export const useScriptPreview = (
       if (error) throw error;
 
       const webhookResponse = await fetch(
-        `https://n8n.latestfreegames.online/webhook/scriptfind?userId=${user.id}&changescript=true`,
+        `${SCRIPT_FIND_WEBHOOK}?userId=${user.id}&changescript=true`,
         {
           method: 'GET',
           headers: {
@@ -272,7 +285,7 @@ export const useScriptPreview = (
 
   return {
     isLoading,
-    setIsLoading, // Expose this to the parent component
+    setIsLoading,
     script,
     wordCount,
     isPreviewVisible,
