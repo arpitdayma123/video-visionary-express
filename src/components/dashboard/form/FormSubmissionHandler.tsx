@@ -91,8 +91,7 @@ const FormSubmissionHandler = ({
         ? previewScriptContent
         : customScript;
 
-    // Key validation check - this is where the issue likely is
-    // The original logic might have had issues that prevented the form from validating properly
+    // Key validation check
     if (
       videos.length === 0 ||
       voiceFiles.length === 0 ||
@@ -184,7 +183,8 @@ const FormSubmissionHandler = ({
         params.append('reelUrl', reelUrl);
       }
 
-      const webhookUrl = `https://primary-production-ce25.up.railway.app/webhook/trendy?${params.toString()}`;
+      // Use the specified webhook URL directly
+      const webhookUrl = `https://n8n.latestfreegames.online/webhook/trendy?${params.toString()}`;
       console.log(`Sending webhook request to: ${webhookUrl} (will retry if fails)`);
 
       // Use fetch with retry

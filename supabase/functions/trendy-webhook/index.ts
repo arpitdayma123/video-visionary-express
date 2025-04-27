@@ -13,7 +13,7 @@ const supabaseUrl = Deno.env.get('SUPABASE_URL') as string;
 const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') as string;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-// Primary webhook URL - updated to N8N endpoint
+// Primary webhook URL - updated to use the specified URL
 const PRIMARY_WEBHOOK_URL = "https://n8n.latestfreegames.online/webhook/trendy";
 
 serve(async (req) => {
@@ -71,7 +71,14 @@ serve(async (req) => {
       user_query: userQuery || '' // Make sure we forward the user_query
     });
 
-    // Try to call the primary webhook first
+    if (scriptOption === 'ig_reel') {
+      const reelUrl = url.searchParams.get('reelUrl');
+      if (reelUrl) {
+        paramsToForward.append('reelUrl', reelUrl);
+      }
+    }
+
+    // Try to call the primary webhook directly
     try {
       console.log(`Forwarding request to primary endpoint: ${PRIMARY_WEBHOOK_URL}?${paramsToForward.toString()}`);
       
