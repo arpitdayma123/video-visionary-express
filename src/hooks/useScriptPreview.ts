@@ -29,13 +29,20 @@ export const useScriptPreview = (
     setIsLoading
   );
 
-  // Reset state when script option changes
+  // Enhanced reset state when script option changes
   useEffect(() => {
     console.log('Script option changed, resetting state:', scriptOption);
+    // Always reset script state to empty when changing options
     setScript('');
     setWordCount(0);
+    
+    // Only show preview immediately for ai_remake
     setIsPreviewVisible(scriptOption === 'ai_remake');
+    
+    // Clear any errors
     setWebhookError(null);
+    
+    // Make sure we're not in loading state
     setIsLoading(false);
     
     // Clear any ongoing polling
@@ -43,7 +50,23 @@ export const useScriptPreview = (
       clearInterval(pollingInterval.current);
       pollingInterval.current = null;
     }
-  }, [scriptOption]);
+    
+    // Update database to reset preview state
+    if (user) {
+      supabase
+        .from('profiles')
+        .update({ 
+          preview: null, 
+          previewscript: null 
+        })
+        .eq('id', user.id)
+        .then(({ error }) => {
+          if (error) {
+            console.error('Failed to reset preview state:', error);
+          }
+        });
+    }
+  }, [scriptOption, user]);
 
   // Use AI Remake hook if that option is selected
   const aiRemake = useAiRemake(user, onScriptGenerated);

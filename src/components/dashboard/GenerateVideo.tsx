@@ -56,15 +56,30 @@ const GenerateVideo: React.FC<GenerateVideoProps> = ({
   const hasCredits = userCredits >= 1;
 
   // Button is enabled based solely on the isFormComplete prop from parent
-  // which now properly tracks if "Use This Script" was clicked for ai_find/ig_reel
   const buttonEnabled = isFormComplete && hasCredits && !isProcessing;
 
   console.log('GenerateVideo component - Button enabled:', {
     isFormComplete,
     hasCredits,
     isProcessing,
-    buttonEnabled
+    buttonEnabled,
+    scriptOption,
+    isScriptPreviewVisible,
+    isScriptSelected
   });
+
+  // Script requirements text based on script option
+  const getScriptRequirementLabel = () => {
+    if (scriptOption === 'ai_find' || scriptOption === 'ig_reel' || scriptOption === 'script_from_prompt') {
+      return 'Finalize Script Selection (click "Use This Script")';
+    } else if (scriptOption === 'custom') {
+      return 'Save your custom script';
+    } else if (scriptOption === 'ai_remake') {
+      return 'Generate a script';
+    } else {
+      return 'Provide a script';
+    }
+  };
 
   // Updated requirements for visual checklist
   const remainingTasks = [
@@ -73,12 +88,7 @@ const GenerateVideo: React.FC<GenerateVideoProps> = ({
     { completed: hasNiches, label: 'Choose at least one niche' },
     { completed: hasCompetitors, label: 'Add competitor accounts' },
     { completed: hasCredits, label: 'Have at least 1 credit' },
-    { 
-      completed: isFormComplete, 
-      label: scriptOption === 'ai_find' || scriptOption === 'ig_reel' 
-        ? 'Finalize Script Selection (click "Use This Script")' 
-        : 'Provide a script'
-    }
+    { completed: isFormComplete, label: getScriptRequirementLabel() }
   ];
 
   const incompleteTasks = remainingTasks.filter(task => !task.completed);

@@ -38,21 +38,21 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
   const MIN_WORDS = 30;
   const [saveUrlTimeout, setSaveUrlTimeout] = useState<NodeJS.Timeout | null>(null);
   const [showCustomEditor, setShowCustomEditor] = useState(true);
-  // New: track the generated script from the preview (needed for handoff to parent)
+  // Track the generated script from the preview
   const [latestPreviewScript, setLatestPreviewScript] = useState('');
 
-  // New: track state for preview visibility (for ai_find, ig_reel)
+  // Track state for preview visibility
   const [isPreviewVisible, setIsPreviewVisible] = useState(false);
 
-  // NEW: track finalized status for script preview handoff
+  // Track finalized status for script preview handoff
   const [hasFinalizedScript, setHasFinalizedScript] = useState(false);
 
-  // [ADD] State hook for webhook error
+  // State hook for webhook error
   const [webhookError, setWebhookError] = useState<string | null>(null);
 
   const [userQuery, setUserQuery] = useState('');
 
-  // Effect: inform parent when preview visibility changes (for ai_find, ig_reel only)
+  // Effect: inform parent when preview visibility changes
   useEffect(() => {
     if (
       (scriptOption === 'ai_find' || scriptOption === 'ig_reel') &&
@@ -66,19 +66,32 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isPreviewVisible, latestPreviewScript, scriptOption, customScript, onScriptPreviewVisible]);
 
-  // Reset preview visibility when switching script options
+  // Enhanced reset when switching script options
   useEffect(() => {
-    // Reset preview visibility when switching to ai_find or ig_reel
-    if (scriptOption === 'ai_find' || scriptOption === 'ig_reel') {
+    console.log('ScriptSelection - Script option changed to:', scriptOption);
+    
+    // Reset preview state for AI-generated script options
+    if (scriptOption === 'ai_find' || scriptOption === 'ig_reel' || scriptOption === 'script_from_prompt') {
       setIsPreviewVisible(false);
+      setLatestPreviewScript('');
+      setHasFinalizedScript(false);
+      
       if (typeof onScriptPreviewVisible === 'function') {
-        onScriptPreviewVisible(false, latestPreviewScript);
+        onScriptPreviewVisible(false, '');
+      }
+    } else if (scriptOption === 'custom') {
+      // For custom script, always make form visible
+      if (typeof onScriptPreviewVisible === 'function') {
+        onScriptPreviewVisible(true, customScript);
       }
     }
     
-    // Always show custom editor for ig_reel, otherwise reset to true on option change
-    setShowCustomEditor(scriptOption === 'ig_reel' ? true : true);
-  }, [scriptOption, onScriptPreviewVisible, latestPreviewScript]);
+    // Reset webhook errors
+    setWebhookError(null);
+    
+    // Configure custom editor visibility based on script option
+    setShowCustomEditor(scriptOption === 'custom' || scriptOption === 'ai_remake');
+  }, [scriptOption, onScriptPreviewVisible, customScript]);
 
   useEffect(() => {
     const words = customScript.trim() ? customScript.trim().split(/\s+/).length : 0;
@@ -190,26 +203,33 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
     e.stopPropagation();
   };
 
-  // Modified to handle IG Reel special case
+  // Modified to handle script loaded properly
   const handleScriptLoaded = (scriptValue?: string) => {
-    // Only hide custom editor for non-ig_reel options
-    if (scriptOption !== 'ig_reel') {
+    console.log('ScriptSelection - Script loaded for option:', scriptOption);
+    
+    // Only hide custom editor for non-custom options
+    if (scriptOption !== 'custom') {
       setShowCustomEditor(false);
     }
+    
     setIsPreviewVisible(true);
-    if ((scriptOption === 'ai_find' || scriptOption === 'ig_reel') && scriptValue) {
+    
+    if ((scriptOption === 'ai_find' || scriptOption === 'ig_reel' || scriptOption === 'script_from_prompt') && scriptValue) {
       setLatestPreviewScript(scriptValue);
+      
       if (typeof onScriptPreviewVisible === "function") {
         onScriptPreviewVisible(true, scriptValue);
       }
     }
   };
 
-  // Callback so that finalization state stays in sync with "Use This Script" button
+  // Callback for script confirmation
   const handleScriptConfirmedLocal = (script: string) => {
-    setHasFinalizedScript(true); // Always true after at least one click for ai_find/ig_reel
-    if ((scriptOption === 'ai_find' || scriptOption === 'ig_reel')) {
+    setHasFinalizedScript(true);
+    
+    if ((scriptOption === 'ai_find' || scriptOption === 'ig_reel' || scriptOption === 'script_from_prompt')) {
       setLatestPreviewScript(script);
+      
       if (typeof onScriptConfirmed === 'function') {
         onScriptConfirmed(script);
       }
@@ -220,8 +240,7 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
     }
   };
 
-  // [CHANGED] Track webhook error from child ScriptPreview
-  // Capture and forward error state using a wrapper function
+  // Track webhook error from ScriptPreview
   const handleScriptPreviewError = (err?: string | null) => {
     setWebhookError(err ?? null);
   };
@@ -242,10 +261,39 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
     }
   };
 
-  // Pass-through callback: set error state from ScriptPreview hook results
-  const ScriptPreviewWithWebhookError = (props: any) => (
-    <ScriptPreview {...props} onWebhookError={handleScriptPreviewError} />
-  );
+  // Script option change handler with proper reset
+  const handleScriptOptionChangeWithReset = async (value: string) => {
+    try {
+      // First update the database
+      await updateProfile({ script_option: value });
+      
+      // Then reset all related state
+      setScriptOption(value);
+      setIsPreviewVisible(false);
+      setLatestPreviewScript('');
+      setHasFinalizedScript(false);
+      setWebhookError(null);
+      
+      // Reset UI state based on the new option
+      if (value === 'custom') {
+        setShowCustomEditor(true);
+      } else if (value === 'ai_remake') {
+        setShowCustomEditor(true);
+        setIsPreviewVisible(true);
+      } else {
+        setShowCustomEditor(false);
+        setIsPreviewVisible(false);
+      }
+      
+    } catch (error) {
+      console.error('Error updating script option:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update script option. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
 
   return (
     <ScriptSelectionWrapper handlePreventPropagation={(e) => e.stopPropagation()}>
@@ -253,7 +301,7 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
 
       <ScriptOptions
         scriptOption={scriptOption}
-        onScriptOptionChange={handleScriptOptionChange}
+        onScriptOptionChange={handleScriptOptionChangeWithReset}
       />
 
       {webhookError && (
@@ -290,11 +338,11 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
         />
       )}
 
-      {scriptOption && scriptOption !== 'custom' && (
+      {scriptOption !== 'custom' && (
         <ScriptPreview
           scriptOption={scriptOption}
           onUseScript={handleScriptConfirmedLocal}
-          onScriptLoaded={() => handleScriptLoaded(latestPreviewScript)}
+          onScriptLoaded={handleScriptLoaded}
           webhookError={webhookError}
           setWebhookError={setWebhookError}
         />

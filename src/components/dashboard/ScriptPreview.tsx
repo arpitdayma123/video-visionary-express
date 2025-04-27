@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useScriptPreview } from '@/hooks/useScriptPreview';
@@ -45,19 +46,28 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
     setWebhookError: setPreviewWebhookError,
   } = useScriptPreview(user, onUseScript, scriptOption);
 
-  // Reset state when script option changes
+  // Comprehensive reset when script option changes
   useEffect(() => {
+    console.log('ScriptPreview - Script option changed to:', scriptOption);
+    // Reset UI state
     setGenerationStartTime(null);
     setWaitTimeExpired(false);
     setHasUsedScript(false);
-    // isPreviewVisible is now handled in useScriptPreview hook
-  }, [scriptOption]);
+    
+    // Force visibility based on script option
+    setIsPreviewVisible(scriptOption === 'ai_remake');
+    
+    // Reset error state
+    if (setWebhookError) setWebhookError(null);
+  }, [scriptOption, setIsPreviewVisible, setWebhookError]);
 
+  // Propagate webhook errors up to parent if needed
   useEffect(() => {
     if (setWebhookError) setWebhookError(previewError ?? null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [previewError, setWebhookError]);
 
+  // Set initial visibility based on script option
   useEffect(() => {
     setIsPreviewVisible(scriptOption === 'ai_remake');
     setHasUsedScript(false);
@@ -84,12 +94,11 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
   const handleRegenerateWithSave = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    // We no longer need to check script option here since handleRegenerateScript now
-    // automatically saves the current script for all script options
     handleRegenerateScript();
     setHasUsedScript(false);
   };
 
+  // Notify parent when script is loaded
   useEffect(() => {
     if (!isLoading && script) {
       setIsPreviewVisible(true);
