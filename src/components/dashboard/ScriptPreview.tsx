@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useScriptPreview } from '@/hooks/useScriptPreview';
@@ -13,7 +14,7 @@ interface ScriptPreviewProps {
   onScriptLoaded?: (scriptValue?: string) => void;
   webhookError?: string | null;
   setWebhookError?: (err: string | null) => void;
-  userQuery?: string;
+  userQuery?: string; // Added userQuery prop to the interface
 }
 
 const ScriptPreview: React.FC<ScriptPreviewProps> = ({
@@ -22,7 +23,7 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
   onScriptLoaded,
   webhookError,
   setWebhookError,
-  userQuery
+  userQuery // Added userQuery parameter
 }) => {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -48,6 +49,7 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
     setWebhookError: setPreviewWebhookError,
   } = useScriptPreview(user, onUseScript, scriptOption, userQuery);
 
+  // Only reset when the script option actually changes
   useEffect(() => {
     if (previousScriptOption !== scriptOption) {
       console.log('ScriptPreview - Script option changed from:', previousScriptOption, 'to:', scriptOption);
@@ -114,37 +116,56 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
     setHasUsedScript(false);
   };
 
-  // Validate before generating preview
-  const handleGeneratePreviewClick = (e: React.MouseEvent) => {
+  // Notify parent when script is loaded
+  useEffect(() => {
+    if (!isLoading && script) {
+      setIsPreviewVisible(true);
+      if (onScriptLoaded) onScriptLoaded(script);
+    }
+  }, [isLoading, script, onScriptLoaded, setIsPreviewVisible]);
+
+  const showUseScriptButton = scriptOption === 'ai_find' || scriptOption === 'ig_reel' || scriptOption === 'script_from_prompt';
+
+  // Fixed handler to prevent double webhook calls
+  const handleGeneratePreviewClick = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-
-    if (scriptOption === 'script_from_prompt' && (!userQuery || userQuery.trim() === '')) {
-      toast({
-        title: "Input required",
-        description: "Please enter a topic or prompt before generating a script.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    if (scriptOption === 'ig_reel' && (!userQuery || userQuery.trim() === '')) {
-      toast({
-        title: "Input required",
-        description: "Please enter an Instagram reel URL before generating a script.",
-        variant: "destructive"
-      });
-      return;
-    }
-
     setGenerationStartTime(Date.now());
     setWaitTimeExpired(false);
+    
+    // Simply call the handler from useScriptPreview hook
+    // which will handle the webhook call properly
     handleGeneratePreview();
   };
 
-  return (
+  // Log the current state for debugging
+  console.log('ScriptPreview render:', {
+    scriptOption,
+    previousScriptOption,
+    isPreviewVisible,
+    isLoading,
+    hasScript: !!script,
+    hasUsedScript
+  });
+
+  // For ai_remake, always show content immediately
+  if (scriptOption === 'ai_remake') {
+    return (
+      <div onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
+        <ScriptPreviewContent
+          isLoading={isLoading}
+          script={script}
+          wordCount={wordCount}
+          onScriptChange={handleScriptChange}
+          onRegenerateScript={handleRegenerateScript}
+        />
+      </div>
+    );
+  }
+  
+  // For other options, show button first, then preview after generation
+  return !isPreviewVisible ? (
     <div onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
-      {/* Always show the Generate Preview button */}
       <GeneratePreviewButton
         isLoading={isLoading}
         onGenerate={handleGeneratePreviewClick}
@@ -152,26 +173,25 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
         generationStartTime={generationStartTime}
         waitTimeExpired={waitTimeExpired}
       />
-
-      {/* Show content if preview is visible */}
-      {isPreviewVisible && (
-        <ScriptPreviewContent
-          isLoading={isLoading}
-          script={script}
-          wordCount={wordCount}
-          onScriptChange={handleScriptChange}
-          onRegenerateScript={handleRegenerateWithSave}
-          showChangeScript={scriptOption === 'ai_find'}
-          onChangeScript={
-            scriptOption === 'ai_find'
-              ? (e) => { e.preventDefault(); e.stopPropagation(); handleChangeScript(); }
-              : undefined
-          }
-          showUseScriptButton={scriptOption === 'ai_find' || scriptOption === 'ig_reel' || scriptOption === 'script_from_prompt'}
-          onUseScript={handleUseScript}
-          useScriptDisabled={false}
-        />
-      )}
+    </div>
+  ) : (
+    <div onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
+      <ScriptPreviewContent
+        isLoading={isLoading}
+        script={script}
+        wordCount={wordCount}
+        onScriptChange={handleScriptChange}
+        onRegenerateScript={handleRegenerateWithSave}
+        showChangeScript={scriptOption === 'ai_find'}
+        onChangeScript={
+          scriptOption === 'ai_find'
+            ? (e) => { e.preventDefault(); e.stopPropagation(); handleChangeScript(); }
+            : undefined
+        }
+        showUseScriptButton={showUseScriptButton}
+        onUseScript={handleUseScript}
+        useScriptDisabled={false}
+      />
     </div>
   );
 };
