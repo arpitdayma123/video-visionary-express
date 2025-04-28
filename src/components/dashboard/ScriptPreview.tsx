@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useScriptPreview } from '@/hooks/useScriptPreview';
@@ -13,7 +14,7 @@ interface ScriptPreviewProps {
   onScriptLoaded?: (scriptValue?: string) => void;
   webhookError?: string | null;
   setWebhookError?: (err: string | null) => void;
-  userQuery?: string; // Added userQuery prop to the interface
+  userQuery?: string;
 }
 
 const ScriptPreview: React.FC<ScriptPreviewProps> = ({
@@ -193,12 +194,8 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
             wordCount={wordCount}
             onScriptChange={handleScriptChange}
             onRegenerateScript={handleRegenerateWithSave}
-            showChangeScript={scriptOption === 'ai_find'}
-            onChangeScript={
-              scriptOption === 'ai_find'
-                ? (e) => { e.preventDefault(); e.stopPropagation(); handleChangeScript(); }
-                : undefined
-            }
+            showChangeScript={false} // Fixed: Removed the ai_find comparison
+            onChangeScript={undefined} // Fixed: Removed the conditional function
             showUseScriptButton={showUseScriptButton}
             onUseScript={handleUseScript}
             useScriptDisabled={false}
