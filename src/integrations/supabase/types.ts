@@ -87,6 +87,7 @@ export type Database = {
           custom_script: string | null
           email: string | null
           finalscript: string | null
+          freepoint: number
           has_seen_tutorial: boolean | null
           id: string
           message: string | null
@@ -113,6 +114,7 @@ export type Database = {
           custom_script?: string | null
           email?: string | null
           finalscript?: string | null
+          freepoint?: number
           has_seen_tutorial?: boolean | null
           id: string
           message?: string | null
@@ -139,6 +141,7 @@ export type Database = {
           custom_script?: string | null
           email?: string | null
           finalscript?: string | null
+          freepoint?: number
           has_seen_tutorial?: boolean | null
           id?: string
           message?: string | null
@@ -356,6 +359,10 @@ export type Database = {
     }
     Functions: {
       create_payment_table: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
+      reset_freepoint: {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
