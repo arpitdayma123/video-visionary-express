@@ -14,8 +14,11 @@ export const useScriptPolling = (
 ) => {
   const pollingInterval = useRef<NodeJS.Timeout | null>(null);
   const isMounted = useRef(true);
+  const pollCount = useRef(0);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const maxAttempts = 300; // 10 minutes (2s * 300)
+  const baseDelay = 2000; // Start with 2 second delay
 
   const checkPreviewStatus = async () => {
     if (!user || !isMounted.current) return;
@@ -31,6 +34,9 @@ export const useScriptPolling = (
         console.error('Error fetching profile:', error);
         return;
       }
+
+      pollCount.current++;
+      console.log(`Polling attempt ${pollCount.current} of ${maxAttempts}`);
 
       if (profile.preview === 'generated' && profile.previewscript) {
         if (pollingInterval.current) {
@@ -48,8 +54,21 @@ export const useScriptPolling = (
         
         if (isMounted.current) {
           setIsLoading(false);
+          pollCount.current = 0;
           onScriptGenerated(profile.previewscript);
         }
+      } else if (pollCount.current >= maxAttempts) {
+        // If we've exceeded our maximum attempts
+        clearInterval(pollingInterval.current);
+        pollingInterval.current = null;
+        setIsLoading(false);
+        pollCount.current = 0;
+        
+        toast({
+          title: "Generation Timeout",
+          description: "The script generation is taking longer than expected. Please try again.",
+          variant: "destructive"
+        });
       }
     } catch (error) {
       console.error('Error checking preview status:', error);
@@ -57,6 +76,7 @@ export const useScriptPolling = (
         clearInterval(pollingInterval.current);
         pollingInterval.current = null;
         setIsLoading(false);
+        pollCount.current = 0;
         
         toast({
           title: "Error",
@@ -72,6 +92,7 @@ export const useScriptPolling = (
       isMounted.current = false;
       if (pollingInterval.current) {
         clearInterval(pollingInterval.current);
+        pollCount.current = 0;
       }
     };
   }, []);

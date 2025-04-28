@@ -24,19 +24,17 @@ const GeneratePreviewButton: React.FC<GeneratePreviewButtonProps> = ({
 }) => {
   const [countdown, setCountdown] = useState<number | null>(null);
   const [extendedTime, setExtendedTime] = useState(0);
+  const maxWaitTime = 600; // 10 minutes in seconds
 
   // Don't render the button if script option is "custom"
   if (scriptOption === 'custom') return null;
   
-  // Calculate initial wait time based on script option
   useEffect(() => {
     if (isLoading && generationStartTime) {
-      let initialWaitTime = 180; // Default 3 minutes (180 seconds)
+      let initialWaitTime = maxWaitTime; // Default to 10 minutes
       
       if (scriptOption === 'ai_remake') {
-        initialWaitTime = 30; // 30 seconds for AI remake
-      } else if (scriptOption === 'ig_reel') {
-        initialWaitTime = 60; // 1 minute for Instagram reel
+        initialWaitTime = 60; // 1 minute for AI remake
       }
       
       setCountdown(initialWaitTime + extendedTime);
@@ -55,14 +53,12 @@ const GeneratePreviewButton: React.FC<GeneratePreviewButtonProps> = ({
     }
   }, [isLoading, generationStartTime, scriptOption, extendedTime]);
   
-  // Extend the wait time if needed
   useEffect(() => {
     if (waitTimeExpired && isLoading) {
-      setExtendedTime(prev => prev + 60); // Add 60 seconds
+      setExtendedTime(prev => prev + 60); // Add 60 seconds if needed
     }
   }, [waitTimeExpired, isLoading]);
   
-  // Format the countdown into minutes and seconds
   const formatCountdown = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -93,8 +89,8 @@ const GeneratePreviewButton: React.FC<GeneratePreviewButtonProps> = ({
           <>
             <Loader className="mr-2 h-4 w-4 animate-spin" />
             {countdown !== null 
-              ? `Generating Preview... (${formatCountdown(countdown)})`
-              : 'Generating Preview...'
+              ? `Generating Script... (${formatCountdown(countdown)})`
+              : 'Generating Script...'
             }
           </>
         ) : (
@@ -111,6 +107,12 @@ const GeneratePreviewButton: React.FC<GeneratePreviewButtonProps> = ({
               : 'Please enter a valid Instagram reel URL before generating a script.'}
           </div>
         </Alert>
+      )}
+
+      {isLoading && (
+        <div className="mt-2 text-sm text-muted-foreground">
+          Please wait while we generate your script. This may take several minutes.
+        </div>
       )}
     </div>
   );
