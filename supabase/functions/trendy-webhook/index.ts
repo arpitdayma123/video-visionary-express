@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
 
@@ -87,6 +86,25 @@ serve(async (req) => {
       }
     }
 
+    // Update the profile status to Processing and clear any existing preview
+    const { error: updateError } = await supabase
+      .from('profiles')
+      .update({ 
+        status: 'Processing',
+        preview: 'generating',
+        previewscript: null,
+        updated_at: new Date().toISOString() 
+      })
+      .eq('id', userId);
+
+    if (updateError) {
+      console.error('Error updating profile status:', updateError);
+      return new Response(
+        JSON.stringify({ error: 'Failed to update profile status', details: updateError }),
+        { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+      );
+    }
+
     // Create controller for timeout handling - INCREASED TIMEOUT TO 5 MINUTES (300000ms)
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 300000); // 5-minute timeout
@@ -147,28 +165,12 @@ serve(async (req) => {
     // Fallback implementation if primary webhook fails
     console.log('Using fallback implementation');
     
-    // Update the profile status to Processing
-    const { error: updateError } = await supabase
-      .from('profiles')
-      .update({ 
-        status: 'Processing',
-        updated_at: new Date().toISOString() 
-      })
-      .eq('id', userId);
-
-    if (updateError) {
-      console.error('Error updating profile status:', updateError);
-      return new Response(
-        JSON.stringify({ error: 'Failed to update profile status', details: updateError }),
-        { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
-      );
-    }
-
     return new Response(
       JSON.stringify({ 
         message: "Workflow was started",
         success: true,
-        fallback: true
+        status: 'generating',
+        userId: userId
       }),
       { 
         status: 200, 
