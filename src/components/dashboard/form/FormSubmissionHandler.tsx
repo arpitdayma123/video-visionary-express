@@ -91,6 +91,14 @@ const FormSubmissionHandler = ({
         ? previewScriptContent
         : customScript;
 
+    console.log("Form submission - Script info:", {
+      scriptOption,
+      hasScript: !!scriptForWebhook,
+      previewVisible: isScriptPreviewVisible,
+      finalized: hasFinalizedPreviewScript,
+      userQuery: userQuery || "(none)"
+    });
+
     // Key validation check
     if (
       videos.length === 0 ||
@@ -110,7 +118,7 @@ const FormSubmissionHandler = ({
 
     // Check if script has been selected and preview is visible for ai_find/ig_reel/script_from_prompt
     const scriptReady = (scriptOption === 'ai_find' || scriptOption === 'ig_reel' || scriptOption === 'script_from_prompt') 
-      ? (hasFinalizedPreviewScript)
+      ? (hasFinalizedPreviewScript && !!scriptForWebhook)
       : !!customScript;
       
     if (!scriptReady) {

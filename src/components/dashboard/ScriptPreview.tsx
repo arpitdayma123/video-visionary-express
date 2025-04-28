@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useScriptPreview } from '@/hooks/useScriptPreview';
@@ -46,7 +47,7 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
     handleChangeScript,
     webhookError: previewError,
     setWebhookError: setPreviewWebhookError,
-  } = useScriptPreview(user, onUseScript, scriptOption);
+  } = useScriptPreview(user, onUseScript, scriptOption, userQuery);
 
   // Only reset when the script option actually changes
   useEffect(() => {
