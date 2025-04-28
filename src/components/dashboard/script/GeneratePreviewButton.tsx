@@ -33,8 +33,6 @@ const GeneratePreviewButton: React.FC<GeneratePreviewButtonProps> = ({
         initialWaitTime = 30; // 30 seconds for AI remake
       } else if (scriptOption === 'ig_reel') {
         initialWaitTime = 60; // 1 minute for Instagram reel
-      } else if (scriptOption === 'script_from_prompt') {
-        initialWaitTime = 90; // 1.5 minutes for script from prompt
       }
       
       setCountdown(initialWaitTime + extendedTime);
@@ -73,21 +71,6 @@ const GeneratePreviewButton: React.FC<GeneratePreviewButtonProps> = ({
     onGenerate(e);
   };
 
-  // Customize button text based on script option
-  const getButtonText = () => {
-    if (isLoading) {
-      return countdown !== null 
-        ? `Generating Preview... (${formatCountdown(countdown)})`
-        : 'Generating Preview...';
-    }
-    
-    if (scriptOption === 'script_from_prompt') {
-      return 'Generate Script from Topic';
-    }
-    
-    return 'Generate Script Preview';
-  };
-
   return (
     <div className="mt-6" onClick={(e) => e.stopPropagation()}>
       <Button
@@ -96,8 +79,17 @@ const GeneratePreviewButton: React.FC<GeneratePreviewButtonProps> = ({
         className="w-full sm:w-auto"
         type="button"
       >
-        {isLoading && <Loader className="mr-2 h-4 w-4 animate-spin" />}
-        {getButtonText()}
+        {isLoading ? (
+          <>
+            <Loader className="mr-2 h-4 w-4 animate-spin" />
+            {countdown !== null 
+              ? `Generating Preview... (${formatCountdown(countdown)})`
+              : 'Generating Preview...'
+            }
+          </>
+        ) : (
+          'Generate Script Preview'
+        )}
       </Button>
     </div>
   );

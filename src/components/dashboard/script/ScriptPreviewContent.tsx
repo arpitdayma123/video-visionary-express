@@ -17,7 +17,6 @@ interface ScriptPreviewContentProps {
   showUseScriptButton?: boolean;
   onUseScript?: (e: React.MouseEvent) => void;
   useScriptDisabled?: boolean;
-  scriptConfirmed?: boolean;
 }
 
 const ScriptPreviewContent: React.FC<ScriptPreviewContentProps> = ({
@@ -31,7 +30,6 @@ const ScriptPreviewContent: React.FC<ScriptPreviewContentProps> = ({
   showUseScriptButton = false,
   onUseScript,
   useScriptDisabled,
-  scriptConfirmed = false,
 }) => {
   const { toast } = useToast();
   const MAX_WORDS = 220;
@@ -65,11 +63,6 @@ const ScriptPreviewContent: React.FC<ScriptPreviewContentProps> = ({
           <label htmlFor="script-preview" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed">
             Script Preview ({wordCount} / {MAX_WORDS} words)
           </label>
-          {scriptConfirmed && (
-            <span className="inline-flex items-center text-sm text-green-600">
-              <Check className="mr-1 h-4 w-4" /> Script Confirmed
-            </span>
-          )}
         </div>
         {isLoading ? (
           <div className="relative">
@@ -110,14 +103,12 @@ const ScriptPreviewContent: React.FC<ScriptPreviewContentProps> = ({
           <Button
             variant="outline"
             onClick={onUseScript}
-            disabled={isLoading || useScriptDisabled || scriptConfirmed}
+            disabled={isLoading || useScriptDisabled}
             type="button"
-            className={scriptConfirmed 
-              ? "bg-green-100 border-green-300 text-green-700" 
-              : "bg-green-50 hover:bg-green-100 border-green-200"}
+            className="bg-green-50 hover:bg-green-100 border-green-200"
           >
             <Check className="mr-2 h-4 w-4" />
-            {scriptConfirmed ? 'Script Confirmed' : 'Use This Script'}
+            Use This Script
           </Button>
         )}
         {showChangeScript && onChangeScript && (
@@ -132,7 +123,7 @@ const ScriptPreviewContent: React.FC<ScriptPreviewContentProps> = ({
         )}
       </div>
 
-      {showUseScriptButton && !scriptConfirmed && (
+      {showUseScriptButton && (
         <p className="text-xs text-muted-foreground mt-2">
           You must click "Use This Script" to confirm this script before generating the video.
         </p>

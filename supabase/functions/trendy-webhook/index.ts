@@ -42,7 +42,7 @@ serve(async (req) => {
     // Get user profile from Supabase
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('credit, videos, voice_files, selected_video, selected_voice, selected_niches, competitors, user_query, finalscript')
+      .select('credit, videos, voice_files, selected_video, selected_voice, selected_niches, competitors, user_query')
       .eq('id', userId)
       .single();
 
@@ -63,15 +63,6 @@ serve(async (req) => {
       );
     }
 
-    // Check for script
-    if (!customScript && !profile.finalscript) {
-      console.error('Missing script data');
-      return new Response(
-        JSON.stringify({ error: 'No script provided for video generation' }),
-        { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
-      );
-    }
-
     // Special check for script_from_prompt
     if (scriptOption === 'script_from_prompt' && !userQuery && !profile.user_query) {
       console.error('Missing user_query for script_from_prompt option');
@@ -85,7 +76,7 @@ serve(async (req) => {
     const paramsToForward = new URLSearchParams({
       userId,
       scriptOption: scriptOption || 'ai_find',
-      customScript: customScript || profile.finalscript || '',
+      customScript: customScript || '',
       user_query: userQuery || profile.user_query || '' // Use profile.user_query as fallback
     });
 

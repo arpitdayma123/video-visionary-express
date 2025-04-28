@@ -14,7 +14,7 @@ interface ScriptPreviewProps {
   onScriptLoaded?: (scriptValue?: string) => void;
   webhookError?: string | null;
   setWebhookError?: (err: string | null) => void;
-  userQuery?: string; 
+  userQuery?: string; // Added userQuery prop to the interface
 }
 
 const ScriptPreview: React.FC<ScriptPreviewProps> = ({
@@ -23,7 +23,7 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
   onScriptLoaded,
   webhookError,
   setWebhookError,
-  userQuery 
+  userQuery // Added userQuery parameter
 }) => {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -98,26 +98,14 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
   const handleUseScript = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (!user || !script) return;
-    
+    if (!user) return;
     try {
       await saveFinalScript(user, script);
       setHasUsedScript(true);
-      
-      // Notify parent about the confirmed script
-      if (onUseScript) {
-        toast({ 
-          title: "Script Confirmed", 
-          description: "This script will be used for video generation."
-        });
-        onUseScript(script);
-      }
+      if (onUseScript) onUseScript(script);
+      toast({ title: "Script Confirmed", description: "This script will be used for video generation." });
     } catch (error) {
-      toast({ 
-        title: "Error", 
-        description: "Failed to confirm script. Please try again.", 
-        variant: "destructive" 
-      });
+      toast({ title: "Error", description: "Failed to confirm script. Please try again.", variant: "destructive" });
     }
   };
 
@@ -144,7 +132,6 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
     e.stopPropagation();
     setGenerationStartTime(Date.now());
     setWaitTimeExpired(false);
-    setHasUsedScript(false);
     
     // Simply call the handler from useScriptPreview hook
     // which will handle the webhook call properly
@@ -158,8 +145,7 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
     isPreviewVisible,
     isLoading,
     hasScript: !!script,
-    hasUsedScript,
-    userQuery: userQuery || '(none)'
+    hasUsedScript
   });
 
   // For ai_remake, always show content immediately
@@ -204,8 +190,7 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
         }
         showUseScriptButton={showUseScriptButton}
         onUseScript={handleUseScript}
-        useScriptDisabled={!script || script.trim().length === 0}
-        scriptConfirmed={hasUsedScript}
+        useScriptDisabled={false}
       />
     </div>
   );
