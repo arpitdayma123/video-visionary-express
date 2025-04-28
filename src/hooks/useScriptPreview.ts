@@ -21,6 +21,9 @@ export const useScriptPreview = (
   const [isPreviewVisible, setIsPreviewVisible] = useState(false);
   const [webhookError, setWebhookError] = useState<string | null>(null);
   const previousScriptOptionRef = useRef(scriptOption);
+  const [generationStartTime, setGenerationStartTime] = useState<number | null>(null);
+  const webhookRetries = useRef(0);
+  const maxWebhookRetries = 3;
   
   const { toast } = useToast();
   const { updateWordCount, saveCustomScript, saveFinalScript } = useScriptUtils();
@@ -46,6 +49,9 @@ export const useScriptPreview = (
       
       // Clear any errors
       setWebhookError(null);
+      
+      // Reset webhook retries
+      webhookRetries.current = 0;
       
       // Make sure we're not in loading state
       setIsLoading(false);
@@ -115,6 +121,77 @@ export const useScriptPreview = (
     }
   };
 
+  // Improved webhook call with retry mechanism
+  const callWebhook = async (url: string) => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout for fetch
+    
+    try {
+      console.log(`Calling webhook URL (attempt ${webhookRetries.current + 1}): ${url}`);
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'Cache-Control': 'no-cache'
+        },
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      let responseJson;
+      try {
+        responseJson = await response.json();
+      } catch (e) {
+        console.warn("Could not parse webhook response as JSON, but status is OK");
+        return { success: true };
+      }
+      
+      // Reset retry counter on success
+      webhookRetries.current = 0;
+      return responseJson;
+    } catch (error) {
+      clearTimeout(timeoutId);
+      
+      // Handle abort (timeout) specifically
+      if (error.name === 'AbortError') {
+        console.error("Webhook request timed out after 60 seconds");
+        throw new Error("Webhook request timed out. Please try again.");
+      }
+      
+      throw error;
+    }
+  };
+
+  // Improved webhook call with retry logic
+  const callWebhookWithRetry = async (url: string) => {
+    try {
+      return await callWebhook(url);
+    } catch (error) {
+      console.error(`Webhook attempt ${webhookRetries.current + 1} failed:`, error);
+      
+      // Implement retry logic
+      if (webhookRetries.current < maxWebhookRetries) {
+        webhookRetries.current++;
+        
+        // Exponential backoff for retries (1s, 2s, 4s)
+        const backoffTime = Math.pow(2, webhookRetries.current - 1) * 1000;
+        console.log(`Retrying webhook in ${backoffTime}ms...`);
+        
+        await new Promise(resolve => setTimeout(resolve, backoffTime));
+        return callWebhookWithRetry(url); // Retry
+      } else {
+        // Reset retries for next attempt
+        webhookRetries.current = 0;
+        throw error; // All retries failed
+      }
+    }
+  };
+
   const handleGeneratePreview = async () => {
     if (!user) return;
     
@@ -123,6 +200,8 @@ export const useScriptPreview = (
     setWordCount(0);
     setIsLoading(true);
     setWebhookError(null);
+    setGenerationStartTime(Date.now());
+    webhookRetries.current = 0;
     
     try {
       const { error } = await supabase
@@ -140,21 +219,20 @@ export const useScriptPreview = (
         webhookUrl += `&user_query=${encodeURIComponent(userQuery)}`;
       }
 
-      const webhookResponse = await fetch(
-        webhookUrl,
-        {
-          method: 'GET',
-          headers: {
-            'Accept': 'application/json',
-            'Cache-Control': 'no-cache'
-          }
-        }
-      );
-
-      let responseJson: any = null;
+      let responseJson;
       try {
-        responseJson = await webhookResponse.clone().json();
-      } catch { /* ignore */ }
+        responseJson = await callWebhookWithRetry(webhookUrl);
+      } catch (error) {
+        console.error("All webhook retries failed:", error);
+        setIsLoading(false);
+        setWebhookError("Failed to connect to the script generator. Please try again later.");
+        toast({
+          title: "Connection Error",
+          description: "Failed to reach our script generator. Please try again in a moment.",
+          variant: "destructive"
+        });
+        return;
+      }
 
       // Handle the specific error case
       if (responseJson?.error && responseJson.error.includes("The Instagram username you entered either does not provide valuable content")) {
@@ -219,6 +297,8 @@ export const useScriptPreview = (
     setScript('');
     setWordCount(0);
     setIsLoading(true);
+    setGenerationStartTime(Date.now());
+    webhookRetries.current = 0;
     
     try {
       const { error } = await supabase
@@ -236,21 +316,20 @@ export const useScriptPreview = (
         webhookUrl += `&user_query=${encodeURIComponent(userQuery)}`;
       }
 
-      const webhookResponse = await fetch(
-        webhookUrl,
-        {
-          method: 'GET',
-          headers: {
-            'Accept': 'application/json',
-            'Cache-Control': 'no-cache'
-          }
-        }
-      );
-
-      let responseJson: any = null;
+      let responseJson;
       try {
-        responseJson = await webhookResponse.clone().json();
-      } catch { /* ignore */ }
+        responseJson = await callWebhookWithRetry(webhookUrl);
+      } catch (error) {
+        console.error("All webhook retries failed:", error);
+        setIsLoading(false);
+        setWebhookError("Failed to connect to the script generator. Please try again later.");
+        toast({
+          title: "Connection Error",
+          description: "Failed to reach our script generator. Please try again in a moment.",
+          variant: "destructive"
+        });
+        return;
+      }
 
       if (responseJson && responseJson.error) {
         setIsLoading(false);
@@ -288,6 +367,8 @@ export const useScriptPreview = (
     setScript('');
     setWordCount(0);
     setIsLoading(true);
+    setGenerationStartTime(Date.now());
+    webhookRetries.current = 0;
 
     try {
       const { error } = await supabase
@@ -297,21 +378,21 @@ export const useScriptPreview = (
 
       if (error) throw error;
 
-      const webhookResponse = await fetch(
-        `${SCRIPT_FIND_WEBHOOK}?userId=${user.id}&changescript=true`,
-        {
-          method: 'GET',
-          headers: {
-            'Accept': 'application/json',
-            'Cache-Control': 'no-cache'
-          }
-        }
-      );
-
-      let responseJson: any = null;
+      let responseJson;
       try {
-        responseJson = await webhookResponse.clone().json();
-      } catch { /* ignore */ }
+        const webhookUrl = `${SCRIPT_FIND_WEBHOOK}?userId=${user.id}&changescript=true`;
+        responseJson = await callWebhookWithRetry(webhookUrl);
+      } catch (error) {
+        console.error("All webhook retries failed:", error);
+        setIsLoading(false);
+        setWebhookError("Failed to connect to the script generator. Please try again later.");
+        toast({
+          title: "Connection Error",
+          description: "Failed to reach our script generator. Please try again in a moment.",
+          variant: "destructive"
+        });
+        return;
+      }
       
       if (responseJson && responseJson.error) {
         setIsLoading(false);
@@ -356,6 +437,7 @@ export const useScriptPreview = (
     handleChangeScript,
     webhookError,
     setWebhookError,
-    previousScriptOptionRef
+    previousScriptOptionRef,
+    generationStartTime
   };
 };

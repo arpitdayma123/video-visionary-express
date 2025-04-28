@@ -87,6 +87,10 @@ serve(async (req) => {
       }
     }
 
+    // Create controller for timeout handling
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30-second timeout
+
     // Try to call the primary webhook directly
     try {
       console.log(`Forwarding request to primary endpoint: ${PRIMARY_WEBHOOK_URL}?${paramsToForward.toString()}`);
@@ -97,12 +101,21 @@ serve(async (req) => {
           'Accept': 'application/json',
           'Cache-Control': 'no-cache'
         },
+        signal: controller.signal
       });
+      
+      clearTimeout(timeoutId);
 
       if (primaryResponse.ok) {
         // Primary webhook call succeeded
-        const responseData = await primaryResponse.json();
-        console.log('Primary webhook response:', responseData);
+        let responseData;
+        try {
+          responseData = await primaryResponse.json();
+          console.log('Primary webhook response:', responseData);
+        } catch (parseError) {
+          console.warn('Could not parse primary webhook response as JSON');
+          responseData = { success: true, message: "Request processed" };
+        }
         
         return new Response(
           JSON.stringify(responseData),
@@ -115,18 +128,23 @@ serve(async (req) => {
           }
         );
       } else {
-        // If primary fails, we'll handle it ourselves below
+        // If primary fails with specific status code
         console.error('Primary webhook call failed:', primaryResponse.status);
         throw new Error(`Primary webhook failed with status ${primaryResponse.status}`);
       }
     } catch (primaryError) {
+      clearTimeout(timeoutId);
       console.error('Error calling primary webhook:', primaryError);
+      
+      // Check if it was a timeout
+      if (primaryError.name === 'AbortError') {
+        console.error('Primary webhook request timed out');
+      }
       
       // Continue with our fallback implementation below
     }
 
     // Fallback implementation if primary webhook fails
-    // Just update the status to Processing and provide a success response
     console.log('Using fallback implementation');
     
     // Update the profile status to Processing
