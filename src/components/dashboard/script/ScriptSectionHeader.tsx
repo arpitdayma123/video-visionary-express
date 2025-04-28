@@ -1,9 +1,15 @@
 
 import React from 'react';
-import { Star } from 'lucide-react';
+import { Star, Info } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 const ScriptSectionHeader: React.FC = () => {
   const { user } = useAuth();
@@ -35,6 +41,18 @@ const ScriptSectionHeader: React.FC = () => {
         <div className="flex items-center gap-2">
           <Star className="w-5 h-5 text-yellow-500" />
           <span className="text-sm font-medium">{freepoint} Free Points</span>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button className="inline-flex">
+                  <Info className="w-4 h-4 text-muted-foreground hover:text-foreground transition-colors" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-[200px]">
+                <p>You can generate up to 10 script previews per day. Your free points reset to 10 every day at 12:00 AM IST.</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
       </div>
     </section>
