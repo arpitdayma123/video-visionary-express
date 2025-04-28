@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Star, Info } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -34,6 +33,11 @@ const ScriptSectionHeader: React.FC = () => {
     enabled: !!user
   });
 
+  const handleInfoClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
   return (
     <section className="animate-fade-in border-b border-border pb-8 mb-8">
       <div className="flex justify-between items-center">
@@ -44,7 +48,11 @@ const ScriptSectionHeader: React.FC = () => {
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <button className="inline-flex">
+                <button 
+                  className="inline-flex"
+                  onClick={handleInfoClick}
+                  type="button"
+                >
                   <Info className="w-4 h-4 text-muted-foreground hover:text-foreground transition-colors" />
                 </button>
               </TooltipTrigger>
