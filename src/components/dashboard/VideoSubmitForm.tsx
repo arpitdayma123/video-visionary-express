@@ -70,13 +70,14 @@ const VideoSubmitForm = ({
   const [previewScriptContent, setPreviewScriptContent] = useState('');
   const [isScriptPreviewVisible, setIsScriptPreviewVisible] = useState(false);
   const [hasFinalizedPreviewScript, setHasFinalizedPreviewScript] = useState(false);
+  const [userQuery, setUserQuery] = useState(''); // Added state for user query
 
   // Reset preview script content and visibility when script option changes
   useEffect(() => {
     console.log('VideoSubmitForm - Script option changed to:', scriptOption);
     
     // On switch to ai_find/ig_reel, reset preview script and visibility
-    if (scriptOption === 'ai_find' || scriptOption === 'ig_reel') {
+    if (scriptOption === 'ai_find' || scriptOption === 'ig_reel' || scriptOption === 'script_from_prompt') {
       setIsScriptPreviewVisible(false);
       setPreviewScriptContent('');
       setHasFinalizedPreviewScript(false);
@@ -86,6 +87,29 @@ const VideoSubmitForm = ({
       setHasFinalizedPreviewScript(true); // For non-preview options; always finalized
     }
   }, [scriptOption]);
+
+  // Load user query from profile when component mounts
+  useEffect(() => {
+    const loadUserQuery = async () => {
+      if (userId) {
+        try {
+          const { data, error } = await supabase
+            .from('profiles')
+            .select('user_query')
+            .eq('id', userId)
+            .single();
+          
+          if (data && data.user_query) {
+            setUserQuery(data.user_query);
+          }
+        } catch (error) {
+          console.error('Error loading user query:', error);
+        }
+      }
+    };
+    
+    loadUserQuery();
+  }, [userId]);
 
   // Use the ScriptHandler hooks - Now using the hook instead of the component
   const scriptHandler = useScriptHandler({
@@ -100,6 +124,11 @@ const VideoSubmitForm = ({
     setIsScriptSelected,
     onScriptConfirmed
   });
+
+  // Handle user query changes
+  const handleUserQueryChange = (query: string) => {
+    setUserQuery(query);
+  };
 
   // Use FormSubmissionHandler for handling form submission
   const handleSubmit = FormSubmissionHandler({
@@ -120,7 +149,8 @@ const VideoSubmitForm = ({
     userStatus,
     setUserStatus,
     updateProfile,
-    saveScriptForGeneration: scriptHandler.saveScriptForGeneration
+    saveScriptForGeneration: scriptHandler.saveScriptForGeneration,
+    userQuery // Pass user query to FormSubmissionHandler
   });
 
   // Eligibility for "Generate Video" button:
@@ -134,11 +164,12 @@ const VideoSubmitForm = ({
     selectedVideo !== null &&
     selectedVoice !== null &&
     (
-      (scriptOption === 'ai_find' || scriptOption === 'ig_reel')
+      (scriptOption === "ai_find" || scriptOption === "ig_reel")
         ? hasFinalizedPreviewScript
         : customScript
     ) &&
-    (scriptOption !== 'ig_reel' || (scriptOption === 'ig_reel' && reelUrl))
+    (scriptOption !== 'ig_reel' || (scriptOption === 'ig_reel' && reelUrl)) &&
+    (scriptOption !== 'script_from_prompt' || (scriptOption === 'script_from_prompt' && userQuery))
   );
 
   // Debug logging of the script preview state
@@ -194,6 +225,8 @@ const VideoSubmitForm = ({
         updateProfile={updateProfile}
         onScriptConfirmed={scriptHandler.handleScriptConfirmed}
         onScriptPreviewVisible={scriptHandler.handleScriptPreviewVisible}
+        userQuery={userQuery}
+        onUserQueryChange={handleUserQueryChange}
       />
 
       <GenerateVideo

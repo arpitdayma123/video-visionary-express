@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 import ScriptOptions from './script/ScriptOptions';
 import CustomScriptSection from './script/CustomScriptSection';
 import ReelSection from './script/ReelSection';
@@ -17,6 +18,8 @@ interface ScriptSelectionProps {
   updateProfile: (updates: any) => Promise<void>;
   onScriptConfirmed?: (script: string) => void;
   onScriptPreviewVisible?: (visible: boolean, scriptValue?: string) => void;
+  userQuery?: string; // Added userQuery prop
+  onUserQueryChange?: (query: string) => void; // Added callback for userQuery changes
 }
 
 const ScriptSelection: React.FC<ScriptSelectionProps> = ({
@@ -26,7 +29,9 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
   setCustomScript,
   updateProfile,
   onScriptConfirmed,
-  onScriptPreviewVisible
+  onScriptPreviewVisible,
+  userQuery = '', // Default value for userQuery
+  onUserQueryChange
 }) => {
   const [wordCount, setWordCount] = useState(0);
   const [isExceedingLimit, setIsExceedingLimit] = useState(false);
@@ -50,8 +55,6 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
   // State hook for webhook error
   const [webhookError, setWebhookError] = useState<string | null>(null);
 
-  const [userQuery, setUserQuery] = useState('');
-  
   // Track previous script option to detect real changes
   const previousScriptOptionRef = useRef(scriptOption);
 
@@ -291,9 +294,14 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
     setWebhookError(err ?? null);
   };
 
+  // Improved userQuery handling with debounce
   const handleUserQueryChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const query = e.target.value;
-    setUserQuery(query);
+    
+    // Update local state first
+    if (onUserQueryChange) {
+      onUserQueryChange(query);
+    }
     
     try {
       await updateProfile({ user_query: query });
@@ -312,7 +320,8 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
     previousScriptOption: previousScriptOptionRef.current,
     isPreviewVisible,
     showCustomEditor,
-    hasScript: !!latestPreviewScript
+    hasScript: !!latestPreviewScript,
+    userQuery
   });
 
   return (
@@ -366,6 +375,7 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({
           onScriptLoaded={handleScriptLoaded}
           webhookError={webhookError}
           setWebhookError={setWebhookError}
+          userQuery={userQuery} // Pass userQuery to ScriptPreview
         />
       )}
     </ScriptSelectionWrapper>

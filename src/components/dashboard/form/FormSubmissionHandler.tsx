@@ -22,7 +22,7 @@ interface FormSubmissionHandlerProps {
   setUserStatus: (status: string) => void;
   updateProfile: (updates: any) => Promise<void>;
   saveScriptForGeneration: () => Promise<boolean>;
-  userQuery?: string; // Add this line for the user query
+  userQuery?: string; // User query for script_from_prompt option
 }
 
 const FormSubmissionHandler = ({
@@ -44,7 +44,7 @@ const FormSubmissionHandler = ({
   setUserStatus,
   updateProfile,
   saveScriptForGeneration,
-  userQuery = '' // Add default value
+  userQuery = '' // Default value for userQuery
 }: FormSubmissionHandlerProps) => {
   const { toast } = useToast();
 

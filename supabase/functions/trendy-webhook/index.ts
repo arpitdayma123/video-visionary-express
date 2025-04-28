@@ -28,7 +28,7 @@ serve(async (req) => {
     const userId = url.searchParams.get('userId');
     const scriptOption = url.searchParams.get('scriptOption');
     const customScript = url.searchParams.get('customScript');
-    const userQuery = url.searchParams.get('user_query'); // Add this line
+    const userQuery = url.searchParams.get('user_query'); // Get user_query parameter
     
     console.log(`Request received for user ${userId}, script option: ${scriptOption}, query: ${userQuery}`);
 
@@ -42,7 +42,7 @@ serve(async (req) => {
     // Get user profile from Supabase
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('credit, videos, voice_files, selected_video, selected_voice, selected_niches, competitors')
+      .select('credit, videos, voice_files, selected_video, selected_voice, selected_niches, competitors, user_query')
       .eq('id', userId)
       .single();
 
@@ -63,12 +63,21 @@ serve(async (req) => {
       );
     }
 
-    // Prepare the params to forward
+    // Special check for script_from_prompt
+    if (scriptOption === 'script_from_prompt' && !userQuery && !profile.user_query) {
+      console.error('Missing user_query for script_from_prompt option');
+      return new Response(
+        JSON.stringify({ error: 'Missing topic/prompt for script_from_prompt option' }),
+        { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+      );
+    }
+
+    // Prepare the params to forward - use profile.user_query as fallback if userQuery is not provided
     const paramsToForward = new URLSearchParams({
       userId,
       scriptOption: scriptOption || 'ai_find',
       customScript: customScript || '',
-      user_query: userQuery || '' // Make sure we forward the user_query
+      user_query: userQuery || profile.user_query || '' // Use profile.user_query as fallback
     });
 
     if (scriptOption === 'ig_reel') {
