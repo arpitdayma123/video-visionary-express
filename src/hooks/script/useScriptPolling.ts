@@ -1,6 +1,7 @@
 
 import { useEnhancedPolling } from './useEnhancedPolling';
 import { User } from '@supabase/supabase-js';
+import { useRef } from 'react';
 
 export const useScriptPolling = (
   user: User | null,
@@ -9,7 +10,8 @@ export const useScriptPolling = (
   scriptOption: string,
   setIsLoading: (value: boolean) => void
 ) => {
-  const { isPolling, pollCount, stopPolling } = useEnhancedPolling(user, isLoading, {
+  // Get all the actual functions and state from useEnhancedPolling
+  const { isPolling, pollCount, stopPolling, checkPreviewStatus, pollingInterval } = useEnhancedPolling(user, isLoading, {
     onSuccess: (script: string) => {
       setIsLoading(false);
       onScriptGenerated(script);
@@ -20,5 +22,12 @@ export const useScriptPolling = (
     }
   });
 
-  return { checkPreviewStatus: () => {}, pollingInterval: { current: null } };
+  // Return the actual functions and state for use in the parent component
+  return { 
+    isPolling, 
+    pollCount, 
+    stopPolling,
+    checkPreviewStatus,
+    pollingInterval
+  };
 };

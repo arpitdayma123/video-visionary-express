@@ -1,5 +1,5 @@
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { User } from '@supabase/supabase-js';
 import { useToast } from '@/hooks/use-toast';
@@ -22,21 +22,29 @@ export const useEnhancedPolling = (
   const { toast } = useToast();
   const consecErrorCount = useRef(0);
   const maxConsecutiveErrors = 3;
+  const isFirstRun = useRef(true);
+  const isUnmounted = useRef(false);
   
   const baseInterval = config.baseInterval || 3000; // 3 seconds
   const maxAttempts = config.maxAttempts || 300; // 15 minutes worth of attempts
 
-  const stopPolling = () => {
+  // Cleanup function to ensure we don't have memory leaks
+  const cleanupPolling = useCallback(() => {
     if (pollingInterval.current) {
       clearInterval(pollingInterval.current);
       pollingInterval.current = null;
     }
+  }, []);
+
+  const stopPolling = useCallback(() => {
+    cleanupPolling();
     setIsPolling(false);
     pollCount.current = 0;
-  };
+    consecErrorCount.current = 0;
+  }, [cleanupPolling]);
 
-  const checkPreviewStatus = async () => {
-    if (!user) {
+  const checkPreviewStatus = useCallback(async () => {
+    if (!user || isUnmounted.current) {
       stopPolling();
       return;
     }
@@ -104,11 +112,15 @@ export const useEnhancedPolling = (
       
       // Adaptive polling: increase interval after certain thresholds
       if (pollCount.current > 20 && pollingInterval.current) {
-        clearInterval(pollingInterval.current);
-        pollingInterval.current = setInterval(checkPreviewStatus, 5000); // Every 5s after 20 attempts
+        cleanupPolling();
+        if (!isUnmounted.current) {
+          pollingInterval.current = setInterval(checkPreviewStatus, 5000); // Every 5s after 20 attempts
+        }
       } else if (pollCount.current > 60 && pollingInterval.current) {
-        clearInterval(pollingInterval.current);
-        pollingInterval.current = setInterval(checkPreviewStatus, 10000); // Every 10s after 60 attempts
+        cleanupPolling();
+        if (!isUnmounted.current) {
+          pollingInterval.current = setInterval(checkPreviewStatus, 10000); // Every 10s after 60 attempts
+        }
       }
       
     } catch (error) {
@@ -125,31 +137,41 @@ export const useEnhancedPolling = (
         });
       }
     }
-  };
+  }, [user, maxAttempts, stopPolling, toast, config, cleanupPolling]);
 
+  // Start or stop polling based on isActive flag
   useEffect(() => {
+    isUnmounted.current = false;
+    
     if (isActive && user && !isPolling) {
       setIsPolling(true);
       pollCount.current = 0;
       consecErrorCount.current = 0;
       
-      // Start polling immediately
-      checkPreviewStatus();
+      // Start polling immediately on first run
+      if (isFirstRun.current) {
+        isFirstRun.current = false;
+        checkPreviewStatus();
+      }
       
-      // Set up interval
+      // Set up interval for future polling
+      cleanupPolling(); // Clean up any existing interval first
       pollingInterval.current = setInterval(checkPreviewStatus, baseInterval);
     } else if (!isActive && isPolling) {
       stopPolling();
     }
 
     return () => {
-      stopPolling();
+      isUnmounted.current = true;
+      cleanupPolling();
     };
-  }, [isActive, user]);
+  }, [isActive, user, isPolling, checkPreviewStatus, cleanupPolling, stopPolling, baseInterval]);
 
   return {
     isPolling,
     pollCount: pollCount.current,
-    stopPolling
+    stopPolling,
+    checkPreviewStatus,
+    pollingInterval
   };
 };
