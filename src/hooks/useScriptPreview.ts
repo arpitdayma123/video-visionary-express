@@ -9,7 +9,8 @@ import { useAiRemake } from './script/useAiRemake';
 export const useScriptPreview = (
   user: User | null, 
   onScriptGenerated: (script: string) => void,
-  scriptOption: string
+  scriptOption: string,
+  userQuery?: string // Add optional userQuery parameter
 ) => {
   const SCRIPT_FIND_WEBHOOK = "https://n8n.latestfreegames.online/webhook/scriptfind";
 
@@ -130,8 +131,16 @@ export const useScriptPreview = (
 
       if (error) throw error;
 
+      // Construct the webhook URL with user query when provided and applicable
+      let webhookUrl = `${SCRIPT_FIND_WEBHOOK}?userId=${user.id}&regenerate=false`;
+      
+      // Add user_query parameter if script option is script_from_prompt
+      if (scriptOption === 'script_from_prompt' && userQuery) {
+        webhookUrl += `&user_query=${encodeURIComponent(userQuery)}`;
+      }
+
       const webhookResponse = await fetch(
-        `${SCRIPT_FIND_WEBHOOK}?userId=${user.id}&regenerate=false`,
+        webhookUrl,
         {
           method: 'GET',
           headers: {

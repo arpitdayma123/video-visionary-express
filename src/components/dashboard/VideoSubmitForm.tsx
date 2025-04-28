@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { UploadedFile } from '@/hooks/useDashboardData';
+import { supabase } from '@/integrations/supabase/client'; // Add the missing import
 import VideoUpload from './VideoUpload';
 import VoiceUpload from './VoiceUpload';
 import NicheSelection from './NicheSelection';

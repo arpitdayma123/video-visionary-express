@@ -13,6 +13,7 @@ interface ScriptPreviewProps {
   onScriptLoaded?: (scriptValue?: string) => void;
   webhookError?: string | null;
   setWebhookError?: (err: string | null) => void;
+  userQuery?: string; // Added userQuery prop to the interface
 }
 
 const ScriptPreview: React.FC<ScriptPreviewProps> = ({
@@ -20,7 +21,8 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
   onUseScript,
   onScriptLoaded,
   webhookError,
-  setWebhookError
+  setWebhookError,
+  userQuery // Added userQuery parameter
 }) => {
   const { user } = useAuth();
   const { toast } = useToast();
