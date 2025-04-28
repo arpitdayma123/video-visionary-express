@@ -25,6 +25,16 @@ const GeneratePreviewButton: React.FC<GeneratePreviewButtonProps> = ({
   const [countdown, setCountdown] = useState<number | null>(null);
   const [extendedTime, setExtendedTime] = useState(0);
   const maxWaitTime = 600; // 10 minutes in seconds
+  const [loadingPhase, setLoadingPhase] = useState(0);
+  
+  // Loading messages for different phases
+  const loadingMessages = [
+    "Generating Script...",
+    "Still working on it...",
+    "Processing content...",
+    "Almost there...",
+    "Taking a bit longer than usual..."
+  ];
 
   // Don't render the button if script option is "custom"
   if (scriptOption === 'custom') return null;
@@ -34,7 +44,7 @@ const GeneratePreviewButton: React.FC<GeneratePreviewButtonProps> = ({
       let initialWaitTime = maxWaitTime; // Default to 10 minutes
       
       if (scriptOption === 'ai_remake') {
-        initialWaitTime = 60; // 1 minute for AI remake
+        initialWaitTime = 120; // 2 minutes for AI remake
       }
       
       setCountdown(initialWaitTime + extendedTime);
@@ -47,11 +57,24 @@ const GeneratePreviewButton: React.FC<GeneratePreviewButtonProps> = ({
         });
       }, 1000);
       
-      return () => clearInterval(timer);
+      // Update loading message phase based on elapsed time
+      const phaseTimer = setInterval(() => {
+        setLoadingPhase(prev => {
+          // Cycle through loading messages
+          const nextPhase = (prev + 1) % loadingMessages.length;
+          return nextPhase;
+        });
+      }, 30000); // Change message every 30 seconds
+      
+      return () => {
+        clearInterval(timer);
+        clearInterval(phaseTimer);
+      };
     } else {
       setCountdown(null);
+      setLoadingPhase(0);
     }
-  }, [isLoading, generationStartTime, scriptOption, extendedTime]);
+  }, [isLoading, generationStartTime, scriptOption, extendedTime, loadingMessages.length]);
   
   useEffect(() => {
     if (waitTimeExpired && isLoading) {
@@ -89,9 +112,8 @@ const GeneratePreviewButton: React.FC<GeneratePreviewButtonProps> = ({
           <>
             <Loader className="mr-2 h-4 w-4 animate-spin" />
             {countdown !== null 
-              ? `Generating Script... (${formatCountdown(countdown)})`
-              : 'Generating Script...'
-            }
+              ? `${loadingMessages[loadingPhase]} (${formatCountdown(countdown)})`
+              : loadingMessages[loadingPhase]}
           </>
         ) : (
           'Generate Script Preview'
@@ -111,7 +133,10 @@ const GeneratePreviewButton: React.FC<GeneratePreviewButtonProps> = ({
 
       {isLoading && (
         <div className="mt-2 text-sm text-muted-foreground">
-          Please wait while we generate your script. This may take several minutes.
+          <p>Please wait while we generate your script. This process may take several minutes.</p>
+          {countdown !== null && countdown < 300 && (
+            <p className="mt-1">The script is being generated. If you don't see results after the countdown, please check the results page.</p>
+          )}
         </div>
       )}
     </div>

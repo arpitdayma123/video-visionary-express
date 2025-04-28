@@ -87,9 +87,9 @@ serve(async (req) => {
       }
     }
 
-    // Create controller for timeout handling
+    // Create controller for timeout handling - INCREASED TIMEOUT TO 5 MINUTES (300000ms)
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30-second timeout
+    const timeoutId = setTimeout(() => controller.abort(), 300000); // 5-minute timeout
 
     // Try to call the primary webhook directly
     try {
@@ -138,7 +138,7 @@ serve(async (req) => {
       
       // Check if it was a timeout
       if (primaryError.name === 'AbortError') {
-        console.error('Primary webhook request timed out');
+        console.error('Primary webhook request timed out after 5 minutes');
       }
       
       // Continue with our fallback implementation below

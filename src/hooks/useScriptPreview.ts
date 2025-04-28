@@ -23,7 +23,7 @@ export const useScriptPreview = (
   const previousScriptOptionRef = useRef(scriptOption);
   const [generationStartTime, setGenerationStartTime] = useState<number | null>(null);
   const webhookRetries = useRef(0);
-  const maxWebhookRetries = 3;
+  const maxWebhookRetries = 5; // Increased max retries to 5 from 3
   
   const { toast } = useToast();
   const { updateWordCount, saveCustomScript, saveFinalScript } = useScriptUtils();
@@ -124,7 +124,8 @@ export const useScriptPreview = (
   // Improved webhook call with retry mechanism
   const callWebhook = async (url: string) => {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout for fetch
+    // Increased timeout to 5 minutes (300,000 ms)
+    const timeoutId = setTimeout(() => controller.abort(), 300000); 
     
     try {
       console.log(`Calling webhook URL (attempt ${webhookRetries.current + 1}): ${url}`);
@@ -159,15 +160,15 @@ export const useScriptPreview = (
       
       // Handle abort (timeout) specifically
       if (error.name === 'AbortError') {
-        console.error("Webhook request timed out after 60 seconds");
-        throw new Error("Webhook request timed out. Please try again.");
+        console.error("Webhook request timed out after 5 minutes");
+        throw new Error("Webhook request timed out. Please wait as processing may continue in the background.");
       }
       
       throw error;
     }
   };
 
-  // Improved webhook call with retry logic
+  // Improved webhook call with retry logic and exponential backoff
   const callWebhookWithRetry = async (url: string) => {
     try {
       return await callWebhook(url);
@@ -178,7 +179,7 @@ export const useScriptPreview = (
       if (webhookRetries.current < maxWebhookRetries) {
         webhookRetries.current++;
         
-        // Exponential backoff for retries (1s, 2s, 4s)
+        // Exponential backoff for retries (1s, 2s, 4s, 8s, 16s)
         const backoffTime = Math.pow(2, webhookRetries.current - 1) * 1000;
         console.log(`Retrying webhook in ${backoffTime}ms...`);
         
@@ -224,14 +225,37 @@ export const useScriptPreview = (
         responseJson = await callWebhookWithRetry(webhookUrl);
       } catch (error) {
         console.error("All webhook retries failed:", error);
-        setIsLoading(false);
-        setWebhookError("Failed to connect to the script generator. Please try again later.");
-        toast({
-          title: "Connection Error",
-          description: "Failed to reach our script generator. Please try again in a moment.",
-          variant: "destructive"
-        });
-        return;
+        
+        // Even if the webhook call fails, we might still continue polling
+        // because the process might have started in the background
+        
+        if (error.message && error.message.includes("timed out")) {
+          // Special handling for timeouts - don't error out, just start polling
+          toast({
+            title: "Webhook Processing",
+            description: "The request is taking longer than expected, but we'll continue waiting for results.",
+            variant: "default"
+          });
+          
+          // Start polling anyway in case the backend process was started
+          if (pollingInterval.current) {
+            clearInterval(pollingInterval.current);
+          }
+          const interval = setInterval(checkPreviewStatus, 3000); // Poll every 3 seconds
+          pollingInterval.current = interval;
+          
+          return;
+        } else {
+          // For other errors, show error message
+          setIsLoading(false);
+          setWebhookError("Failed to connect to the script generator. Please try again later.");
+          toast({
+            title: "Connection Error",
+            description: "Failed to reach our script generator. Please try again in a moment.",
+            variant: "destructive"
+          });
+          return;
+        }
       }
 
       // Handle the specific error case
@@ -261,7 +285,7 @@ export const useScriptPreview = (
       if (pollingInterval.current) {
         clearInterval(pollingInterval.current);
       }
-      const interval = setInterval(checkPreviewStatus, 2000);
+      const interval = setInterval(checkPreviewStatus, 3000); // Poll every 3 seconds
       pollingInterval.current = interval;
     } catch (error) {
       setIsLoading(false);
@@ -321,14 +345,33 @@ export const useScriptPreview = (
         responseJson = await callWebhookWithRetry(webhookUrl);
       } catch (error) {
         console.error("All webhook retries failed:", error);
-        setIsLoading(false);
-        setWebhookError("Failed to connect to the script generator. Please try again later.");
-        toast({
-          title: "Connection Error",
-          description: "Failed to reach our script generator. Please try again in a moment.",
-          variant: "destructive"
-        });
-        return;
+        
+        // Special handling for timeouts - don't error out, just start polling
+        if (error.message && error.message.includes("timed out")) {
+          toast({
+            title: "Webhook Processing",
+            description: "The request is taking longer than expected, but we'll continue waiting for results.",
+            variant: "default"
+          });
+          
+          // Start polling anyway in case the backend process was started
+          if (pollingInterval.current) {
+            clearInterval(pollingInterval.current);
+          }
+          const interval = setInterval(checkPreviewStatus, 3000);
+          pollingInterval.current = interval;
+          
+          return;
+        } else {
+          setIsLoading(false);
+          setWebhookError("Failed to connect to the script generator. Please try again later.");
+          toast({
+            title: "Connection Error",
+            description: "Failed to reach our script generator. Please try again in a moment.",
+            variant: "destructive"
+          });
+          return;
+        }
       }
 
       if (responseJson && responseJson.error) {
@@ -348,7 +391,7 @@ export const useScriptPreview = (
       if (pollingInterval.current) {
         clearInterval(pollingInterval.current);
       }
-      const interval = setInterval(checkPreviewStatus, 2000);
+      const interval = setInterval(checkPreviewStatus, 3000);
       pollingInterval.current = interval;
     } catch (error) {
       setIsLoading(false);
@@ -384,14 +427,33 @@ export const useScriptPreview = (
         responseJson = await callWebhookWithRetry(webhookUrl);
       } catch (error) {
         console.error("All webhook retries failed:", error);
-        setIsLoading(false);
-        setWebhookError("Failed to connect to the script generator. Please try again later.");
-        toast({
-          title: "Connection Error",
-          description: "Failed to reach our script generator. Please try again in a moment.",
-          variant: "destructive"
-        });
-        return;
+        
+        // Special handling for timeouts - don't error out, just start polling
+        if (error.message && error.message.includes("timed out")) {
+          toast({
+            title: "Webhook Processing",
+            description: "The request is taking longer than expected, but we'll continue waiting for results.",
+            variant: "default"
+          });
+          
+          // Start polling anyway in case the backend process was started
+          if (pollingInterval.current) {
+            clearInterval(pollingInterval.current);
+          }
+          const interval = setInterval(checkPreviewStatus, 3000);
+          pollingInterval.current = interval;
+          
+          return;
+        } else {
+          setIsLoading(false);
+          setWebhookError("Failed to connect to the script generator. Please try again later.");
+          toast({
+            title: "Connection Error",
+            description: "Failed to reach our script generator. Please try again in a moment.",
+            variant: "destructive"
+          });
+          return;
+        }
       }
       
       if (responseJson && responseJson.error) {
@@ -411,7 +473,7 @@ export const useScriptPreview = (
       if (pollingInterval.current) {
         clearInterval(pollingInterval.current);
       }
-      const interval = setInterval(checkPreviewStatus, 2000);
+      const interval = setInterval(checkPreviewStatus, 3000);
       pollingInterval.current = interval;
     } catch (error) {
       setIsLoading(false);
