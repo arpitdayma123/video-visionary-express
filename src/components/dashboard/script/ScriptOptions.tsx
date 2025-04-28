@@ -53,8 +53,8 @@ const ScriptOptions: React.FC<ScriptOptionsProps> = ({
       <div className="flex items-start space-x-2">
         <RadioGroupItem value="script_from_prompt" id="script_from_prompt" />
         <div className="grid gap-1.5">
-          <Label htmlFor="script_from_prompt" className="font-medium">Script from Prompt</Label>
-          <p className="text-sm text-muted-foreground">Simply type a topic, idea, or keywords, and our AI will instantly generate a customized viral script for you</p>
+          <Label htmlFor="script_from_prompt" className="font-medium">Live Topic to Script</Label>
+          <p className="text-sm text-muted-foreground">Just type the latest topic you want to cover — our AI will research it live on the internet and instantly create an engaging script for you.</p>
         </div>
       </div>
     </RadioGroup>
