@@ -228,8 +228,16 @@ export const useScriptPreview = (
 
       if (error) throw error;
 
+      // Construct webhook URL with user query for script_from_prompt
+      let webhookUrl = `${SCRIPT_FIND_WEBHOOK}?userId=${user.id}&regenerate=true`;
+      
+      // Add user_query parameter if script option is script_from_prompt
+      if (scriptOption === 'script_from_prompt' && userQuery) {
+        webhookUrl += `&user_query=${encodeURIComponent(userQuery)}`;
+      }
+
       const webhookResponse = await fetch(
-        `${SCRIPT_FIND_WEBHOOK}?userId=${user.id}&regenerate=true`,
+        webhookUrl,
         {
           method: 'GET',
           headers: {

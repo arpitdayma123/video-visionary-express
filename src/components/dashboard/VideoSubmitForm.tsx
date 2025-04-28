@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { UploadedFile } from '@/hooks/useDashboardData';
-import { supabase } from '@/integrations/supabase/client'; // Add the missing import
+import { supabase } from '@/integrations/supabase/client'; 
 import VideoUpload from './VideoUpload';
 import VoiceUpload from './VoiceUpload';
 import NicheSelection from './NicheSelection';
@@ -155,7 +155,7 @@ const VideoSubmitForm = ({
   });
 
   // Eligibility for "Generate Video" button:
-  // For ai_find/ig_reel: require "Use This Script" has been clicked at least once (hasFinalizedPreviewScript)
+  // For ai_find/ig_reel/script_from_prompt: require "Use This Script" has been clicked at least once (hasFinalizedPreviewScript)
   // For other options: customScript as before
   const isFormComplete = Boolean(
     videos.length > 0 &&
@@ -165,7 +165,7 @@ const VideoSubmitForm = ({
     selectedVideo !== null &&
     selectedVoice !== null &&
     (
-      (scriptOption === "ai_find" || scriptOption === "ig_reel")
+      (scriptOption === "ai_find" || scriptOption === "ig_reel" || scriptOption === "script_from_prompt")
         ? hasFinalizedPreviewScript
         : customScript
     ) &&

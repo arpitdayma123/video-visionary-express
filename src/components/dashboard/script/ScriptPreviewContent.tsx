@@ -1,8 +1,9 @@
+
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Loader } from 'lucide-react';
+import { Loader, Check } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface ScriptPreviewContentProps {
@@ -104,7 +105,9 @@ const ScriptPreviewContent: React.FC<ScriptPreviewContentProps> = ({
             onClick={onUseScript}
             disabled={isLoading || useScriptDisabled}
             type="button"
+            className="bg-green-50 hover:bg-green-100 border-green-200"
           >
+            <Check className="mr-2 h-4 w-4" />
             Use This Script
           </Button>
         )}
@@ -119,6 +122,12 @@ const ScriptPreviewContent: React.FC<ScriptPreviewContentProps> = ({
           </Button>
         )}
       </div>
+
+      {showUseScriptButton && (
+        <p className="text-xs text-muted-foreground mt-2">
+          You must click "Use This Script" to confirm this script before generating the video.
+        </p>
+      )}
     </div>
   );
 };

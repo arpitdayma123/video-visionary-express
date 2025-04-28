@@ -144,7 +144,8 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
     previousScriptOption,
     isPreviewVisible,
     isLoading,
-    hasScript: !!script
+    hasScript: !!script,
+    hasUsedScript
   });
 
   // For ai_remake, always show content immediately
