@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Star, Info } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -30,7 +31,11 @@ const ScriptSectionHeader: React.FC = () => {
       
       return data?.freepoint ?? 0;
     },
-    enabled: !!user
+    enabled: !!user,
+    // Add these options to optimize the query behavior
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
+    staleTime: 1000 * 30, // Consider data stale after 30 seconds
   });
 
   const handleInfoClick = (e: React.MouseEvent) => {
