@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { UploadedFile } from '@/hooks/useDashboardData';
@@ -155,8 +154,8 @@ const VideoSubmitForm = ({
   });
 
   // Eligibility for "Generate Video" button:
-  // For ai_find/ig_reel/script_from_prompt: require "Use This Script" has been clicked at least once (hasFinalizedPreviewScript)
-  // For other options: customScript as before
+  // For script_from_prompt: only require userQuery
+  // For ai_find/ig_reel: require "Use This Script" has been clicked (hasFinalizedPreviewScript)
   const isFormComplete = Boolean(
     videos.length > 0 &&
     voiceFiles.length > 0 &&
@@ -165,12 +164,13 @@ const VideoSubmitForm = ({
     selectedVideo !== null &&
     selectedVoice !== null &&
     (
-      (scriptOption === "ai_find" || scriptOption === "ig_reel" || scriptOption === "script_from_prompt")
-        ? hasFinalizedPreviewScript
-        : customScript
+      scriptOption === "script_from_prompt"
+        ? userQuery // Only require userQuery for script_from_prompt
+        : (scriptOption === "ai_find" || scriptOption === "ig_reel")
+          ? hasFinalizedPreviewScript
+          : customScript
     ) &&
-    (scriptOption !== 'ig_reel' || (scriptOption === 'ig_reel' && reelUrl)) &&
-    (scriptOption !== 'script_from_prompt' || (scriptOption === 'script_from_prompt' && userQuery))
+    (scriptOption !== 'ig_reel' || (scriptOption === 'ig_reel' && reelUrl))
   );
 
   // Debug logging of the script preview state

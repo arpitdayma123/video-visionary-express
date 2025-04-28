@@ -92,7 +92,12 @@ const GenerateVideo: React.FC<GenerateVideoProps> = ({
     { completed: hasNiches, label: 'Choose at least one niche' },
     { completed: hasCompetitors, label: 'Add competitor accounts' },
     { completed: hasCredits, label: 'Have at least 1 credit' },
-    { completed: isFormComplete, label: getScriptRequirementLabel() }
+    { 
+      completed: isFormComplete, 
+      label: scriptOption === 'script_from_prompt' 
+        ? 'Provide a topic or prompt'  // Updated label for script_from_prompt
+        : getScriptRequirementLabel() 
+    }
   ];
 
   const incompleteTasks = remainingTasks.filter(task => !task.completed);
