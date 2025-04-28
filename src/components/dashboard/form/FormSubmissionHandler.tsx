@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { UploadedFile } from '@/hooks/useDashboardData';
@@ -117,15 +118,32 @@ const FormSubmissionHandler = ({
 
     // Check if script has been selected and preview is visible for ai_find/ig_reel/script_from_prompt
     const scriptReady = (scriptOption === 'ai_find' || scriptOption === 'ig_reel' || scriptOption === 'script_from_prompt') 
-      ? (hasFinalizedPreviewScript && !!scriptForWebhook)
-      : !!customScript;
+      ? (hasFinalizedPreviewScript && !!scriptForWebhook && scriptForWebhook.trim().length > 0)
+      : (!!customScript && customScript.trim().length > 0);
       
     if (!scriptReady) {
-      toast({
-        title: "Script not ready",
-        description: "Please generate and confirm a script before proceeding.",
-        variant: "destructive"
-      });
+      // Specific error message for script_from_prompt
+      if (scriptOption === 'script_from_prompt') {
+        if (!isScriptPreviewVisible || !scriptForWebhook) {
+          toast({
+            title: "Script not generated",
+            description: "Please generate a script first by clicking 'Generate Script from Topic'.",
+            variant: "destructive"
+          });
+        } else if (!hasFinalizedPreviewScript) {
+          toast({
+            title: "Script not confirmed",
+            description: "Please click 'Use This Script' to confirm the script before generating the video.",
+            variant: "destructive"
+          });
+        }
+      } else {
+        toast({
+          title: "Script not ready",
+          description: "Please generate and confirm a script before proceeding.",
+          variant: "destructive"
+        });
+      }
       return;
     }
     

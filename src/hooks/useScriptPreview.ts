@@ -137,9 +137,11 @@ export const useScriptPreview = (
       
       // Add user_query parameter if script option is script_from_prompt
       if (scriptOption === 'script_from_prompt' && userQuery) {
+        console.log(`Adding user query to webhook URL: ${userQuery}`);
         webhookUrl += `&user_query=${encodeURIComponent(userQuery)}`;
       }
 
+      console.log(`Calling script generation webhook: ${webhookUrl}`);
       const webhookResponse = await fetch(
         webhookUrl,
         {
@@ -233,9 +235,11 @@ export const useScriptPreview = (
       
       // Add user_query parameter if script option is script_from_prompt
       if (scriptOption === 'script_from_prompt' && userQuery) {
+        console.log(`Adding user query to webhook URL for regenerate: ${userQuery}`);
         webhookUrl += `&user_query=${encodeURIComponent(userQuery)}`;
       }
 
+      console.log(`Calling script regeneration webhook: ${webhookUrl}`);
       const webhookResponse = await fetch(
         webhookUrl,
         {
