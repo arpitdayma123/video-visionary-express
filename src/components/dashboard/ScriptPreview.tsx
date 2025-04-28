@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useScriptPreview } from '@/hooks/useScriptPreview';
@@ -23,7 +22,7 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
   onScriptLoaded,
   webhookError,
   setWebhookError,
-  userQuery // Added userQuery parameter
+  userQuery
 }) => {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -148,6 +147,16 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
     hasUsedScript
   });
 
+  const showGenerateButton = (scriptOption === 'ig_reel' || scriptOption === 'script_from_prompt');
+
+  // Function to validate input based on script option
+  const isInputValid = () => {
+    if (scriptOption === 'script_from_prompt') {
+      return userQuery && userQuery.trim().length > 0;
+    }
+    return true;
+  };
+
   // For ai_remake, always show content immediately
   if (scriptOption === 'ai_remake') {
     return (
@@ -159,6 +168,42 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
           onScriptChange={handleScriptChange}
           onRegenerateScript={handleRegenerateScript}
         />
+      </div>
+    );
+  }
+
+  // For script_from_prompt and ig_reel, always show both button and preview
+  if (showGenerateButton) {
+    return (
+      <div onClick={(e) => { e.preventDefault(); e.stopPropagation(); }} className="space-y-4">
+        <div>
+          <GeneratePreviewButton
+            isLoading={isLoading}
+            onGenerate={handleGeneratePreviewClick}
+            scriptOption={scriptOption}
+            generationStartTime={generationStartTime}
+            waitTimeExpired={waitTimeExpired}
+            disabled={!isInputValid()}
+          />
+        </div>
+        {isPreviewVisible && (
+          <ScriptPreviewContent
+            isLoading={isLoading}
+            script={script}
+            wordCount={wordCount}
+            onScriptChange={handleScriptChange}
+            onRegenerateScript={handleRegenerateWithSave}
+            showChangeScript={scriptOption === 'ai_find'}
+            onChangeScript={
+              scriptOption === 'ai_find'
+                ? (e) => { e.preventDefault(); e.stopPropagation(); handleChangeScript(); }
+                : undefined
+            }
+            showUseScriptButton={showUseScriptButton}
+            onUseScript={handleUseScript}
+            useScriptDisabled={false}
+          />
+        )}
       </div>
     );
   }

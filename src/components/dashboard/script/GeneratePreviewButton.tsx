@@ -2,6 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Loader } from 'lucide-react';
+import { Alert } from '@/components/ui/alert';
+import { AlertTriangle } from 'lucide-react';
 
 interface GeneratePreviewButtonProps {
   isLoading: boolean;
@@ -9,6 +11,7 @@ interface GeneratePreviewButtonProps {
   scriptOption: string;
   generationStartTime: number | null;
   waitTimeExpired: boolean;
+  disabled?: boolean;
 }
 
 const GeneratePreviewButton: React.FC<GeneratePreviewButtonProps> = ({
@@ -16,7 +19,8 @@ const GeneratePreviewButton: React.FC<GeneratePreviewButtonProps> = ({
   onGenerate,
   scriptOption,
   generationStartTime,
-  waitTimeExpired
+  waitTimeExpired,
+  disabled = false
 }) => {
   const [countdown, setCountdown] = useState<number | null>(null);
   const [extendedTime, setExtendedTime] = useState(0);
@@ -68,14 +72,20 @@ const GeneratePreviewButton: React.FC<GeneratePreviewButtonProps> = ({
   const handleClick = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    if (disabled) {
+      return;
+    }
     onGenerate(e);
   };
+
+  // Don't render the button if script option is "custom"
+  if (scriptOption === 'custom') return null;
 
   return (
     <div className="mt-6" onClick={(e) => e.stopPropagation()}>
       <Button
         onClick={handleClick}
-        disabled={isLoading}
+        disabled={isLoading || disabled}
         className="w-full sm:w-auto"
         type="button"
       >
@@ -91,6 +101,17 @@ const GeneratePreviewButton: React.FC<GeneratePreviewButtonProps> = ({
           'Generate Script Preview'
         )}
       </Button>
+      
+      {disabled && (scriptOption === 'script_from_prompt' || scriptOption === 'ig_reel') && (
+        <Alert variant="destructive" className="mt-2">
+          <AlertTriangle className="h-4 w-4" />
+          <div className="ml-2">
+            {scriptOption === 'script_from_prompt' 
+              ? 'Please enter a topic or keywords before generating a script.'
+              : 'Please enter a valid Instagram reel URL before generating a script.'}
+          </div>
+        </Alert>
+      )}
     </div>
   );
 };
