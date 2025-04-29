@@ -101,7 +101,7 @@ export const useAiRemake = (
       // Use the new N8N webhook URL with improved error handling
       console.log(`Calling webhook for ai_remake regeneration: ${SCRIPT_REMAKE_WEBHOOK}?userId=${user.id}&scriptOption=ai_remake&regenerate=true`);
       
-      const fetchTimeout = new Promise((_, reject) =>
+      const fetchTimeout = new Promise<never>((_, reject) =>
         setTimeout(() => reject(new Error('Request timeout')), 20000)
       );
       
@@ -118,7 +118,7 @@ export const useAiRemake = (
       );
       
       // Race between the fetch and a timeout
-      const webhookResponse = await Promise.race([fetchPromise, fetchTimeout]);
+      const webhookResponse = await Promise.race([fetchPromise, fetchTimeout]) as Response;
       
       if (!webhookResponse.ok) {
         const errorText = await webhookResponse.text();
