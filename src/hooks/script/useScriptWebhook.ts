@@ -1,5 +1,5 @@
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
 
 interface UseScriptWebhookProps {
@@ -17,7 +17,7 @@ export const useScriptWebhook = ({
   const { toast } = useToast();
 
   // Helper function to call webhook with retry logic
-  const callWebhook = async (url: string) => {
+  const callWebhook = useCallback(async (url: string) => {
     console.log(`Calling webhook: ${url}, retry attempt: ${retryCountRef.current}`);
     
     // Create new AbortController for this request
@@ -92,9 +92,9 @@ export const useScriptWebhook = ({
       
       throw error;
     }
-  };
+  }, [FETCH_TIMEOUT, MAX_RETRIES]);
 
-  const resetWebhookState = () => {
+  const resetWebhookState = useCallback(() => {
     setWebhookError(null);
     retryCountRef.current = 0;
     
@@ -102,14 +102,14 @@ export const useScriptWebhook = ({
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
     }
-  };
+  }, []);
 
-  const cleanupWebhookResources = () => {
+  const cleanupWebhookResources = useCallback(() => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
     }
-  };
+  }, []);
 
   return {
     webhookError,

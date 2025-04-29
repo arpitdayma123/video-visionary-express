@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { User } from '@supabase/supabase-js';
@@ -27,7 +27,7 @@ export const useAiRemake = (
     setIsLoading
   );
   
-  const { callWebhook } = useScriptWebhook();
+  const { callWebhook, resetWebhookState } = useScriptWebhook();
 
   useEffect(() => {
     const fetchExistingScript = async () => {
@@ -55,7 +55,7 @@ export const useAiRemake = (
     };
     
     fetchExistingScript();
-  }, [user]);
+  }, [user, updateWordCount]);
 
   function handleScriptGenerated(newScript: string) {
     setScript(newScript);
@@ -65,7 +65,7 @@ export const useAiRemake = (
     onScriptGenerated(newScript);
   }
 
-  const handleScriptChange = async (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+  const handleScriptChange = useCallback(async (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newScript = e.target.value;
     setScript(newScript);
     setWordCount(updateWordCount(newScript));
@@ -74,9 +74,9 @@ export const useAiRemake = (
       await saveFinalScript(user, newScript);
       await saveCustomScript(user, newScript);
     }
-  };
+  }, [user, updateWordCount, saveFinalScript, saveCustomScript]);
 
-  const handleRegenerateScript = async () => {
+  const handleRegenerateScript = useCallback(async () => {
     if (!user) return;
     
     try {
@@ -90,6 +90,7 @@ export const useAiRemake = (
     }
     
     setIsLoading(true);
+    resetWebhookState();
     
     try {
       const { error } = await supabase
@@ -102,10 +103,11 @@ export const useAiRemake = (
       if (error) throw error;
 
       // Use the webhook URL with improved error handling
-      console.log(`Calling webhook for ai_remake regeneration: ${SCRIPT_REMAKE_WEBHOOK}?userId=${user.id}&scriptOption=ai_remake&regenerate=true`);
+      const webhookUrl = `${SCRIPT_REMAKE_WEBHOOK}?userId=${user.id}&scriptOption=ai_remake&regenerate=true`;
+      console.log(`Calling webhook for ai_remake regeneration: ${webhookUrl}`);
       
       try {
-        await callWebhook(`${SCRIPT_REMAKE_WEBHOOK}?userId=${user.id}&scriptOption=ai_remake&regenerate=true`);
+        await callWebhook(webhookUrl);
         
         console.log('Webhook response received, starting polling');
         if (pollingInterval.current) {
@@ -139,7 +141,7 @@ export const useAiRemake = (
       const interval = setInterval(checkPreviewStatus, 2000);
       pollingInterval.current = interval;
     }
-  };
+  }, [user, script, saveFinalScript, saveCustomScript, setIsLoading, resetWebhookState, callWebhook, pollingInterval, checkPreviewStatus, toast]);
 
   return {
     isLoading,

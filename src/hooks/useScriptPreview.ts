@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { User } from '@supabase/supabase-js';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -13,7 +13,7 @@ export const useScriptPreview = (
   user: User | null, 
   onScriptGenerated: (script: string) => void,
   scriptOption: string,
-  userQuery?: string // Add optional userQuery parameter
+  userQuery?: string
 ) => {
   const [isLoading, setIsLoading] = useState(false);
   const [script, setScript] = useState('');
@@ -27,7 +27,8 @@ export const useScriptPreview = (
   const { 
     webhookError, 
     setWebhookError, 
-    cleanupWebhookResources
+    cleanupWebhookResources,
+    resetWebhookState
   } = useScriptWebhook();
   
   const { checkPreviewStatus, pollingInterval, pollingAttempts, setPollingAttempts } = useScriptPolling(
@@ -54,7 +55,7 @@ export const useScriptPreview = (
     userQuery
   });
 
-  // Only reset state when script option actually changes, not on component remount
+  // Only reset state when script option actually changes
   useEffect(() => {
     if (previousScriptOptionRef.current !== scriptOption) {
       console.log('useScriptPreview - Script option changed from:', previousScriptOptionRef.current, 'to:', scriptOption);
@@ -68,6 +69,7 @@ export const useScriptPreview = (
       
       // Clear any errors
       setWebhookError(null);
+      resetWebhookState();
       
       // Make sure we're not in loading state
       setIsLoading(false);
@@ -103,7 +105,7 @@ export const useScriptPreview = (
       // Update the reference
       previousScriptOptionRef.current = scriptOption;
     }
-  }, [scriptOption, user, pollingInterval, setIsLoading, setPollingAttempts, setWebhookError]);
+  }, [scriptOption, user, pollingInterval, setIsLoading, setPollingAttempts, setWebhookError, resetWebhookState]);
 
   // Use AI Remake hook if that option is selected
   const aiRemake = useAiRemake(user, onScriptGenerated);
@@ -134,21 +136,21 @@ export const useScriptPreview = (
     onScriptGenerated(newScript);
   }
 
-  const handleScriptChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+  const handleScriptChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newScript = e.target.value;
     setScript(newScript);
     setWordCount(updateWordCount(newScript));
     if (user && scriptOption === 'ai_remake') {
       saveCustomScript(user, newScript);
     }
-  };
+  }, [user, scriptOption, updateWordCount, saveCustomScript]);
 
   // Cleanup webhook resources on unmount
   useEffect(() => {
     return () => {
       cleanupWebhookResources();
     };
-  }, []);
+  }, [cleanupWebhookResources]);
 
   return {
     isLoading,

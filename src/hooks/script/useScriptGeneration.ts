@@ -1,5 +1,5 @@
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -39,7 +39,7 @@ export const useScriptGeneration = ({
     resetWebhookState
   } = useScriptWebhook();
 
-  const handleGeneratePreview = async () => {
+  const handleGeneratePreview = useCallback(async () => {
     if (!user) return;
     
     // Prevent duplicate calls
@@ -72,12 +72,15 @@ export const useScriptGeneration = ({
         webhookUrl += `&user_query=${encodeURIComponent(userQuery)}`;
       }
 
+      console.log('Calling webhook for initial generation:', webhookUrl);
+
       // Call the webhook with retry logic
       try {
         await callWebhook(webhookUrl);
         setWebhookError(null);
       } catch (error) {
         console.error('All webhook attempts failed:', error);
+        setWebhookError(error instanceof Error ? error.message : "Failed to call webhook");
         // Continue with polling even if webhook fails
       }
       
@@ -113,9 +116,9 @@ export const useScriptGeneration = ({
         variant: "destructive"
       });
     }
-  };
+  }, [user, isGeneratingRef, resetWebhookState, setIsLoading, scriptOption, userQuery, callWebhook, setWebhookError, pollingInterval, setPollingAttempts, checkPreviewStatus, toast]);
 
-  const handleRegenerateScript = async () => {
+  const handleRegenerateScript = useCallback(async () => {
     if (!user) return;
     
     // Prevent duplicate calls
@@ -155,6 +158,7 @@ export const useScriptGeneration = ({
         setWebhookError(null);
       } catch (error) {
         console.error('All webhook attempts failed:', error);
+        setWebhookError(error instanceof Error ? error.message : "Failed to call webhook");
         // Continue with polling even if webhook fails
       }
       
@@ -190,9 +194,9 @@ export const useScriptGeneration = ({
         variant: "destructive"
       });
     }
-  };
+  }, [user, isGeneratingRef, resetWebhookState, setIsLoading, scriptOption, userQuery, callWebhook, setWebhookError, pollingInterval, setPollingAttempts, checkPreviewStatus, toast]);
 
-  const handleChangeScript = async () => {
+  const handleChangeScript = useCallback(async () => {
     if (!user) return;
     
     // Prevent duplicate calls
@@ -225,6 +229,7 @@ export const useScriptGeneration = ({
         setWebhookError(null);
       } catch (error) {
         console.error('All webhook attempts failed:', error);
+        setWebhookError(error instanceof Error ? error.message : "Failed to call webhook");
         // Continue with polling even if webhook fails
       }
 
@@ -260,7 +265,7 @@ export const useScriptGeneration = ({
         variant: "destructive"
       });
     }
-  };
+  }, [user, isGeneratingRef, resetWebhookState, setIsLoading, scriptOption, callWebhook, setWebhookError, pollingInterval, setPollingAttempts, checkPreviewStatus, toast]);
 
   return {
     webhookError,
