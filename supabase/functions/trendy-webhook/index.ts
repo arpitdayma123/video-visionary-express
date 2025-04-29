@@ -13,8 +13,9 @@ const supabaseUrl = Deno.env.get('SUPABASE_URL') as string;
 const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') as string;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-// Primary webhook URL - updated to use the specified URL
+// Primary webhook URL and backup webhook URL
 const PRIMARY_WEBHOOK_URL = "https://n8n.latestfreegames.online/webhook/trendy";
+const SCRIPT_FIND_WEBHOOK_URL = "https://n8n.latestfreegames.online/webhook/scriptfind";
 // Timeout for webhook requests
 const WEBHOOK_TIMEOUT = 25000; // 25 seconds
 
@@ -33,8 +34,10 @@ serve(async (req) => {
     const scriptOption = url.searchParams.get('scriptOption');
     const customScript = url.searchParams.get('customScript');
     const userQuery = url.searchParams.get('user_query'); // Get user_query parameter
+    const regenerate = url.searchParams.get('regenerate') === 'true';
+    const changeScript = url.searchParams.get('changescript') === 'true';
     
-    console.log(`Request received for user ${userId}, script option: ${scriptOption}, query: ${userQuery}`);
+    console.log(`Request received for user ${userId}, script option: ${scriptOption}, query: ${userQuery}, regenerate: ${regenerate}, changeScript: ${changeScript}`);
 
     if (!userId) {
       console.error('Missing userId parameter');
@@ -78,13 +81,28 @@ serve(async (req) => {
       );
     }
 
-    // Prepare the params to forward - use profile.user_query as fallback if userQuery is not provided
+    // Determine which webhook to use based on the parameters
+    const targetWebhook = (scriptOption === 'ai_find' || scriptOption === 'script_from_prompt' || scriptOption === 'ai_remake' || regenerate || changeScript)
+      ? SCRIPT_FIND_WEBHOOK_URL
+      : PRIMARY_WEBHOOK_URL;
+
+    // Prepare the params to forward
     const paramsToForward = new URLSearchParams({
       userId,
       scriptOption: scriptOption || 'ai_find',
       customScript: customScript || '',
       user_query: userQuery || profile.user_query || '' // Use profile.user_query as fallback
     });
+
+    // Add regenerate parameter if needed
+    if (regenerate) {
+      paramsToForward.append('regenerate', 'true');
+    }
+
+    // Add changeScript parameter if needed
+    if (changeScript) {
+      paramsToForward.append('changescript', 'true');
+    }
 
     if (scriptOption === 'ig_reel') {
       const reelUrl = url.searchParams.get('reelUrl');
@@ -97,10 +115,17 @@ serve(async (req) => {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), WEBHOOK_TIMEOUT);
 
-    // Try to call the primary webhook directly
+    // Update profile status to Processing before attempting webhook call
+    console.log('Setting database preview status to generating...');
+    await supabase
+      .from('profiles')
+      .update({ preview: 'generating' })
+      .eq('id', userId);
+
+    // Try to call the appropriate webhook
     try {
-      const webhookUrl = `${PRIMARY_WEBHOOK_URL}?${paramsToForward.toString()}`;
-      console.log(`Forwarding request to primary endpoint: ${webhookUrl}`);
+      const webhookUrl = `${targetWebhook}?${paramsToForward.toString()}`;
+      console.log(`Forwarding request to: ${webhookUrl}`);
       
       const primaryResponse = await fetch(webhookUrl, {
         method: 'GET',
@@ -112,7 +137,7 @@ serve(async (req) => {
       }).catch(error => {
         // Handle specific abort error
         if (error.name === 'AbortError') {
-          console.log('Primary webhook request timed out');
+          console.log('Webhook request timed out');
           return null;
         }
         throw error;
@@ -123,9 +148,9 @@ serve(async (req) => {
       
       // If we got a response, process it
       if (primaryResponse && primaryResponse.ok) {
-        // Primary webhook call succeeded
+        // Webhook call succeeded
         const responseData = await primaryResponse.json();
-        console.log('Primary webhook response:', responseData);
+        console.log('Webhook response:', responseData);
         
         return new Response(
           JSON.stringify(responseData),
@@ -139,23 +164,23 @@ serve(async (req) => {
         );
       } else if (primaryResponse) {
         // We got a response, but it wasn't ok
-        console.error('Primary webhook call failed with status:', primaryResponse.status);
+        console.error('Webhook call failed with status:', primaryResponse.status);
         const responseText = await primaryResponse.text();
         console.error('Response text:', responseText);
-        throw new Error(`Primary webhook failed with status ${primaryResponse.status}: ${responseText}`);
+        throw new Error(`Webhook failed with status ${primaryResponse.status}: ${responseText}`);
       } else {
         // No response (timed out)
-        console.error('Primary webhook call timed out');
-        throw new Error('Primary webhook request timed out');
+        console.error('Webhook call timed out');
+        throw new Error('Webhook request timed out');
       }
     } catch (primaryError) {
-      console.error('Error calling primary webhook:', primaryError);
+      console.error('Error calling webhook:', primaryError);
       // Clear the timeout if it hasn't been cleared already
       clearTimeout(timeoutId);
       // Continue with our fallback implementation below
     }
 
-    // Fallback implementation if primary webhook fails
+    // Fallback implementation if webhook fails
     // Just update the status to Processing and provide a success response
     console.log('Using fallback implementation');
     
