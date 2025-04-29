@@ -135,7 +135,16 @@ export const useScriptPreview = (
     }
   };
 
-  const callWebhook = async (params: Record<string, string>, actionType: string) => {
+  // Define webhook parameter types to fix TypeScript errors
+  type WebhookParams = {
+    userId: string;
+    scriptOption: string;
+    regenerate?: string;
+    changescript?: string;
+    user_query?: string;
+  };
+
+  const callWebhook = async (params: WebhookParams, actionType: string) => {
     if (!user) return;
     
     // Prevent duplicate calls
@@ -184,8 +193,8 @@ export const useScriptPreview = (
       // Construct the webhook URL with all parameters
       const searchParams = new URLSearchParams();
       Object.keys(params).forEach(key => {
-        if (params[key] !== undefined && params[key] !== null && params[key] !== '') {
-          searchParams.append(key, params[key]);
+        if (params[key as keyof WebhookParams] !== undefined && params[key as keyof WebhookParams] !== null && params[key as keyof WebhookParams] !== '') {
+          searchParams.append(key, params[key as keyof WebhookParams] as string);
         }
       });
 
@@ -285,7 +294,8 @@ export const useScriptPreview = (
   };
 
   const handleGeneratePreview = async () => {
-    const params = {
+    // Create params object with proper typing
+    const params: WebhookParams = {
       userId: user?.id || '',
       scriptOption,
       regenerate: 'false'
@@ -319,7 +329,8 @@ export const useScriptPreview = (
       }
     }
     
-    const params = {
+    // Create params object with proper typing
+    const params: WebhookParams = {
       userId: user?.id || '',
       scriptOption,
       regenerate: 'true'
@@ -336,7 +347,8 @@ export const useScriptPreview = (
   const handleChangeScript = async () => {
     if (!user) return;
     
-    const params = {
+    // Create params object with proper typing
+    const params: WebhookParams = {
       userId: user?.id || '',
       changescript: 'true',
       scriptOption
