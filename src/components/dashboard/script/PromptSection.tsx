@@ -20,7 +20,7 @@ const PromptSection: React.FC<PromptSectionProps> = ({
         <Label htmlFor="prompt">Enter your topic, idea, or keywords</Label>
         <Input
           id="prompt"
-          placeholder="E.g.,: China's new DeepSeek R2 AI model or ByteDance's OmniHuman 1, etc."
+          placeholder="E.g., 'Tips for morning productivity routine' or 'Healthy breakfast ideas'"
           value={userQuery}
           onChange={onQueryChange}
           disabled={isSaving}

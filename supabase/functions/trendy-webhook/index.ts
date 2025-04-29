@@ -15,12 +15,8 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 // Primary webhook URL - updated to use the specified URL
 const PRIMARY_WEBHOOK_URL = "https://n8n.latestfreegames.online/webhook/trendy";
-// Timeout for webhook requests
-const WEBHOOK_TIMEOUT = 25000; // 25 seconds
 
 serve(async (req) => {
-  console.log("trendy-webhook function started");
-  
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -33,13 +29,10 @@ serve(async (req) => {
     const scriptOption = url.searchParams.get('scriptOption');
     const customScript = url.searchParams.get('customScript');
     const userQuery = url.searchParams.get('user_query'); // Get user_query parameter
-    const regenerate = url.searchParams.get('regenerate') === 'true';
-    const changeScript = url.searchParams.get('changescript') === 'true';
     
-    console.log(`Request received for user ${userId}, script option: ${scriptOption}, query: ${userQuery}, regenerate: ${regenerate}, changeScript: ${changeScript}`);
+    console.log(`Request received for user ${userId}, script option: ${scriptOption}, query: ${userQuery}`);
 
     if (!userId) {
-      console.error('Missing userId parameter');
       return new Response(
         JSON.stringify({ error: 'Missing userId parameter' }),
         { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
@@ -47,10 +40,9 @@ serve(async (req) => {
     }
 
     // Get user profile from Supabase
-    console.log(`Fetching profile for user ${userId}`);
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('credit, videos, voice_files, selected_video, selected_voice, selected_niches, competitors, user_query, reel_url')
+      .select('credit, videos, voice_files, selected_video, selected_voice, selected_niches, competitors, user_query')
       .eq('id', userId)
       .single();
 
@@ -80,61 +72,34 @@ serve(async (req) => {
       );
     }
 
-    // Special check for ig_reel
-    if (scriptOption === 'ig_reel' && !profile.reel_url) {
-      console.error('Missing reel_url for ig_reel option');
-      return new Response(
-        JSON.stringify({ error: 'Missing Instagram Reel URL' }),
-        { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
-      );
-    }
-
-    // Prepare the params to forward
+    // Prepare the params to forward - use profile.user_query as fallback if userQuery is not provided
     const paramsToForward = new URLSearchParams({
       userId,
       scriptOption: scriptOption || 'ai_find',
       customScript: customScript || '',
-      user_query: userQuery || profile.user_query || '', // Use profile.user_query as fallback
-      regenerate: regenerate ? 'true' : 'false',
-      changescript: changeScript ? 'true' : 'false'
+      user_query: userQuery || profile.user_query || '' // Use profile.user_query as fallback
     });
 
-    if (scriptOption === 'ig_reel' && profile.reel_url) {
-      paramsToForward.append('reelUrl', profile.reel_url);
-    } else if (scriptOption === 'ig_reel' && url.searchParams.get('reelUrl')) {
-      paramsToForward.append('reelUrl', url.searchParams.get('reelUrl')!);
+    if (scriptOption === 'ig_reel') {
+      const reelUrl = url.searchParams.get('reelUrl');
+      if (reelUrl) {
+        paramsToForward.append('reelUrl', reelUrl);
+      }
     }
-
-    // Create AbortController for the webhook request
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), WEBHOOK_TIMEOUT);
 
     // Try to call the primary webhook directly
     try {
-      const webhookUrl = `${PRIMARY_WEBHOOK_URL}?${paramsToForward.toString()}`;
-      console.log(`Forwarding request to primary endpoint: ${webhookUrl}`);
+      console.log(`Forwarding request to primary endpoint: ${PRIMARY_WEBHOOK_URL}?${paramsToForward.toString()}`);
       
-      const primaryResponse = await fetch(webhookUrl, {
+      const primaryResponse = await fetch(`${PRIMARY_WEBHOOK_URL}?${paramsToForward.toString()}`, {
         method: 'GET',
         headers: {
           'Accept': 'application/json',
           'Cache-Control': 'no-cache'
         },
-        signal: controller.signal
-      }).catch(error => {
-        // Handle specific abort error
-        if (error.name === 'AbortError') {
-          console.log('Primary webhook request timed out');
-          return null;
-        }
-        throw error;
       });
 
-      // Clear the timeout
-      clearTimeout(timeoutId);
-      
-      // If we got a response, process it
-      if (primaryResponse && primaryResponse.ok) {
+      if (primaryResponse.ok) {
         // Primary webhook call succeeded
         const responseData = await primaryResponse.json();
         console.log('Primary webhook response:', responseData);
@@ -149,21 +114,14 @@ serve(async (req) => {
             } 
           }
         );
-      } else if (primaryResponse) {
-        // We got a response, but it wasn't ok
-        console.error('Primary webhook call failed with status:', primaryResponse.status);
-        const responseText = await primaryResponse.text();
-        console.error('Response text:', responseText);
-        throw new Error(`Primary webhook failed with status ${primaryResponse.status}: ${responseText}`);
       } else {
-        // No response (timed out)
-        console.error('Primary webhook call timed out');
-        throw new Error('Primary webhook request timed out');
+        // If primary fails, we'll handle it ourselves below
+        console.error('Primary webhook call failed:', primaryResponse.status);
+        throw new Error(`Primary webhook failed with status ${primaryResponse.status}`);
       }
     } catch (primaryError) {
       console.error('Error calling primary webhook:', primaryError);
-      // Clear the timeout if it hasn't been cleared already
-      clearTimeout(timeoutId);
+      
       // Continue with our fallback implementation below
     }
 
@@ -188,7 +146,6 @@ serve(async (req) => {
       );
     }
 
-    console.log('Successfully updated profile status to Processing');
     return new Response(
       JSON.stringify({ 
         message: "Workflow was started",
@@ -207,10 +164,7 @@ serve(async (req) => {
     console.error('Error processing webhook:', error);
     
     return new Response(
-      JSON.stringify({ 
-        error: 'Internal server error', 
-        message: error instanceof Error ? error.message : String(error)
-      }),
+      JSON.stringify({ error: 'Internal server error', message: error.message }),
       { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
     );
   }
