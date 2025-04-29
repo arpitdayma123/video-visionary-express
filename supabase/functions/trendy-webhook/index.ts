@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
 
@@ -15,12 +14,8 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 // Primary webhook URL - updated to use the specified URL
 const PRIMARY_WEBHOOK_URL = "https://n8n.latestfreegames.online/webhook/trendy";
-// Timeout for webhook requests
-const WEBHOOK_TIMEOUT = 25000; // 25 seconds
 
 serve(async (req) => {
-  console.log("trendy-webhook function started");
-  
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -37,15 +32,32 @@ serve(async (req) => {
     console.log(`Request received for user ${userId}, script option: ${scriptOption}, query: ${userQuery}`);
 
     if (!userId) {
-      console.error('Missing userId parameter');
       return new Response(
         JSON.stringify({ error: 'Missing userId parameter' }),
         { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
       );
     }
 
+    // Check if the user already has a script generation in progress
+    const { data: userProfile, error: profileCheckError } = await supabase
+      .from('profiles')
+      .select('preview')
+      .eq('id', userId)
+      .single();
+      
+    if (!profileCheckError && userProfile && userProfile.preview === 'generating') {
+      console.log(`User ${userId} already has a script generation in progress.`);
+      return new Response(
+        JSON.stringify({ 
+          message: "Script generation already in progress", 
+          status: 'generating',
+          already_processing: true
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+      );
+    }
+
     // Get user profile from Supabase
-    console.log(`Fetching profile for user ${userId}`);
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('credit, videos, voice_files, selected_video, selected_voice, selected_niches, competitors, user_query')
@@ -93,78 +105,15 @@ serve(async (req) => {
       }
     }
 
-    // Create AbortController for the webhook request
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), WEBHOOK_TIMEOUT);
-
-    // Try to call the primary webhook directly
-    try {
-      const webhookUrl = `${PRIMARY_WEBHOOK_URL}?${paramsToForward.toString()}`;
-      console.log(`Forwarding request to primary endpoint: ${webhookUrl}`);
-      
-      const primaryResponse = await fetch(webhookUrl, {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json',
-          'Cache-Control': 'no-cache'
-        },
-        signal: controller.signal
-      }).catch(error => {
-        // Handle specific abort error
-        if (error.name === 'AbortError') {
-          console.log('Primary webhook request timed out');
-          return null;
-        }
-        throw error;
-      });
-
-      // Clear the timeout
-      clearTimeout(timeoutId);
-      
-      // If we got a response, process it
-      if (primaryResponse && primaryResponse.ok) {
-        // Primary webhook call succeeded
-        const responseData = await primaryResponse.json();
-        console.log('Primary webhook response:', responseData);
-        
-        return new Response(
-          JSON.stringify(responseData),
-          { 
-            status: 200, 
-            headers: { 
-              'Content-Type': 'application/json',
-              ...corsHeaders 
-            } 
-          }
-        );
-      } else if (primaryResponse) {
-        // We got a response, but it wasn't ok
-        console.error('Primary webhook call failed with status:', primaryResponse.status);
-        const responseText = await primaryResponse.text();
-        console.error('Response text:', responseText);
-        throw new Error(`Primary webhook failed with status ${primaryResponse.status}: ${responseText}`);
-      } else {
-        // No response (timed out)
-        console.error('Primary webhook call timed out');
-        throw new Error('Primary webhook request timed out');
-      }
-    } catch (primaryError) {
-      console.error('Error calling primary webhook:', primaryError);
-      // Clear the timeout if it hasn't been cleared already
-      clearTimeout(timeoutId);
-      // Continue with our fallback implementation below
-    }
-
-    // Fallback implementation if primary webhook fails
-    // Just update the status to Processing and provide a success response
-    console.log('Using fallback implementation');
-    
-    // Update the profile status to Processing
+    // Clear any existing preview and set status to Processing
     const { error: updateError } = await supabase
       .from('profiles')
       .update({ 
         status: 'Processing',
-        updated_at: new Date().toISOString() 
+        preview: 'generating',
+        previewscript: null, // Explicitly clear any existing preview script
+        updated_at: new Date().toISOString(),
+        webhook_start_time: new Date().toISOString() // Track when the webhook was started
       })
       .eq('id', userId);
 
@@ -176,12 +125,93 @@ serve(async (req) => {
       );
     }
 
-    console.log('Successfully updated profile status to Processing');
+    // Create controller for timeout handling - INCREASED TIMEOUT TO 5 MINUTES (300000ms)
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 300000); // 5-minute timeout
+
+    // Try to call the primary webhook directly
+    try {
+      console.log(`Forwarding request to primary endpoint: ${PRIMARY_WEBHOOK_URL}?${paramsToForward.toString()}`);
+      
+      const primaryResponse = await fetch(`${PRIMARY_WEBHOOK_URL}?${paramsToForward.toString()}`, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'Cache-Control': 'no-cache'
+        },
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
+
+      if (primaryResponse.ok) {
+        // Primary webhook call succeeded
+        let responseData;
+        try {
+          responseData = await primaryResponse.json();
+          console.log('Primary webhook response:', responseData);
+          
+          // Update with the webhook completion time
+          await supabase
+            .from('profiles')
+            .update({ webhook_completion_time: new Date().toISOString() })
+            .eq('id', userId);
+          
+        } catch (parseError) {
+          console.warn('Could not parse primary webhook response as JSON');
+          responseData = { success: true, message: "Request processed" };
+        }
+        
+        return new Response(
+          JSON.stringify({
+            ...responseData,
+            webhook_processed: true,
+            status: 'generating' // Always return generating since the script is not yet ready
+          }),
+          { 
+            status: 200, 
+            headers: { 
+              'Content-Type': 'application/json',
+              ...corsHeaders 
+            } 
+          }
+        );
+      } else {
+        // If primary fails with specific status code
+        console.error('Primary webhook call failed:', primaryResponse.status);
+        throw new Error(`Primary webhook failed with status ${primaryResponse.status}`);
+      }
+    } catch (primaryError) {
+      clearTimeout(timeoutId);
+      console.error('Error calling primary webhook:', primaryError);
+      
+      // Check if it was a timeout
+      if (primaryError.name === 'AbortError') {
+        console.error('Primary webhook request timed out after 5 minutes');
+        
+        // Update database to indicate a timeout occurred but keep 'generating' status
+        await supabase
+          .from('profiles')
+          .update({ 
+            webhook_timeout: true,
+            webhook_error: 'Timeout after 5 minutes, but still processing'
+          })
+          .eq('id', userId);
+      }
+      
+      // Continue with our fallback implementation below
+    }
+
+    // Fallback implementation if primary webhook fails
+    console.log('Using fallback implementation');
+    
     return new Response(
       JSON.stringify({ 
         message: "Workflow was started",
         success: true,
-        fallback: true
+        status: 'generating',
+        fallback_used: true,
+        userId: userId
       }),
       { 
         status: 200, 
@@ -195,10 +225,7 @@ serve(async (req) => {
     console.error('Error processing webhook:', error);
     
     return new Response(
-      JSON.stringify({ 
-        error: 'Internal server error', 
-        message: error instanceof Error ? error.message : String(error)
-      }),
+      JSON.stringify({ error: 'Internal server error', message: error.message }),
       { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
     );
   }
