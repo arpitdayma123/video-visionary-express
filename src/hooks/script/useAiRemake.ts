@@ -5,6 +5,7 @@ import { useToast } from '@/hooks/use-toast';
 import { User } from '@supabase/supabase-js';
 import { useScriptUtils } from './useScriptUtils';
 import { useScriptPolling } from './useScriptPolling';
+import { useScriptWebhook } from './useScriptWebhook';
 
 export const useAiRemake = (
   user: User | null,
@@ -25,6 +26,8 @@ export const useAiRemake = (
     'ai_remake',
     setIsLoading
   );
+  
+  const { callWebhook } = useScriptWebhook();
 
   useEffect(() => {
     const fetchExistingScript = async () => {
@@ -98,42 +101,28 @@ export const useAiRemake = (
 
       if (error) throw error;
 
-      // Use the new N8N webhook URL with improved error handling
+      // Use the webhook URL with improved error handling
       console.log(`Calling webhook for ai_remake regeneration: ${SCRIPT_REMAKE_WEBHOOK}?userId=${user.id}&scriptOption=ai_remake&regenerate=true`);
       
-      const fetchTimeout = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('Request timeout')), 20000)
-      );
-      
-      const fetchPromise = fetch(
-        `${SCRIPT_REMAKE_WEBHOOK}?userId=${user.id}&scriptOption=ai_remake&regenerate=true`,
-        {
-          method: 'GET',
-          headers: {
-            'Accept': 'application/json',
-            'Cache-Control': 'no-cache',
-            'Origin': window.location.origin
-          }
+      try {
+        await callWebhook(`${SCRIPT_REMAKE_WEBHOOK}?userId=${user.id}&scriptOption=ai_remake&regenerate=true`);
+        
+        console.log('Webhook response received, starting polling');
+        if (pollingInterval.current) {
+          clearInterval(pollingInterval.current);
         }
-      );
-      
-      // Race between the fetch and a timeout
-      const webhookResponse = await Promise.race([fetchPromise, fetchTimeout]) as Response;
-      
-      if (!webhookResponse.ok) {
-        const errorText = await webhookResponse.text();
-        console.error(`Webhook response not OK: ${webhookResponse.status}`, errorText);
-        throw new Error(`Webhook failed with status ${webhookResponse.status}: ${errorText}`);
+  
+        const interval = setInterval(checkPreviewStatus, 2000);
+        pollingInterval.current = interval;
+      } catch (error) {
+        console.error('Error calling webhook:', error);
+        // Continue with polling even if webhook fails
+        if (pollingInterval.current) {
+          clearInterval(pollingInterval.current);
+        }
+        const interval = setInterval(checkPreviewStatus, 2000);
+        pollingInterval.current = interval;
       }
-
-      console.log('Webhook response received, starting polling');
-      if (pollingInterval.current) {
-        clearInterval(pollingInterval.current);
-      }
-
-      const interval = setInterval(checkPreviewStatus, 2000);
-      pollingInterval.current = interval;
-
     } catch (error) {
       console.error('Error regenerating script:', error);
       setIsLoading(false);
