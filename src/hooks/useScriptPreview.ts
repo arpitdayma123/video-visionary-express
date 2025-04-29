@@ -15,6 +15,7 @@ export const useScriptPreview = (
 ) => {
   const SCRIPT_FIND_WEBHOOK = "https://n8n.latestfreegames.online/webhook/scriptfind";
   const FETCH_TIMEOUT = 20000; // 20 seconds timeout for fetch requests
+  const MAX_RETRIES = 2; // Maximum number of retries for failed webhook calls
 
   const [isLoading, setIsLoading] = useState(false);
   const [script, setScript] = useState('');
@@ -24,6 +25,7 @@ export const useScriptPreview = (
   const previousScriptOptionRef = useRef(scriptOption);
   const abortControllerRef = useRef<AbortController | null>(null);
   const isGeneratingRef = useRef(false);
+  const retryCountRef = useRef(0);
   
   const { toast } = useToast();
   const { updateWordCount, saveCustomScript, saveFinalScript } = useScriptUtils();
@@ -75,6 +77,9 @@ export const useScriptPreview = (
       
       // Reset generating flag
       isGeneratingRef.current = false;
+      
+      // Reset retry count
+      retryCountRef.current = 0;
       
       // Update database to reset preview state
       if (user) {
@@ -135,30 +140,14 @@ export const useScriptPreview = (
     }
   };
 
-  const handleGeneratePreview = async () => {
-    if (!user) return;
+  // Helper function to call webhook with retry logic
+  const callWebhook = async (url: string) => {
+    console.log(`Calling webhook: ${url}, retry attempt: ${retryCountRef.current}`);
     
-    // Prevent duplicate calls
-    if (isGeneratingRef.current) {
-      console.log('Script generation already in progress, preventing duplicate call');
-      return;
-    }
-    
-    // Set the generating flag
-    isGeneratingRef.current = true;
-    
-    // Reset any previous script and visibility state
-    setScript('');
-    setWordCount(0);
-    setIsLoading(true);
-    setWebhookError(null);
-    
-    // Abort any previous request
+    // Create new AbortController for this request
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
-    
-    // Create new AbortController for this request
     const abortController = new AbortController();
     abortControllerRef.current = abortController;
     
@@ -169,6 +158,86 @@ export const useScriptPreview = (
         abortController.abort();
       }
     }, FETCH_TIMEOUT);
+
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'Cache-Control': 'no-cache',
+          'Origin': window.location.origin
+        },
+        signal: abortController.signal
+      });
+      
+      // Clear the timeout
+      clearTimeout(timeoutId);
+      
+      // Check if response is ok
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`Webhook response not OK: ${response.status}`, errorText);
+        throw new Error(`Webhook failed with status ${response.status}: ${errorText}`);
+      }
+      
+      // Parse the response
+      let responseJson: any = null;
+      try {
+        responseJson = await response.clone().json();
+        console.log('Webhook response:', responseJson);
+        
+        if (responseJson?.error) {
+          throw new Error(responseJson.error);
+        }
+      } catch (error) {
+        console.error('Failed to parse webhook response:', error);
+        if (error instanceof Error && error.message.includes('Unexpected')) {
+          // This is likely a parsing error, not a response error
+          console.log('Response parsing failed, but continuing with polling');
+        } else {
+          // This is a response error
+          throw error;
+        }
+      }
+      
+      return { success: true, data: responseJson };
+    } catch (error) {
+      // Clear the timeout
+      clearTimeout(timeoutId);
+      
+      console.error('Webhook call failed:', error);
+      
+      // Retry if we haven't exceeded max retries
+      if (retryCountRef.current < MAX_RETRIES) {
+        retryCountRef.current++;
+        console.log(`Retrying webhook call, attempt ${retryCountRef.current} of ${MAX_RETRIES}`);
+        return await callWebhook(url);
+      }
+      
+      throw error;
+    }
+  };
+
+  const handleGeneratePreview = async () => {
+    if (!user) return;
+    
+    // Prevent duplicate calls
+    if (isGeneratingRef.current) {
+      console.log('Script generation already in progress, preventing duplicate call');
+      return;
+    }
+    
+    // Reset retry count
+    retryCountRef.current = 0;
+    
+    // Set the generating flag
+    isGeneratingRef.current = true;
+    
+    // Reset any previous script and visibility state
+    setScript('');
+    setWordCount(0);
+    setIsLoading(true);
+    setWebhookError(null);
     
     try {
       console.log('Setting database preview status to generating...');
@@ -180,74 +249,20 @@ export const useScriptPreview = (
       if (error) throw error;
 
       // Construct the webhook URL with user query when provided and applicable
-      let webhookUrl = `${SCRIPT_FIND_WEBHOOK}?userId=${user.id}&regenerate=false`;
+      let webhookUrl = `${SCRIPT_FIND_WEBHOOK}?userId=${user.id}&regenerate=false&scriptOption=${scriptOption}`;
       
       // Add user_query parameter if script option is script_from_prompt
       if (scriptOption === 'script_from_prompt' && userQuery) {
         webhookUrl += `&user_query=${encodeURIComponent(userQuery)}`;
       }
 
-      console.log('Calling webhook:', webhookUrl);
-      const webhookResponse = await fetch(
-        webhookUrl,
-        {
-          method: 'GET',
-          headers: {
-            'Accept': 'application/json',
-            'Cache-Control': 'no-cache'
-          },
-          signal: abortController.signal
-        }
-      ).catch(err => {
-        // Handle network errors specifically
-        if (err.name === 'AbortError') {
-          console.log('Fetch request was aborted due to timeout');
-          return null; // Return null to indicate aborted request
-        }
-        throw err; // Re-throw other errors
-      });
-
-      // Clear the timeout as we got a response or handled the abort
-      clearTimeout(timeoutId);
-      
-      // Handle aborted request or timeout
-      if (!webhookResponse) {
-        console.log('No webhook response (likely due to timeout), continuing with polling anyway');
-        // We'll continue with polling even though the initial webhook may have failed
-      } else {
-        // Try to parse response if available
-        let responseJson: any = null;
-        try {
-          responseJson = await webhookResponse.clone().json();
-        } catch (error) { 
-          console.error('Failed to parse webhook response:', error);
-        }
-
-        // Handle the specific error case
-        if (responseJson?.error && responseJson.error.includes("The Instagram username you entered either does not provide valuable content")) {
-          isGeneratingRef.current = false;
-          setIsLoading(false);
-          setIsPreviewVisible(false);
-          setScript('');
-          setWebhookError(responseJson.error);
-          return;
-        }
-
-        // If error in webhook payload, show error, stop, don't run polling.
-        if (responseJson && responseJson.error) {
-          isGeneratingRef.current = false;
-          setIsLoading(false);
-          setWebhookError(responseJson.error);
-          setIsPreviewVisible(false);
-          toast({
-            title: "Script generation error",
-            description: responseJson.error,
-            variant: "destructive"
-          });
-          return;
-        } else {
-          setWebhookError(null);
-        }
+      // Call the webhook with retry logic
+      try {
+        await callWebhook(webhookUrl);
+        setWebhookError(null);
+      } catch (error) {
+        console.error('All webhook attempts failed:', error);
+        // Continue with polling even if webhook fails
       }
       
       // Start or restart polling regardless of webhook response
@@ -264,9 +279,6 @@ export const useScriptPreview = (
       
     } catch (error) {
       console.error('Error in handleGeneratePreview:', error);
-      
-      // Clear the timeout
-      clearTimeout(timeoutId);
       
       // Reset the generating flag
       isGeneratingRef.current = false;
@@ -296,6 +308,9 @@ export const useScriptPreview = (
       return;
     }
     
+    // Reset retry count
+    retryCountRef.current = 0;
+    
     // Set the generating flag
     isGeneratingRef.current = true;
     
@@ -323,23 +338,6 @@ export const useScriptPreview = (
     setIsLoading(true);
     setWebhookError(null);
     
-    // Abort any previous request
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
-    
-    // Create new AbortController for this request
-    const abortController = new AbortController();
-    abortControllerRef.current = abortController;
-    
-    // Set a timeout to abort the fetch if it takes too long
-    const timeoutId = setTimeout(() => {
-      if (abortControllerRef.current === abortController) {
-        console.log('Fetch timeout reached, aborting request');
-        abortController.abort();
-      }
-    }, FETCH_TIMEOUT);
-    
     try {
       const { error } = await supabase
         .from('profiles')
@@ -349,7 +347,7 @@ export const useScriptPreview = (
       if (error) throw error;
 
       // Construct webhook URL with user query for script_from_prompt
-      let webhookUrl = `${SCRIPT_FIND_WEBHOOK}?userId=${user.id}&regenerate=true`;
+      let webhookUrl = `${SCRIPT_FIND_WEBHOOK}?userId=${user.id}&regenerate=true&scriptOption=${scriptOption}`;
       
       // Add user_query parameter if script option is script_from_prompt
       if (scriptOption === 'script_from_prompt' && userQuery) {
@@ -357,52 +355,14 @@ export const useScriptPreview = (
       }
 
       console.log('Calling webhook for regeneration:', webhookUrl);
-      const webhookResponse = await fetch(
-        webhookUrl,
-        {
-          method: 'GET',
-          headers: {
-            'Accept': 'application/json',
-            'Cache-Control': 'no-cache'
-          },
-          signal: abortController.signal
-        }
-      ).catch(err => {
-        if (err.name === 'AbortError') {
-          console.log('Regenerate fetch request was aborted due to timeout');
-          return null;
-        }
-        throw err;
-      });
-
-      // Clear the timeout
-      clearTimeout(timeoutId);
       
-      // Handle aborted request or timeout
-      if (!webhookResponse) {
-        console.log('No webhook response for regeneration (likely due to timeout), continuing with polling anyway');
-      } else {
-        let responseJson: any = null;
-        try {
-          responseJson = await webhookResponse.clone().json();
-        } catch (error) {
-          console.error('Failed to parse regeneration webhook response:', error);
-        }
-
-        if (responseJson && responseJson.error) {
-          isGeneratingRef.current = false;
-          setIsLoading(false);
-          setWebhookError(responseJson.error);
-          setIsPreviewVisible(false);
-          toast({
-            title: "Script regeneration error",
-            description: responseJson.error,
-            variant: "destructive"
-          });
-          return;
-        } else {
-          setWebhookError(null);
-        }
+      // Call the webhook with retry logic
+      try {
+        await callWebhook(webhookUrl);
+        setWebhookError(null);
+      } catch (error) {
+        console.error('All webhook attempts failed:', error);
+        // Continue with polling even if webhook fails
       }
       
       // Start or restart polling regardless of webhook response
@@ -419,9 +379,6 @@ export const useScriptPreview = (
       
     } catch (error) {
       console.error('Error in handleRegenerateScript:', error);
-      
-      // Clear the timeout
-      clearTimeout(timeoutId);
       
       // Reset the generating flag
       isGeneratingRef.current = false;
@@ -451,6 +408,9 @@ export const useScriptPreview = (
       return;
     }
     
+    // Reset retry count
+    retryCountRef.current = 0;
+    
     // Set the generating flag
     isGeneratingRef.current = true;
     
@@ -460,23 +420,6 @@ export const useScriptPreview = (
     setIsLoading(true);
     setWebhookError(null);
     
-    // Abort any previous request
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
-    
-    // Create new AbortController for this request
-    const abortController = new AbortController();
-    abortControllerRef.current = abortController;
-    
-    // Set a timeout to abort the fetch if it takes too long
-    const timeoutId = setTimeout(() => {
-      if (abortControllerRef.current === abortController) {
-        console.log('Fetch timeout reached, aborting request');
-        abortController.abort();
-      }
-    }, FETCH_TIMEOUT);
-
     try {
       const { error } = await supabase
         .from('profiles')
@@ -485,53 +428,16 @@ export const useScriptPreview = (
 
       if (error) throw error;
 
-      console.log('Calling webhook for changing script...');
-      const webhookResponse = await fetch(
-        `${SCRIPT_FIND_WEBHOOK}?userId=${user.id}&changescript=true`,
-        {
-          method: 'GET',
-          headers: {
-            'Accept': 'application/json',
-            'Cache-Control': 'no-cache'
-          },
-          signal: abortController.signal
-        }
-      ).catch(err => {
-        if (err.name === 'AbortError') {
-          console.log('Change script fetch request was aborted due to timeout');
-          return null;
-        }
-        throw err;
-      });
-
-      // Clear the timeout
-      clearTimeout(timeoutId);
+      const webhookUrl = `${SCRIPT_FIND_WEBHOOK}?userId=${user.id}&changescript=true&scriptOption=${scriptOption}`;
+      console.log('Calling webhook for changing script:', webhookUrl);
       
-      // Handle aborted request or timeout
-      if (!webhookResponse) {
-        console.log('No webhook response for script change (likely due to timeout), continuing with polling anyway');
-      } else {
-        let responseJson: any = null;
-        try {
-          responseJson = await webhookResponse.clone().json();
-        } catch (error) {
-          console.error('Failed to parse change script webhook response:', error);
-        }
-        
-        if (responseJson && responseJson.error) {
-          isGeneratingRef.current = false;
-          setIsLoading(false);
-          setWebhookError(responseJson.error);
-          setIsPreviewVisible(false);
-          toast({
-            title: "Change script error",
-            description: responseJson.error,
-            variant: "destructive"
-          });
-          return;
-        } else {
-          setWebhookError(null);
-        }
+      // Call the webhook with retry logic
+      try {
+        await callWebhook(webhookUrl);
+        setWebhookError(null);
+      } catch (error) {
+        console.error('All webhook attempts failed:', error);
+        // Continue with polling even if webhook fails
       }
 
       // Start or restart polling regardless of webhook response
@@ -548,9 +454,6 @@ export const useScriptPreview = (
       
     } catch (error) {
       console.error('Error in handleChangeScript:', error);
-      
-      // Clear the timeout
-      clearTimeout(timeoutId);
       
       // Reset the generating flag
       isGeneratingRef.current = false;

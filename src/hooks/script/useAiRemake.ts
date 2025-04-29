@@ -98,22 +98,35 @@ export const useAiRemake = (
 
       if (error) throw error;
 
-      // Use the new N8N webhook URL
-      const webhookResponse = await fetch(
+      // Use the new N8N webhook URL with improved error handling
+      console.log(`Calling webhook for ai_remake regeneration: ${SCRIPT_REMAKE_WEBHOOK}?userId=${user.id}&scriptOption=ai_remake&regenerate=true`);
+      
+      const fetchTimeout = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Request timeout')), 20000)
+      );
+      
+      const fetchPromise = fetch(
         `${SCRIPT_REMAKE_WEBHOOK}?userId=${user.id}&scriptOption=ai_remake&regenerate=true`,
         {
           method: 'GET',
           headers: {
             'Accept': 'application/json',
-            'Cache-Control': 'no-cache'
+            'Cache-Control': 'no-cache',
+            'Origin': window.location.origin
           }
         }
       );
-
+      
+      // Race between the fetch and a timeout
+      const webhookResponse = await Promise.race([fetchPromise, fetchTimeout]);
+      
       if (!webhookResponse.ok) {
-        throw new Error(`Webhook failed with status ${webhookResponse.status}`);
+        const errorText = await webhookResponse.text();
+        console.error(`Webhook response not OK: ${webhookResponse.status}`, errorText);
+        throw new Error(`Webhook failed with status ${webhookResponse.status}: ${errorText}`);
       }
 
+      console.log('Webhook response received, starting polling');
       if (pollingInterval.current) {
         clearInterval(pollingInterval.current);
       }
@@ -129,6 +142,13 @@ export const useAiRemake = (
         description: "Failed to regenerate script. Please try again.",
         variant: "destructive"
       });
+      
+      // Try to continue with polling even if webhook fails
+      if (pollingInterval.current) {
+        clearInterval(pollingInterval.current);
+      }
+      const interval = setInterval(checkPreviewStatus, 2000);
+      pollingInterval.current = interval;
     }
   };
 
