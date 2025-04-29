@@ -16,3 +16,5 @@ verify_jwt = false
 verify_jwt = false
 [functions.create-payment-table]
 verify_jwt = false
+[functions.trendy-webhook]
+verify_jwt = false
