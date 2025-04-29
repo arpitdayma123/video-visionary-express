@@ -33,8 +33,10 @@ serve(async (req) => {
     const scriptOption = url.searchParams.get('scriptOption');
     const customScript = url.searchParams.get('customScript');
     const userQuery = url.searchParams.get('user_query'); // Get user_query parameter
+    const regenerate = url.searchParams.get('regenerate') === 'true';
+    const changeScript = url.searchParams.get('changescript') === 'true';
     
-    console.log(`Request received for user ${userId}, script option: ${scriptOption}, query: ${userQuery}`);
+    console.log(`Request received for user ${userId}, script option: ${scriptOption}, query: ${userQuery}, regenerate: ${regenerate}, changeScript: ${changeScript}`);
 
     if (!userId) {
       console.error('Missing userId parameter');
@@ -48,7 +50,7 @@ serve(async (req) => {
     console.log(`Fetching profile for user ${userId}`);
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('credit, videos, voice_files, selected_video, selected_voice, selected_niches, competitors, user_query')
+      .select('credit, videos, voice_files, selected_video, selected_voice, selected_niches, competitors, user_query, reel_url')
       .eq('id', userId)
       .single();
 
@@ -78,19 +80,29 @@ serve(async (req) => {
       );
     }
 
-    // Prepare the params to forward - use profile.user_query as fallback if userQuery is not provided
+    // Special check for ig_reel
+    if (scriptOption === 'ig_reel' && !profile.reel_url) {
+      console.error('Missing reel_url for ig_reel option');
+      return new Response(
+        JSON.stringify({ error: 'Missing Instagram Reel URL' }),
+        { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+      );
+    }
+
+    // Prepare the params to forward
     const paramsToForward = new URLSearchParams({
       userId,
       scriptOption: scriptOption || 'ai_find',
       customScript: customScript || '',
-      user_query: userQuery || profile.user_query || '' // Use profile.user_query as fallback
+      user_query: userQuery || profile.user_query || '', // Use profile.user_query as fallback
+      regenerate: regenerate ? 'true' : 'false',
+      changescript: changeScript ? 'true' : 'false'
     });
 
-    if (scriptOption === 'ig_reel') {
-      const reelUrl = url.searchParams.get('reelUrl');
-      if (reelUrl) {
-        paramsToForward.append('reelUrl', reelUrl);
-      }
+    if (scriptOption === 'ig_reel' && profile.reel_url) {
+      paramsToForward.append('reelUrl', profile.reel_url);
+    } else if (scriptOption === 'ig_reel' && url.searchParams.get('reelUrl')) {
+      paramsToForward.append('reelUrl', url.searchParams.get('reelUrl')!);
     }
 
     // Create AbortController for the webhook request

@@ -59,7 +59,7 @@ export const useScriptWebhook = ({
       // Parse the response
       let responseJson: any = null;
       try {
-        responseJson = await response.clone().json();
+        responseJson = await response.json();
         console.log('Webhook response:', responseJson);
         
         if (responseJson?.error) {

@@ -60,8 +60,10 @@ export const useAiRemake = (
   function handleScriptGenerated(newScript: string) {
     setScript(newScript);
     setWordCount(updateWordCount(newScript));
-    saveFinalScript(user, newScript);
-    saveCustomScript(user, newScript);
+    if (user) {
+      saveFinalScript(user, newScript);
+      saveCustomScript(user, newScript);
+    }
     onScriptGenerated(newScript);
   }
 
@@ -86,13 +88,13 @@ export const useAiRemake = (
       }
     } catch (error) {
       console.error('Error saving script before regeneration:', error);
-      return;
     }
     
     setIsLoading(true);
     resetWebhookState();
     
     try {
+      console.log('Setting database preview status to generating for ai_remake...');
       const { error } = await supabase
         .from('profiles')
         .update({
@@ -117,7 +119,7 @@ export const useAiRemake = (
         const interval = setInterval(checkPreviewStatus, 2000);
         pollingInterval.current = interval;
       } catch (error) {
-        console.error('Error calling webhook:', error);
+        console.error('Error calling webhook for ai_remake:', error);
         // Continue with polling even if webhook fails
         if (pollingInterval.current) {
           clearInterval(pollingInterval.current);
@@ -126,7 +128,7 @@ export const useAiRemake = (
         pollingInterval.current = interval;
       }
     } catch (error) {
-      console.error('Error regenerating script:', error);
+      console.error('Error regenerating script in ai_remake:', error);
       setIsLoading(false);
       toast({
         title: "Error",

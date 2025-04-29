@@ -1,5 +1,5 @@
 
-import { useState, useRef, useCallback } from 'react';
+import { useRef, useCallback } from 'react';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -48,6 +48,8 @@ export const useScriptGeneration = ({
       return;
     }
     
+    console.log(`Starting handleGeneratePreview for option: ${scriptOption}`);
+    
     // Set the generating flag
     isGeneratingRef.current = true;
     
@@ -70,6 +72,19 @@ export const useScriptGeneration = ({
       // Add user_query parameter if script option is script_from_prompt
       if (scriptOption === 'script_from_prompt' && userQuery) {
         webhookUrl += `&user_query=${encodeURIComponent(userQuery)}`;
+      }
+      
+      // Add reelUrl parameter if script option is ig_reel
+      if (scriptOption === 'ig_reel') {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('reel_url')
+          .eq('id', user.id)
+          .single();
+          
+        if (profile?.reel_url) {
+          webhookUrl += `&reelUrl=${encodeURIComponent(profile.reel_url)}`;
+        }
       }
 
       console.log('Calling webhook for initial generation:', webhookUrl);
@@ -127,6 +142,8 @@ export const useScriptGeneration = ({
       return;
     }
     
+    console.log(`Starting handleRegenerateScript for option: ${scriptOption}`);
+    
     // Set the generating flag
     isGeneratingRef.current = true;
     
@@ -135,6 +152,7 @@ export const useScriptGeneration = ({
     setIsLoading(true);
     
     try {
+      console.log('Setting database preview status to generating for regeneration...');
       const { error } = await supabase
         .from('profiles')
         .update({ preview: 'generating' })
@@ -148,6 +166,19 @@ export const useScriptGeneration = ({
       // Add user_query parameter if script option is script_from_prompt
       if (scriptOption === 'script_from_prompt' && userQuery) {
         webhookUrl += `&user_query=${encodeURIComponent(userQuery)}`;
+      }
+      
+      // Add reelUrl parameter if script option is ig_reel
+      if (scriptOption === 'ig_reel') {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('reel_url')
+          .eq('id', user.id)
+          .single();
+          
+        if (profile?.reel_url) {
+          webhookUrl += `&reelUrl=${encodeURIComponent(profile.reel_url)}`;
+        }
       }
 
       console.log('Calling webhook for regeneration:', webhookUrl);

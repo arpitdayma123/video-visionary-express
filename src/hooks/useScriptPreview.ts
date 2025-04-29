@@ -60,6 +60,9 @@ export const useScriptPreview = (
     if (previousScriptOptionRef.current !== scriptOption) {
       console.log('useScriptPreview - Script option changed from:', previousScriptOptionRef.current, 'to:', scriptOption);
       
+      // Reset generating flag
+      isGeneratingRef.current = false;
+      
       // Always reset script state to empty when changing options
       setScript('');
       setWordCount(0);
@@ -82,9 +85,6 @@ export const useScriptPreview = (
       
       // Reset polling attempts
       setPollingAttempts(0);
-      
-      // Reset generating flag
-      isGeneratingRef.current = false;
       
       // Update database to reset preview state
       if (user) {
@@ -127,6 +127,9 @@ export const useScriptPreview = (
       console.log('useScriptPreview - Empty script received, not updating preview');
       return;
     }
+    
+    // Reset generating flag when script is generated
+    isGeneratingRef.current = false;
     
     setWebhookError(null); // clear errors on successful script
     setScript(newScript);
