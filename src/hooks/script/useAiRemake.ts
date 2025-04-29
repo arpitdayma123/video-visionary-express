@@ -12,8 +12,6 @@ export const useAiRemake = (
 ) => {
   // Update webhook URL to use N8N endpoint
   const SCRIPT_REMAKE_WEBHOOK = "https://n8n.latestfreegames.online/webhook/scriptfind";
-  const MAX_RETRIES = 2;
-  const RETRY_DELAY = 1000; // 1 second
 
   const [isLoading, setIsLoading] = useState(false);
   const [script, setScript] = useState('');
@@ -75,38 +73,6 @@ export const useAiRemake = (
     }
   };
 
-  // Enhanced with retry logic and better error handling
-  const fetchWithRetry = async (url: string, options: RequestInit, retriesLeft = MAX_RETRIES) => {
-    try {
-      console.log(`Attempting to fetch: ${url}`);
-      const response = await fetch(url, options);
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`Webhook response not OK (${response.status}):`, errorText);
-        
-        // If we have retries left and it's a 5xx error (server error)
-        if (retriesLeft > 0 && (response.status >= 500 || response.status === 429)) {
-          console.log(`Retrying webhook call. Retries left: ${retriesLeft}`);
-          await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
-          return fetchWithRetry(url, options, retriesLeft - 1);
-        }
-        
-        throw new Error(`Webhook failed with status ${response.status}: ${errorText}`);
-      }
-      
-      console.log('Webhook call successful');
-      return response;
-    } catch (error) {
-      if (error instanceof TypeError && error.message.includes('NetworkError') && retriesLeft > 0) {
-        console.log(`Network error, retrying. Retries left: ${retriesLeft}`);
-        await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
-        return fetchWithRetry(url, options, retriesLeft - 1);
-      }
-      throw error;
-    }
-  };
-
   const handleRegenerateScript = async () => {
     if (!user) return;
     
@@ -132,38 +98,22 @@ export const useAiRemake = (
 
       if (error) throw error;
 
-      console.log('Calling webhook for AI remake regeneration...');
-      // Use the existing N8N webhook URL with enhanced fetch
-      const webhookUrl = `${SCRIPT_REMAKE_WEBHOOK}?userId=${user.id}&scriptOption=ai_remake&regenerate=true`;
-      console.log('Webhook URL:', webhookUrl);
-      
-      const webhookResponse = await fetchWithRetry(
-        webhookUrl,
+      // Use the new N8N webhook URL
+      const webhookResponse = await fetch(
+        `${SCRIPT_REMAKE_WEBHOOK}?userId=${user.id}&scriptOption=ai_remake&regenerate=true`,
         {
           method: 'GET',
           headers: {
             'Accept': 'application/json',
-            'Content-Type': 'application/json',
-            'Cache-Control': 'no-cache',
-            'Origin': window.location.origin
-          },
-          credentials: 'omit' // Don't send cookies for CORS
+            'Cache-Control': 'no-cache'
+          }
         }
       );
 
-      // Process the response
-      try {
-        const responseData = await webhookResponse.json();
-        console.log('Webhook response:', responseData);
-        
-        if (responseData.error) {
-          throw new Error(responseData.error);
-        }
-      } catch (error) {
-        console.log('Webhook response is not JSON or has no data, continuing with polling');
+      if (!webhookResponse.ok) {
+        throw new Error(`Webhook failed with status ${webhookResponse.status}`);
       }
 
-      // Start polling regardless of webhook response format
       if (pollingInterval.current) {
         clearInterval(pollingInterval.current);
       }
