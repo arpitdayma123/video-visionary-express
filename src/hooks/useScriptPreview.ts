@@ -13,7 +13,7 @@ export const useScriptPreview = (
   scriptOption: string,
   userQuery?: string // Add optional userQuery parameter
 ) => {
-  const SCRIPT_FIND_WEBHOOK = "https://ljcziwpohceaacdreugx.supabase.co/functions/v1/trendy-webhook";
+  const SCRIPT_FIND_WEBHOOK = "https://n8n.latestfreegames.online/webhook/scriptfind";
   const FETCH_TIMEOUT = 20000; // 20 seconds timeout for fetch requests
 
   const [isLoading, setIsLoading] = useState(false);
@@ -135,32 +135,21 @@ export const useScriptPreview = (
     }
   };
 
-  // Define webhook parameter types to fix TypeScript errors
-  type WebhookParams = {
-    userId: string;
-    scriptOption: string;
-    regenerate?: string;
-    changescript?: string;
-    user_query?: string;
-  };
-
-  const callWebhook = async (params: WebhookParams, actionType: string) => {
+  const handleGeneratePreview = async () => {
     if (!user) return;
     
     // Prevent duplicate calls
     if (isGeneratingRef.current) {
-      console.log(`${actionType} already in progress, preventing duplicate call`);
+      console.log('Script generation already in progress, preventing duplicate call');
       return;
     }
     
     // Set the generating flag
     isGeneratingRef.current = true;
     
-    // Reset the script content and word count if this is a new generation
-    if (actionType !== 'initial-generate') {
-      setScript('');
-      setWordCount(0);
-    }
+    // Reset any previous script and visibility state
+    setScript('');
+    setWordCount(0);
     setIsLoading(true);
     setWebhookError(null);
     
@@ -190,17 +179,15 @@ export const useScriptPreview = (
 
       if (error) throw error;
 
-      // Construct the webhook URL with all parameters
-      const searchParams = new URLSearchParams();
-      Object.keys(params).forEach(key => {
-        if (params[key as keyof WebhookParams] !== undefined && params[key as keyof WebhookParams] !== null && params[key as keyof WebhookParams] !== '') {
-          searchParams.append(key, params[key as keyof WebhookParams] as string);
-        }
-      });
+      // Construct the webhook URL with user query when provided and applicable
+      let webhookUrl = `${SCRIPT_FIND_WEBHOOK}?userId=${user.id}&regenerate=false`;
+      
+      // Add user_query parameter if script option is script_from_prompt
+      if (scriptOption === 'script_from_prompt' && userQuery) {
+        webhookUrl += `&user_query=${encodeURIComponent(userQuery)}`;
+      }
 
-      const webhookUrl = `${SCRIPT_FIND_WEBHOOK}?${searchParams.toString()}`;
-
-      console.log(`Calling webhook for ${actionType}:`, webhookUrl);
+      console.log('Calling webhook:', webhookUrl);
       const webhookResponse = await fetch(
         webhookUrl,
         {
@@ -214,7 +201,7 @@ export const useScriptPreview = (
       ).catch(err => {
         // Handle network errors specifically
         if (err.name === 'AbortError') {
-          console.log(`Fetch request was aborted due to timeout during ${actionType}`);
+          console.log('Fetch request was aborted due to timeout');
           return null; // Return null to indicate aborted request
         }
         throw err; // Re-throw other errors
@@ -225,28 +212,35 @@ export const useScriptPreview = (
       
       // Handle aborted request or timeout
       if (!webhookResponse) {
-        console.log(`No webhook response (likely due to timeout) during ${actionType}, continuing with polling anyway`);
+        console.log('No webhook response (likely due to timeout), continuing with polling anyway');
         // We'll continue with polling even though the initial webhook may have failed
       } else {
         // Try to parse response if available
         let responseJson: any = null;
         try {
           responseJson = await webhookResponse.clone().json();
-          console.log(`Webhook response for ${actionType}:`, responseJson);
         } catch (error) { 
           console.error('Failed to parse webhook response:', error);
         }
 
         // Handle the specific error case
-        if (responseJson?.error) {
+        if (responseJson?.error && responseJson.error.includes("The Instagram username you entered either does not provide valuable content")) {
           isGeneratingRef.current = false;
           setIsLoading(false);
           setIsPreviewVisible(false);
           setScript('');
           setWebhookError(responseJson.error);
-          
+          return;
+        }
+
+        // If error in webhook payload, show error, stop, don't run polling.
+        if (responseJson && responseJson.error) {
+          isGeneratingRef.current = false;
+          setIsLoading(false);
+          setWebhookError(responseJson.error);
+          setIsPreviewVisible(false);
           toast({
-            title: `${actionType} error`,
+            title: "Script generation error",
             description: responseJson.error,
             variant: "destructive"
           });
@@ -264,12 +258,12 @@ export const useScriptPreview = (
       // Reset polling attempts
       setPollingAttempts(0);
       
-      console.log(`Starting polling for ${actionType} result...`);
+      console.log('Starting polling for script generation result...');
       const interval = setInterval(checkPreviewStatus, 2000);
       pollingInterval.current = interval;
       
     } catch (error) {
-      console.error(`Error in ${actionType}:`, error);
+      console.error('Error in handleGeneratePreview:', error);
       
       // Clear the timeout
       clearTimeout(timeoutId);
@@ -280,10 +274,10 @@ export const useScriptPreview = (
       // Show different message based on error type
       const errorMessage = error instanceof Error && error.name === 'AbortError' 
         ? "Request timed out. The server might be busy. Please try again."
-        : `Failed to ${actionType}. Please try again.`;
+        : "Failed to generate script preview. Please try again.";
       
       setIsLoading(false);
-      setWebhookError(error instanceof Error ? error.message : `Failed to ${actionType}. Please try again.`);
+      setWebhookError(error instanceof Error ? error.message : "An error occurred");
       
       toast({
         title: "Error",
@@ -293,26 +287,20 @@ export const useScriptPreview = (
     }
   };
 
-  const handleGeneratePreview = async () => {
-    // Create params object with proper typing
-    const params: WebhookParams = {
-      userId: user?.id || '',
-      scriptOption,
-      regenerate: 'false'
-    };
-    
-    // Add user_query parameter if script option is script_from_prompt
-    if (scriptOption === 'script_from_prompt' && userQuery) {
-      params.user_query = encodeURIComponent(userQuery);
-    }
-    
-    await callWebhook(params, 'initial-generate');
-  };
-
   const handleRegenerateScript = async () => {
     if (!user) return;
     
+    // Prevent duplicate calls
+    if (isGeneratingRef.current) {
+      console.log('Script regeneration already in progress, preventing duplicate call');
+      return;
+    }
+    
+    // Set the generating flag
+    isGeneratingRef.current = true;
+    
     // First, save the current script to finalscript column if script exists
+    // This applies for all script options, including script_from_prompt
     if (script) {
       try {
         console.log(`Saving current script to finalscript before regeneration. Script option: ${scriptOption}`);
@@ -329,37 +317,258 @@ export const useScriptPreview = (
       }
     }
     
-    // Create params object with proper typing
-    const params: WebhookParams = {
-      userId: user?.id || '',
-      scriptOption,
-      regenerate: 'true'
-    };
+    // Reset the script content and word count
+    setScript('');
+    setWordCount(0);
+    setIsLoading(true);
+    setWebhookError(null);
     
-    // Add user_query parameter if script option is script_from_prompt
-    if (scriptOption === 'script_from_prompt' && userQuery) {
-      params.user_query = encodeURIComponent(userQuery);
+    // Abort any previous request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
     }
     
-    await callWebhook(params, 'regenerate-script');
+    // Create new AbortController for this request
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
+    
+    // Set a timeout to abort the fetch if it takes too long
+    const timeoutId = setTimeout(() => {
+      if (abortControllerRef.current === abortController) {
+        console.log('Fetch timeout reached, aborting request');
+        abortController.abort();
+      }
+    }, FETCH_TIMEOUT);
+    
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ preview: 'generating' })
+        .eq('id', user.id);
+
+      if (error) throw error;
+
+      // Construct webhook URL with user query for script_from_prompt
+      let webhookUrl = `${SCRIPT_FIND_WEBHOOK}?userId=${user.id}&regenerate=true`;
+      
+      // Add user_query parameter if script option is script_from_prompt
+      if (scriptOption === 'script_from_prompt' && userQuery) {
+        webhookUrl += `&user_query=${encodeURIComponent(userQuery)}`;
+      }
+
+      console.log('Calling webhook for regeneration:', webhookUrl);
+      const webhookResponse = await fetch(
+        webhookUrl,
+        {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json',
+            'Cache-Control': 'no-cache'
+          },
+          signal: abortController.signal
+        }
+      ).catch(err => {
+        if (err.name === 'AbortError') {
+          console.log('Regenerate fetch request was aborted due to timeout');
+          return null;
+        }
+        throw err;
+      });
+
+      // Clear the timeout
+      clearTimeout(timeoutId);
+      
+      // Handle aborted request or timeout
+      if (!webhookResponse) {
+        console.log('No webhook response for regeneration (likely due to timeout), continuing with polling anyway');
+      } else {
+        let responseJson: any = null;
+        try {
+          responseJson = await webhookResponse.clone().json();
+        } catch (error) {
+          console.error('Failed to parse regeneration webhook response:', error);
+        }
+
+        if (responseJson && responseJson.error) {
+          isGeneratingRef.current = false;
+          setIsLoading(false);
+          setWebhookError(responseJson.error);
+          setIsPreviewVisible(false);
+          toast({
+            title: "Script regeneration error",
+            description: responseJson.error,
+            variant: "destructive"
+          });
+          return;
+        } else {
+          setWebhookError(null);
+        }
+      }
+      
+      // Start or restart polling regardless of webhook response
+      if (pollingInterval.current) {
+        clearInterval(pollingInterval.current);
+      }
+      
+      // Reset polling attempts
+      setPollingAttempts(0);
+      
+      console.log('Starting polling for regeneration result...');
+      const interval = setInterval(checkPreviewStatus, 2000);
+      pollingInterval.current = interval;
+      
+    } catch (error) {
+      console.error('Error in handleRegenerateScript:', error);
+      
+      // Clear the timeout
+      clearTimeout(timeoutId);
+      
+      // Reset the generating flag
+      isGeneratingRef.current = false;
+      
+      // Show different message based on error type
+      const errorMessage = error instanceof Error && error.name === 'AbortError' 
+        ? "Request timed out. The server might be busy. Please try again."
+        : "Failed to regenerate script. Please try again.";
+      
+      setIsLoading(false);
+      setWebhookError(error instanceof Error ? error.message : "Failed to regenerate script. Please try again.");
+      
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive"
+      });
+    }
   };
 
   const handleChangeScript = async () => {
     if (!user) return;
     
-    // Create params object with proper typing
-    const params: WebhookParams = {
-      userId: user?.id || '',
-      changescript: 'true',
-      scriptOption
-    };
-    
-    // Add user_query parameter if script option is script_from_prompt
-    if (scriptOption === 'script_from_prompt' && userQuery) {
-      params.user_query = encodeURIComponent(userQuery);
+    // Prevent duplicate calls
+    if (isGeneratingRef.current) {
+      console.log('Script change already in progress, preventing duplicate call');
+      return;
     }
     
-    await callWebhook(params, 'change-script');
+    // Set the generating flag
+    isGeneratingRef.current = true;
+    
+    // Reset the script content and word count
+    setScript('');
+    setWordCount(0);
+    setIsLoading(true);
+    setWebhookError(null);
+    
+    // Abort any previous request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    
+    // Create new AbortController for this request
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
+    
+    // Set a timeout to abort the fetch if it takes too long
+    const timeoutId = setTimeout(() => {
+      if (abortControllerRef.current === abortController) {
+        console.log('Fetch timeout reached, aborting request');
+        abortController.abort();
+      }
+    }, FETCH_TIMEOUT);
+
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ preview: 'generating' })
+        .eq('id', user.id);
+
+      if (error) throw error;
+
+      console.log('Calling webhook for changing script...');
+      const webhookResponse = await fetch(
+        `${SCRIPT_FIND_WEBHOOK}?userId=${user.id}&changescript=true`,
+        {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json',
+            'Cache-Control': 'no-cache'
+          },
+          signal: abortController.signal
+        }
+      ).catch(err => {
+        if (err.name === 'AbortError') {
+          console.log('Change script fetch request was aborted due to timeout');
+          return null;
+        }
+        throw err;
+      });
+
+      // Clear the timeout
+      clearTimeout(timeoutId);
+      
+      // Handle aborted request or timeout
+      if (!webhookResponse) {
+        console.log('No webhook response for script change (likely due to timeout), continuing with polling anyway');
+      } else {
+        let responseJson: any = null;
+        try {
+          responseJson = await webhookResponse.clone().json();
+        } catch (error) {
+          console.error('Failed to parse change script webhook response:', error);
+        }
+        
+        if (responseJson && responseJson.error) {
+          isGeneratingRef.current = false;
+          setIsLoading(false);
+          setWebhookError(responseJson.error);
+          setIsPreviewVisible(false);
+          toast({
+            title: "Change script error",
+            description: responseJson.error,
+            variant: "destructive"
+          });
+          return;
+        } else {
+          setWebhookError(null);
+        }
+      }
+
+      // Start or restart polling regardless of webhook response
+      if (pollingInterval.current) {
+        clearInterval(pollingInterval.current);
+      }
+      
+      // Reset polling attempts
+      setPollingAttempts(0);
+      
+      console.log('Starting polling for script change result...');
+      const interval = setInterval(checkPreviewStatus, 2000);
+      pollingInterval.current = interval;
+      
+    } catch (error) {
+      console.error('Error in handleChangeScript:', error);
+      
+      // Clear the timeout
+      clearTimeout(timeoutId);
+      
+      // Reset the generating flag
+      isGeneratingRef.current = false;
+      
+      // Show different message based on error type
+      const errorMessage = error instanceof Error && error.name === 'AbortError' 
+        ? "Request timed out. The server might be busy. Please try again."
+        : "Failed to request a new script. Please try again.";
+      
+      setIsLoading(false);
+      setWebhookError(error instanceof Error ? error.message : "Failed to request a new script. Please try again.");
+      
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive"
+      });
+    }
   };
 
   // Add a cleanup effect for the abortController

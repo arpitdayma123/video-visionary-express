@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { User } from '@supabase/supabase-js';
@@ -10,17 +10,15 @@ export const useAiRemake = (
   user: User | null,
   onScriptGenerated: (script: string) => void
 ) => {
-  // Update webhook URL to use the trendy-webhook function directly
-  const SCRIPT_REMAKE_WEBHOOK = "https://ljcziwpohceaacdreugx.supabase.co/functions/v1/trendy-webhook";
+  // Update webhook URL to use N8N endpoint
+  const SCRIPT_REMAKE_WEBHOOK = "https://n8n.latestfreegames.online/webhook/scriptfind";
 
   const [isLoading, setIsLoading] = useState(false);
   const [script, setScript] = useState('');
   const [wordCount, setWordCount] = useState(0);
   const { toast } = useToast();
   const { updateWordCount, saveFinalScript, saveCustomScript } = useScriptUtils();
-  const pollingInterval = useRef<NodeJS.Timeout | null>(null);
-  const abortControllerRef = useRef<AbortController | null>(null);
-  const { checkPreviewStatus, pollingInterval: scriptPollingInterval } = useScriptPolling(
+  const { checkPreviewStatus, pollingInterval } = useScriptPolling(
     user,
     isLoading,
     handleScriptGenerated,
@@ -100,14 +98,7 @@ export const useAiRemake = (
 
       if (error) throw error;
 
-      // Create new AbortController for this request
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
-      const controller = new AbortController();
-      abortControllerRef.current = controller;
-      
-      // Use the direct trendy-webhook URL with the ai_remake script option
+      // Use the new N8N webhook URL
       const webhookResponse = await fetch(
         `${SCRIPT_REMAKE_WEBHOOK}?userId=${user.id}&scriptOption=ai_remake&regenerate=true`,
         {
@@ -115,14 +106,11 @@ export const useAiRemake = (
           headers: {
             'Accept': 'application/json',
             'Cache-Control': 'no-cache'
-          },
-          signal: controller.signal
+          }
         }
       );
 
       if (!webhookResponse.ok) {
-        const errorText = await webhookResponse.text();
-        console.error(`Webhook failed with status ${webhookResponse.status}: ${errorText}`);
         throw new Error(`Webhook failed with status ${webhookResponse.status}`);
       }
 
@@ -143,20 +131,6 @@ export const useAiRemake = (
       });
     }
   };
-
-  // Add a cleanup effect for the abortController
-  useEffect(() => {
-    return () => {
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-        abortControllerRef.current = null;
-      }
-      if (pollingInterval.current) {
-        clearInterval(pollingInterval.current);
-        pollingInterval.current = null;
-      }
-    };
-  }, []);
 
   return {
     isLoading,

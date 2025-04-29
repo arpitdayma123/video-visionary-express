@@ -33,10 +33,8 @@ serve(async (req) => {
     const scriptOption = url.searchParams.get('scriptOption');
     const customScript = url.searchParams.get('customScript');
     const userQuery = url.searchParams.get('user_query'); // Get user_query parameter
-    const regenerate = url.searchParams.get('regenerate');
-    const changeScript = url.searchParams.get('changescript');
     
-    console.log(`Request received for user ${userId}, script option: ${scriptOption}, query: ${userQuery}, regenerate: ${regenerate}, changeScript: ${changeScript}`);
+    console.log(`Request received for user ${userId}, script option: ${scriptOption}, query: ${userQuery}`);
 
     if (!userId) {
       console.error('Missing userId parameter');
@@ -87,15 +85,6 @@ serve(async (req) => {
       customScript: customScript || '',
       user_query: userQuery || profile.user_query || '' // Use profile.user_query as fallback
     });
-    
-    // Add regenerate and changeScript parameters if they exist
-    if (regenerate === 'true') {
-      paramsToForward.append('regenerate', 'true');
-    }
-    
-    if (changeScript === 'true') {
-      paramsToForward.append('changescript', 'true');
-    }
 
     if (scriptOption === 'ig_reel') {
       const reelUrl = url.searchParams.get('reelUrl');
@@ -175,7 +164,6 @@ serve(async (req) => {
       .from('profiles')
       .update({ 
         status: 'Processing',
-        preview: 'generating',
         updated_at: new Date().toISOString() 
       })
       .eq('id', userId);
