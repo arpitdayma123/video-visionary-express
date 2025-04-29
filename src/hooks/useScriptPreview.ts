@@ -312,7 +312,7 @@ export const useScriptPreview = (
         toast({
           title: "Warning",
           description: "Failed to save the current script before regenerating, but continuing anyway.",
-          variant: "warning"
+          variant: "default"
         });
       }
     }
