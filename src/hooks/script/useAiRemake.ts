@@ -10,10 +10,8 @@ export const useAiRemake = (
   user: User | null,
   onScriptGenerated: (script: string) => void
 ) => {
-  // Update the webhook URL to use the trendy-webhook Supabase edge function
-  const SUPABASE_PROJECT_ID = "ljcziwpohceaacdreugx";
-  const TRENDY_WEBHOOK = `https://${SUPABASE_PROJECT_ID}.supabase.co/functions/v1/trendy-webhook`;
-  const FETCH_TIMEOUT = 20000; // 20 seconds timeout for fetch requests
+  // Update webhook URL to use N8N endpoint
+  const SCRIPT_REMAKE_WEBHOOK = "https://n8n.latestfreegames.online/webhook/scriptfind";
 
   const [isLoading, setIsLoading] = useState(false);
   const [script, setScript] = useState('');
@@ -27,10 +25,6 @@ export const useAiRemake = (
     'ai_remake',
     setIsLoading
   );
-
-  // For aborting fetch requests
-  const abortControllerRef = useRef<AbortController | null>(null);
-  const isGeneratingRef = useRef(false);
 
   useEffect(() => {
     const fetchExistingScript = async () => {
@@ -58,21 +52,9 @@ export const useAiRemake = (
     };
     
     fetchExistingScript();
-    
-    // Cleanup
-    return () => {
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
-    };
-  }, [user, updateWordCount]);
+  }, [user]);
 
   function handleScriptGenerated(newScript: string) {
-    if (!newScript) {
-      console.log('useAiRemake - Empty script received, not updating');
-      return;
-    }
-    
     setScript(newScript);
     setWordCount(updateWordCount(newScript));
     saveFinalScript(user, newScript);
@@ -94,15 +76,6 @@ export const useAiRemake = (
   const handleRegenerateScript = async () => {
     if (!user) return;
     
-    // Prevent duplicate calls
-    if (isGeneratingRef.current) {
-      console.log('Script regeneration already in progress, preventing duplicate call');
-      return;
-    }
-    
-    // Set the generating flag
-    isGeneratingRef.current = true;
-    
     try {
       if (script) {
         await saveFinalScript(user, script);
@@ -110,32 +83,10 @@ export const useAiRemake = (
       }
     } catch (error) {
       console.error('Error saving script before regeneration:', error);
-      // Don't block regeneration but notify user
-      toast({
-        title: "Warning",
-        description: "Failed to save the current script before regenerating, but continuing anyway.",
-        variant: "default"
-      });
+      return;
     }
     
     setIsLoading(true);
-    
-    // Abort any previous request
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
-    
-    // Create new AbortController for this request
-    const abortController = new AbortController();
-    abortControllerRef.current = abortController;
-    
-    // Set a timeout to abort the fetch if it takes too long
-    const timeoutId = setTimeout(() => {
-      if (abortControllerRef.current === abortController) {
-        console.log('Fetch timeout reached, aborting request');
-        abortController.abort();
-      }
-    }, FETCH_TIMEOUT);
     
     try {
       const { error } = await supabase
@@ -147,52 +98,20 @@ export const useAiRemake = (
 
       if (error) throw error;
 
-      // Use the trendy-webhook endpoint
-      const webhookUrl = `${TRENDY_WEBHOOK}?userId=${user.id}&scriptOption=ai_remake&regenerate=true`;
-      console.log('Calling webhook for ai_remake:', webhookUrl);
-      
+      // Use the new N8N webhook URL
       const webhookResponse = await fetch(
-        webhookUrl,
+        `${SCRIPT_REMAKE_WEBHOOK}?userId=${user.id}&scriptOption=ai_remake&regenerate=true`,
         {
           method: 'GET',
           headers: {
             'Accept': 'application/json',
             'Cache-Control': 'no-cache'
-          },
-          signal: abortController.signal
+          }
         }
-      ).catch(err => {
-        if (err.name === 'AbortError') {
-          console.log('Fetch request was aborted due to timeout');
-          return null;
-        }
-        throw err;
-      });
+      );
 
-      // Clear the timeout
-      clearTimeout(timeoutId);
-      
-      // Handle aborted request or timeout
-      if (!webhookResponse) {
-        console.log('No webhook response (likely due to timeout), continuing with polling anyway');
-      } else {
-        let responseJson: any = null;
-        try {
-          responseJson = await webhookResponse.clone().json();
-        } catch (error) {
-          console.error('Failed to parse webhook response:', error);
-        }
-
-        if (responseJson && responseJson.error) {
-          isGeneratingRef.current = false;
-          setIsLoading(false);
-          toast({
-            title: "Script regeneration error",
-            description: responseJson.error,
-            variant: "destructive"
-          });
-          return;
-        }
+      if (!webhookResponse.ok) {
+        throw new Error(`Webhook failed with status ${webhookResponse.status}`);
       }
 
       if (pollingInterval.current) {
@@ -201,15 +120,9 @@ export const useAiRemake = (
 
       const interval = setInterval(checkPreviewStatus, 2000);
       pollingInterval.current = interval;
+
     } catch (error) {
       console.error('Error regenerating script:', error);
-      
-      // Clear the timeout
-      clearTimeout(timeoutId);
-      
-      // Reset the generating flag
-      isGeneratingRef.current = false;
-      
       setIsLoading(false);
       toast({
         title: "Error",
