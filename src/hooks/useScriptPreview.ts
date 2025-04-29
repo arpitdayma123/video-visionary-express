@@ -13,9 +13,7 @@ export const useScriptPreview = (
   scriptOption: string,
   userQuery?: string // Add optional userQuery parameter
 ) => {
-  // Update the webhook URLs to use the trendy-webhook Supabase edge function
-  const SUPABASE_PROJECT_ID = "ljcziwpohceaacdreugx";
-  const TRENDY_WEBHOOK = `https://${SUPABASE_PROJECT_ID}.supabase.co/functions/v1/trendy-webhook`;
+  const SCRIPT_FIND_WEBHOOK = "https://n8n.latestfreegames.online/webhook/scriptfind";
   const FETCH_TIMEOUT = 20000; // 20 seconds timeout for fetch requests
 
   const [isLoading, setIsLoading] = useState(false);
@@ -42,7 +40,7 @@ export const useScriptPreview = (
     setIsLoading
   );
 
-  // Only reset state when script option actually changes
+  // Only reset state when script option actually changes, not on component remount
   useEffect(() => {
     if (previousScriptOptionRef.current !== scriptOption) {
       console.log('useScriptPreview - Script option changed from:', previousScriptOptionRef.current, 'to:', scriptOption);
@@ -182,7 +180,7 @@ export const useScriptPreview = (
       if (error) throw error;
 
       // Construct the webhook URL with user query when provided and applicable
-      let webhookUrl = `${TRENDY_WEBHOOK}?userId=${user.id}&scriptOption=${scriptOption}&regenerate=false`;
+      let webhookUrl = `${SCRIPT_FIND_WEBHOOK}?userId=${user.id}&regenerate=false`;
       
       // Add user_query parameter if script option is script_from_prompt
       if (scriptOption === 'script_from_prompt' && userQuery) {
@@ -209,7 +207,7 @@ export const useScriptPreview = (
         throw err; // Re-throw other errors
       });
 
-      // Clear the timeout
+      // Clear the timeout as we got a response or handled the abort
       clearTimeout(timeoutId);
       
       // Handle aborted request or timeout
@@ -350,8 +348,8 @@ export const useScriptPreview = (
 
       if (error) throw error;
 
-      // Construct webhook URL with user query for script_from_prompt and proper parameters
-      let webhookUrl = `${TRENDY_WEBHOOK}?userId=${user.id}&scriptOption=${scriptOption}&regenerate=true`;
+      // Construct webhook URL with user query for script_from_prompt
+      let webhookUrl = `${SCRIPT_FIND_WEBHOOK}?userId=${user.id}&regenerate=true`;
       
       // Add user_query parameter if script option is script_from_prompt
       if (scriptOption === 'script_from_prompt' && userQuery) {
@@ -489,7 +487,7 @@ export const useScriptPreview = (
 
       console.log('Calling webhook for changing script...');
       const webhookResponse = await fetch(
-        `${TRENDY_WEBHOOK}?userId=${user.id}&scriptOption=${scriptOption}&changescript=true`,
+        `${SCRIPT_FIND_WEBHOOK}?userId=${user.id}&changescript=true`,
         {
           method: 'GET',
           headers: {

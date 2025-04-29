@@ -56,13 +56,6 @@ const ScriptPreviewContent: React.FC<ScriptPreviewContentProps> = ({
     onScriptChange(e);
   };
 
-  // Prevent default for all button clicks to avoid form submission
-  const handleButtonClick = (handler: (e: React.MouseEvent) => void) => (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    handler(e);
-  };
-
   return (
     <div className="mt-6 space-y-4" onClick={(e) => e.stopPropagation()}>
       <div>
@@ -93,7 +86,7 @@ const ScriptPreviewContent: React.FC<ScriptPreviewContentProps> = ({
       <div className="flex flex-wrap gap-4">
         <Button
           variant="outline"
-          onClick={handleButtonClick(onRegenerateScript)}
+          onClick={onRegenerateScript}
           disabled={isLoading}
           type="button"
         >
@@ -109,7 +102,7 @@ const ScriptPreviewContent: React.FC<ScriptPreviewContentProps> = ({
         {showUseScriptButton && onUseScript && (
           <Button
             variant="outline"
-            onClick={handleButtonClick(onUseScript)}
+            onClick={onUseScript}
             disabled={isLoading || useScriptDisabled}
             type="button"
             className="bg-green-50 hover:bg-green-100 border-green-200"
@@ -121,7 +114,7 @@ const ScriptPreviewContent: React.FC<ScriptPreviewContentProps> = ({
         {showChangeScript && onChangeScript && (
           <Button
             variant="outline"
-            onClick={handleButtonClick(onChangeScript)}
+            onClick={onChangeScript}
             disabled={isLoading}
             type="button"
           >
