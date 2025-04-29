@@ -1,10 +1,11 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { User } from '@supabase/supabase-js';
 import { useScriptUtils } from './useScriptUtils';
 import { useScriptPolling } from './useScriptPolling';
+import { useScriptWebhook } from './useScriptWebhook';
 
 export const useAiRemake = (
   user: User | null,
@@ -25,6 +26,8 @@ export const useAiRemake = (
     'ai_remake',
     setIsLoading
   );
+  
+  const { callWebhook, resetWebhookState } = useScriptWebhook();
 
   useEffect(() => {
     const fetchExistingScript = async () => {
@@ -52,7 +55,7 @@ export const useAiRemake = (
     };
     
     fetchExistingScript();
-  }, [user]);
+  }, [user, updateWordCount]);
 
   function handleScriptGenerated(newScript: string) {
     setScript(newScript);
@@ -62,7 +65,7 @@ export const useAiRemake = (
     onScriptGenerated(newScript);
   }
 
-  const handleScriptChange = async (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+  const handleScriptChange = useCallback(async (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newScript = e.target.value;
     setScript(newScript);
     setWordCount(updateWordCount(newScript));
@@ -71,9 +74,9 @@ export const useAiRemake = (
       await saveFinalScript(user, newScript);
       await saveCustomScript(user, newScript);
     }
-  };
+  }, [user, updateWordCount, saveFinalScript, saveCustomScript]);
 
-  const handleRegenerateScript = async () => {
+  const handleRegenerateScript = useCallback(async () => {
     if (!user) return;
     
     try {
@@ -87,6 +90,7 @@ export const useAiRemake = (
     }
     
     setIsLoading(true);
+    resetWebhookState();
     
     try {
       const { error } = await supabase
@@ -98,29 +102,29 @@ export const useAiRemake = (
 
       if (error) throw error;
 
-      // Use the new N8N webhook URL
-      const webhookResponse = await fetch(
-        `${SCRIPT_REMAKE_WEBHOOK}?userId=${user.id}&scriptOption=ai_remake&regenerate=true`,
-        {
-          method: 'GET',
-          headers: {
-            'Accept': 'application/json',
-            'Cache-Control': 'no-cache'
-          }
+      // Use the webhook URL with improved error handling
+      const webhookUrl = `${SCRIPT_REMAKE_WEBHOOK}?userId=${user.id}&scriptOption=ai_remake&regenerate=true`;
+      console.log(`Calling webhook for ai_remake regeneration: ${webhookUrl}`);
+      
+      try {
+        await callWebhook(webhookUrl);
+        
+        console.log('Webhook response received, starting polling');
+        if (pollingInterval.current) {
+          clearInterval(pollingInterval.current);
         }
-      );
-
-      if (!webhookResponse.ok) {
-        throw new Error(`Webhook failed with status ${webhookResponse.status}`);
+  
+        const interval = setInterval(checkPreviewStatus, 2000);
+        pollingInterval.current = interval;
+      } catch (error) {
+        console.error('Error calling webhook:', error);
+        // Continue with polling even if webhook fails
+        if (pollingInterval.current) {
+          clearInterval(pollingInterval.current);
+        }
+        const interval = setInterval(checkPreviewStatus, 2000);
+        pollingInterval.current = interval;
       }
-
-      if (pollingInterval.current) {
-        clearInterval(pollingInterval.current);
-      }
-
-      const interval = setInterval(checkPreviewStatus, 2000);
-      pollingInterval.current = interval;
-
     } catch (error) {
       console.error('Error regenerating script:', error);
       setIsLoading(false);
@@ -129,8 +133,15 @@ export const useAiRemake = (
         description: "Failed to regenerate script. Please try again.",
         variant: "destructive"
       });
+      
+      // Try to continue with polling even if webhook fails
+      if (pollingInterval.current) {
+        clearInterval(pollingInterval.current);
+      }
+      const interval = setInterval(checkPreviewStatus, 2000);
+      pollingInterval.current = interval;
     }
-  };
+  }, [user, script, saveFinalScript, saveCustomScript, setIsLoading, resetWebhookState, callWebhook, pollingInterval, checkPreviewStatus, toast]);
 
   return {
     isLoading,
