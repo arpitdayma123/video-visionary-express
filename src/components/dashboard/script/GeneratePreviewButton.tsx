@@ -24,7 +24,6 @@ const GeneratePreviewButton: React.FC<GeneratePreviewButtonProps> = ({
 }) => {
   const [countdown, setCountdown] = useState<number | null>(null);
   const [extendedTime, setExtendedTime] = useState(0);
-  const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
   // Don't render the button if script option is "custom"
   if (scriptOption === 'custom') return null;
@@ -48,18 +47,11 @@ const GeneratePreviewButton: React.FC<GeneratePreviewButtonProps> = ({
           if (prev <= 1) return 0;
           return prev - 1;
         });
-        
-        // Also track total elapsed time
-        if (generationStartTime) {
-          const elapsed = Math.floor((Date.now() - generationStartTime) / 1000);
-          setElapsedSeconds(elapsed);
-        }
       }, 1000);
       
       return () => clearInterval(timer);
     } else {
       setCountdown(null);
-      setElapsedSeconds(0);
     }
   }, [isLoading, generationStartTime, scriptOption, extendedTime]);
   
@@ -86,20 +78,6 @@ const GeneratePreviewButton: React.FC<GeneratePreviewButtonProps> = ({
     onGenerate(e);
   };
 
-  // Generate appropriate loading message
-  const getLoadingMessage = () => {
-    if (countdown !== null) {
-      if (countdown > 0) {
-        return `Generating Preview... (${formatCountdown(countdown)})`;
-      } else if (elapsedSeconds > 180) { // 3 minutes
-        return `Still generating... (${Math.floor(elapsedSeconds / 60)}m ${elapsedSeconds % 60}s)`;
-      } else {
-        return 'Finalizing preview...';
-      }
-    }
-    return 'Generating Preview...';
-  };
-
   // Don't render the button if script option is "custom"
   if (scriptOption === 'custom') return null;
 
@@ -114,23 +92,15 @@ const GeneratePreviewButton: React.FC<GeneratePreviewButtonProps> = ({
         {isLoading ? (
           <>
             <Loader className="mr-2 h-4 w-4 animate-spin" />
-            {getLoadingMessage()}
+            {countdown !== null 
+              ? `Generating Preview... (${formatCountdown(countdown)})`
+              : 'Generating Preview...'
+            }
           </>
         ) : (
           'Generate Script Preview'
         )}
       </Button>
-      
-      {isLoading && elapsedSeconds > 180 && (
-        <Alert className="mt-2 bg-yellow-50 border-yellow-200">
-          <div className="flex items-center">
-            <AlertTriangle className="h-4 w-4 text-yellow-600 mr-2" />
-            <p className="text-sm text-yellow-700">
-              Script generation is taking longer than usual. Please continue waiting.
-            </p>
-          </div>
-        </Alert>
-      )}
       
       {disabled && (scriptOption === 'script_from_prompt' || scriptOption === 'ig_reel') && (
         <Alert variant="destructive" className="mt-2">

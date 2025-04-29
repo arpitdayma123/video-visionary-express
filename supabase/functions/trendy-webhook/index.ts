@@ -33,7 +33,6 @@ serve(async (req) => {
     console.log(`Request received for user ${userId}, script option: ${scriptOption}, query: ${userQuery}`);
 
     if (!userId) {
-      console.error('Missing userId parameter');
       return new Response(
         JSON.stringify({ error: 'Missing userId parameter' }),
         { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
@@ -43,7 +42,7 @@ serve(async (req) => {
     // Get user profile from Supabase
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('credit, videos, voice_files, selected_video, selected_voice, selected_niches, competitors, user_query, preview')
+      .select('credit, videos, voice_files, selected_video, selected_voice, selected_niches, competitors, user_query')
       .eq('id', userId)
       .single();
 
@@ -54,40 +53,10 @@ serve(async (req) => {
         { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
       );
     }
-    
-    // Check if already processing a request
-    if (profile.preview === 'generating') {
-      console.log(`User ${userId} already has a generating script in progress`);
-      
-      // Update timestamp to indicate we're still processing
-      await supabase
-        .from('profiles')
-        .update({ updated_at: new Date().toISOString() })
-        .eq('id', userId);
-        
-      return new Response(
-        JSON.stringify({ 
-          message: "Script generation already in progress", 
-          status: "generating",
-          success: true 
-        }),
-        { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
-      );
-    }
 
     // Check for selected data
     if (!profile.selected_video || !profile.selected_voice || !profile.selected_niches || !profile.competitors) {
       console.error('Missing required data from profile');
-      
-      // Update profile to indicate error
-      await supabase
-        .from('profiles')
-        .update({ 
-          preview: 'error',
-          updated_at: new Date().toISOString() 
-        })
-        .eq('id', userId);
-        
       return new Response(
         JSON.stringify({ error: 'Missing required data from profile' }),
         { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
@@ -97,31 +66,11 @@ serve(async (req) => {
     // Special check for script_from_prompt
     if (scriptOption === 'script_from_prompt' && !userQuery && !profile.user_query) {
       console.error('Missing user_query for script_from_prompt option');
-      
-      // Update profile to indicate error
-      await supabase
-        .from('profiles')
-        .update({ 
-          preview: 'error',
-          updated_at: new Date().toISOString() 
-        })
-        .eq('id', userId);
-        
       return new Response(
         JSON.stringify({ error: 'Missing topic/prompt for script_from_prompt option' }),
         { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
       );
     }
-
-    // Make sure the preview is set to generating before proceeding
-    await supabase
-      .from('profiles')
-      .update({ 
-        preview: 'generating', 
-        previewscript: null,
-        updated_at: new Date().toISOString() 
-      })
-      .eq('id', userId);
 
     // Prepare the params to forward - use profile.user_query as fallback if userQuery is not provided
     const paramsToForward = new URLSearchParams({
@@ -142,67 +91,42 @@ serve(async (req) => {
     try {
       console.log(`Forwarding request to primary endpoint: ${PRIMARY_WEBHOOK_URL}?${paramsToForward.toString()}`);
       
-      // Set a more generous timeout for fetch (30 seconds)
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000);
-      
-      try {
-        const primaryResponse = await fetch(`${PRIMARY_WEBHOOK_URL}?${paramsToForward.toString()}`, {
-          method: 'GET',
-          headers: {
-            'Accept': 'application/json',
-            'Cache-Control': 'no-cache'
-          },
-          signal: controller.signal
-        });
-        
-        // Clear the timeout
-        clearTimeout(timeoutId);
+      const primaryResponse = await fetch(`${PRIMARY_WEBHOOK_URL}?${paramsToForward.toString()}`, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'Cache-Control': 'no-cache'
+        },
+      });
 
-        if (primaryResponse.ok) {
-          // Primary webhook call succeeded
-          const responseData = await primaryResponse.json();
-          console.log('Primary webhook response:', responseData);
-          
-          return new Response(
-            JSON.stringify(responseData),
-            { 
-              status: 200, 
-              headers: { 
-                'Content-Type': 'application/json',
-                ...corsHeaders 
-              } 
-            }
-          );
-        } else {
-          // If primary fails, we'll handle it ourselves below
-          console.error('Primary webhook call failed:', primaryResponse.status);
-          throw new Error(`Primary webhook failed with status ${primaryResponse.status}`);
-        }
-      } catch (fetchError) {
-        // Clear timeout if it wasn't an abort
-        if (fetchError.name !== 'AbortError') {
-          clearTimeout(timeoutId);
-        }
+      if (primaryResponse.ok) {
+        // Primary webhook call succeeded
+        const responseData = await primaryResponse.json();
+        console.log('Primary webhook response:', responseData);
         
-        console.error('Error calling primary webhook:', fetchError.message);
-        
-        // If it's a timeout, we'll still proceed with our fallback approach
-        // but inform the client that we're continuing to process
-        if (fetchError.name === 'AbortError') {
-          console.log('Primary webhook call timed out, using fallback implementation');
-          // No need to update profile status again, as we already set it to 'generating' above
-        } else {
-          // For other errors, we also continue with fallback
-          console.error('Error calling primary webhook:', fetchError);
-        }
+        return new Response(
+          JSON.stringify(responseData),
+          { 
+            status: 200, 
+            headers: { 
+              'Content-Type': 'application/json',
+              ...corsHeaders 
+            } 
+          }
+        );
+      } else {
+        // If primary fails, we'll handle it ourselves below
+        console.error('Primary webhook call failed:', primaryResponse.status);
+        throw new Error(`Primary webhook failed with status ${primaryResponse.status}`);
       }
     } catch (primaryError) {
       console.error('Error calling primary webhook:', primaryError);
+      
       // Continue with our fallback implementation below
     }
 
-    // Fallback implementation if primary webhook fails or times out
+    // Fallback implementation if primary webhook fails
+    // Just update the status to Processing and provide a success response
     console.log('Using fallback implementation');
     
     // Update the profile status to Processing
@@ -226,8 +150,7 @@ serve(async (req) => {
       JSON.stringify({ 
         message: "Workflow was started",
         success: true,
-        fallback: true,
-        status: "generating"
+        fallback: true
       }),
       { 
         status: 200, 

@@ -21,17 +21,10 @@ export const useScriptPreview = (
   const [isPreviewVisible, setIsPreviewVisible] = useState(false);
   const [webhookError, setWebhookError] = useState<string | null>(null);
   const previousScriptOptionRef = useRef(scriptOption);
-  const isGeneratingRef = useRef(false);
   
   const { toast } = useToast();
   const { updateWordCount, saveCustomScript, saveFinalScript } = useScriptUtils();
-  const { 
-    checkPreviewStatus, 
-    startPolling, 
-    pollingInterval, 
-    waitTimeExpired, 
-    generationStartTime
-  } = useScriptPolling(
+  const { checkPreviewStatus, pollingInterval } = useScriptPolling(
     user,
     isLoading,
     handleScriptGenerated,
@@ -62,9 +55,6 @@ export const useScriptPreview = (
         clearInterval(pollingInterval.current);
         pollingInterval.current = null;
       }
-      
-      // Reset the generating ref
-      isGeneratingRef.current = false;
       
       // Update database to reset preview state
       if (user) {
@@ -98,9 +88,7 @@ export const useScriptPreview = (
       setWebhookError,
       setIsLoading,
       handleGeneratePreview: aiRemake.handleRegenerateScript,
-      previousScriptOptionRef,
-      waitTimeExpired,
-      generationStartTime
+      previousScriptOptionRef
     };
   }
 
@@ -130,15 +118,6 @@ export const useScriptPreview = (
   const handleGeneratePreview = async () => {
     if (!user) return;
     
-    // Prevent duplicate requests
-    if (isGeneratingRef.current) {
-      console.log('useScriptPreview - Already generating, ignoring duplicate request');
-      return;
-    }
-    
-    // Set generating flag
-    isGeneratingRef.current = true;
-    
     // Reset any previous script and visibility state
     setScript('');
     setWordCount(0);
@@ -146,7 +125,6 @@ export const useScriptPreview = (
     setWebhookError(null);
     
     try {
-      console.log('useScriptPreview - Updating profile preview status to "generating"');
       const { error } = await supabase
         .from('profiles')
         .update({ preview: 'generating' })
@@ -162,93 +140,51 @@ export const useScriptPreview = (
         webhookUrl += `&user_query=${encodeURIComponent(userQuery)}`;
       }
 
-      console.log('useScriptPreview - Calling webhook:', webhookUrl);
-      
-      // Set a longer timeout for the fetch request (30 seconds)
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000);
-      
-      try {
-        const webhookResponse = await fetch(
-          webhookUrl,
-          {
-            method: 'GET',
-            headers: {
-              'Accept': 'application/json',
-              'Cache-Control': 'no-cache'
-            },
-            signal: controller.signal
+      const webhookResponse = await fetch(
+        webhookUrl,
+        {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json',
+            'Cache-Control': 'no-cache'
           }
-        );
-        
-        // Clear the timeout
-        clearTimeout(timeoutId);
+        }
+      );
 
-        let responseJson: any = null;
-        try {
-          responseJson = await webhookResponse.clone().json();
-        } catch (parseError) {
-          console.error('useScriptPreview - Failed to parse webhook response:', parseError);
-        }
+      let responseJson: any = null;
+      try {
+        responseJson = await webhookResponse.clone().json();
+      } catch { /* ignore */ }
 
-        // Handle the specific error case
-        if (responseJson?.error && responseJson.error.includes("The Instagram username you entered either does not provide valuable content")) {
-          setIsLoading(false);
-          setIsPreviewVisible(false);
-          setScript('');
-          setWebhookError(responseJson.error);
-          isGeneratingRef.current = false;
-          return;
-        }
+      // Handle the specific error case
+      if (responseJson?.error && responseJson.error.includes("The Instagram username you entered either does not provide valuable content")) {
+        setIsLoading(false);
+        setIsPreviewVisible(false);
+        setScript('');
+        setWebhookError(responseJson.error);
+        return;
+      }
 
-        // If error in webhook payload, show error, stop, don't run polling.
-        if (responseJson && responseJson.error) {
-          setIsLoading(false);
-          setWebhookError(responseJson.error);
-          setIsPreviewVisible(false);
-          toast({
-            title: "Script generation error",
-            description: responseJson.error,
-            variant: "destructive"
-          });
-          isGeneratingRef.current = false;
-          return;
-        } else {
-          setWebhookError(null);
-        }
-        
-        console.log('useScriptPreview - Webhook called successfully, starting polling');
-        // Start polling (this will create and store the interval)
-        startPolling();
-        
-      } catch (fetchError) {
-        // Clear the timeout if abort wasn't the cause
-        clearTimeout(timeoutId);
-        
-        if (fetchError.name === 'AbortError') {
-          console.log('useScriptPreview - Fetch request timed out, but continuing with polling');
-          toast({
-            title: "Script Generation Started",
-            description: "Script generation is taking longer than usual. We'll continue checking for your script.",
-            variant: "default"
-          });
-          
-          // Even if the initial request times out, we still want to start polling
-          // as the webhook might still be processing on the server
-          startPolling();
-        } else {
-          console.error('useScriptPreview - Fetch error:', fetchError);
-          setIsLoading(false);
-          setWebhookError(fetchError instanceof Error ? fetchError.message : "An error occurred");
-          toast({
-            title: "Error",
-            description: "Failed to generate script preview. Please try again.",
-            variant: "destructive"
-          });
-          isGeneratingRef.current = false;
-        }
+      // If error in webhook payload, show error, stop, don't run polling.
+      if (responseJson && responseJson.error) {
+        setIsLoading(false);
+        setWebhookError(responseJson.error);
+        setIsPreviewVisible(false);
+        toast({
+          title: "Script generation error",
+          description: responseJson.error,
+          variant: "destructive"
+        });
+        return;
+      } else {
+        setWebhookError(null);
       }
       
+      if (pollingInterval.current) {
+        clearInterval(pollingInterval.current);
+      }
+      const interval = setInterval(checkPreviewStatus, 2000);
+      pollingInterval.current = interval;
     } catch (error) {
       setIsLoading(false);
       setWebhookError(error instanceof Error ? error.message : "An error occurred");
@@ -257,21 +193,11 @@ export const useScriptPreview = (
         description: "Failed to generate script preview. Please try again.",
         variant: "destructive"
       });
-      isGeneratingRef.current = false;
     }
   };
 
   const handleRegenerateScript = async () => {
     if (!user) return;
-    
-    // Prevent duplicate requests
-    if (isGeneratingRef.current) {
-      console.log('useScriptPreview - Already generating, ignoring duplicate regenerate request');
-      return;
-    }
-    
-    // Set generating flag
-    isGeneratingRef.current = true;
     
     // First, save the current script to finalscript column if script exists
     // This applies for all script options, including script_from_prompt
@@ -293,10 +219,8 @@ export const useScriptPreview = (
     setScript('');
     setWordCount(0);
     setIsLoading(true);
-    setWebhookError(null);
     
     try {
-      console.log('useScriptPreview - Updating profile preview status to "generating" for regeneration');
       const { error } = await supabase
         .from('profiles')
         .update({ preview: 'generating' })
@@ -312,80 +236,41 @@ export const useScriptPreview = (
         webhookUrl += `&user_query=${encodeURIComponent(userQuery)}`;
       }
 
-      console.log('useScriptPreview - Calling webhook for regeneration:', webhookUrl);
-      
-      // Set a longer timeout for the fetch request (30 seconds)
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000);
-      
-      try {
-        const webhookResponse = await fetch(
-          webhookUrl,
-          {
-            method: 'GET',
-            headers: {
-              'Accept': 'application/json',
-              'Cache-Control': 'no-cache'
-            },
-            signal: controller.signal
+      const webhookResponse = await fetch(
+        webhookUrl,
+        {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json',
+            'Cache-Control': 'no-cache'
           }
-        );
-        
-        // Clear the timeout
-        clearTimeout(timeoutId);
+        }
+      );
 
-        let responseJson: any = null;
-        try {
-          responseJson = await webhookResponse.clone().json();
-        } catch (parseError) {
-          console.error('useScriptPreview - Failed to parse webhook response during regeneration:', parseError);
-        }
+      let responseJson: any = null;
+      try {
+        responseJson = await webhookResponse.clone().json();
+      } catch { /* ignore */ }
 
-        if (responseJson && responseJson.error) {
-          setIsLoading(false);
-          setWebhookError(responseJson.error);
-          setIsPreviewVisible(false);
-          toast({
-            title: "Script regeneration error",
-            description: responseJson.error,
-            variant: "destructive"
-          });
-          isGeneratingRef.current = false;
-          return;
-        } else {
-          setWebhookError(null);
-        }
-        
-        console.log('useScriptPreview - Regeneration webhook called successfully, starting polling');
-        startPolling();
-        
-      } catch (fetchError) {
-        // Clear the timeout if abort wasn't the cause
-        clearTimeout(timeoutId);
-        
-        if (fetchError.name === 'AbortError') {
-          console.log('useScriptPreview - Regeneration fetch request timed out, but continuing with polling');
-          toast({
-            title: "Script Regeneration Started",
-            description: "Script regeneration is taking longer than usual. We'll continue checking for your script.",
-            variant: "default"
-          });
-          
-          // Even if the initial request times out, we still want to start polling
-          startPolling();
-        } else {
-          console.error('useScriptPreview - Regeneration fetch error:', fetchError);
-          setIsLoading(false);
-          setWebhookError("Failed to regenerate script. Please try again.");
-          toast({
-            title: "Error",
-            description: "Failed to regenerate script. Please try again.",
-            variant: "destructive"
-          });
-          isGeneratingRef.current = false;
-        }
+      if (responseJson && responseJson.error) {
+        setIsLoading(false);
+        setWebhookError(responseJson.error);
+        setIsPreviewVisible(false);
+        toast({
+          title: "Script regeneration error",
+          description: responseJson.error,
+          variant: "destructive"
+        });
+        return;
+      } else {
+        setWebhookError(null);
       }
       
+      if (pollingInterval.current) {
+        clearInterval(pollingInterval.current);
+      }
+      const interval = setInterval(checkPreviewStatus, 2000);
+      pollingInterval.current = interval;
     } catch (error) {
       setIsLoading(false);
       setWebhookError("Failed to regenerate script. Please try again.");
@@ -394,30 +279,17 @@ export const useScriptPreview = (
         description: "Failed to regenerate script. Please try again.",
         variant: "destructive"
       });
-      isGeneratingRef.current = false;
     }
   };
 
   const handleChangeScript = async () => {
     if (!user) return;
-    
-    // Prevent duplicate requests
-    if (isGeneratingRef.current) {
-      console.log('useScriptPreview - Already generating, ignoring duplicate change script request');
-      return;
-    }
-    
-    // Set generating flag
-    isGeneratingRef.current = true;
-    
     // Reset the script content and word count
     setScript('');
     setWordCount(0);
     setIsLoading(true);
-    setWebhookError(null);
 
     try {
-      console.log('useScriptPreview - Updating profile preview status to "generating" for script change');
       const { error } = await supabase
         .from('profiles')
         .update({ preview: 'generating' })
@@ -425,80 +297,41 @@ export const useScriptPreview = (
 
       if (error) throw error;
 
-      console.log('useScriptPreview - Calling webhook for script change');
-      
-      // Set a longer timeout for the fetch request (30 seconds)
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000);
-      
-      try {
-        const webhookResponse = await fetch(
-          `${SCRIPT_FIND_WEBHOOK}?userId=${user.id}&changescript=true`,
-          {
-            method: 'GET',
-            headers: {
-              'Accept': 'application/json',
-              'Cache-Control': 'no-cache'
-            },
-            signal: controller.signal
+      const webhookResponse = await fetch(
+        `${SCRIPT_FIND_WEBHOOK}?userId=${user.id}&changescript=true`,
+        {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json',
+            'Cache-Control': 'no-cache'
           }
-        );
-        
-        // Clear the timeout
-        clearTimeout(timeoutId);
+        }
+      );
 
-        let responseJson: any = null;
-        try {
-          responseJson = await webhookResponse.clone().json();
-        } catch (parseError) {
-          console.error('useScriptPreview - Failed to parse webhook response during script change:', parseError);
-        }
-        
-        if (responseJson && responseJson.error) {
-          setIsLoading(false);
-          setWebhookError(responseJson.error);
-          setIsPreviewVisible(false);
-          toast({
-            title: "Change script error",
-            description: responseJson.error,
-            variant: "destructive"
-          });
-          isGeneratingRef.current = false;
-          return;
-        } else {
-          setWebhookError(null);
-        }
-
-        console.log('useScriptPreview - Script change webhook called successfully, starting polling');
-        startPolling();
-        
-      } catch (fetchError) {
-        // Clear the timeout if abort wasn't the cause
-        clearTimeout(timeoutId);
-        
-        if (fetchError.name === 'AbortError') {
-          console.log('useScriptPreview - Script change fetch request timed out, but continuing with polling');
-          toast({
-            title: "Script Change Started",
-            description: "Script change is taking longer than usual. We'll continue checking for your script.",
-            variant: "default"
-          });
-          
-          // Even if the initial request times out, we still want to start polling
-          startPolling();
-        } else {
-          console.error('useScriptPreview - Script change fetch error:', fetchError);
-          setIsLoading(false);
-          setWebhookError("Failed to request a new script. Please try again.");
-          toast({
-            title: "Error",
-            description: "Failed to request a new script. Please try again.",
-            variant: "destructive"
-          });
-          isGeneratingRef.current = false;
-        }
-      }
+      let responseJson: any = null;
+      try {
+        responseJson = await webhookResponse.clone().json();
+      } catch { /* ignore */ }
       
+      if (responseJson && responseJson.error) {
+        setIsLoading(false);
+        setWebhookError(responseJson.error);
+        setIsPreviewVisible(false);
+        toast({
+          title: "Change script error",
+          description: responseJson.error,
+          variant: "destructive"
+        });
+        return;
+      } else {
+        setWebhookError(null);
+      }
+
+      if (pollingInterval.current) {
+        clearInterval(pollingInterval.current);
+      }
+      const interval = setInterval(checkPreviewStatus, 2000);
+      pollingInterval.current = interval;
     } catch (error) {
       setIsLoading(false);
       setWebhookError("Failed to request a new script. Please try again.");
@@ -507,7 +340,6 @@ export const useScriptPreview = (
         description: "Failed to request a new script. Please try again.",
         variant: "destructive"
       });
-      isGeneratingRef.current = false;
     }
   };
 
@@ -524,8 +356,6 @@ export const useScriptPreview = (
     handleChangeScript,
     webhookError,
     setWebhookError,
-    previousScriptOptionRef,
-    waitTimeExpired,
-    generationStartTime
+    previousScriptOptionRef
   };
 };
