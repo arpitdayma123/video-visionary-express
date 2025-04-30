@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Loader } from 'lucide-react';
 import { Alert } from '@/components/ui/alert';
 import { AlertTriangle } from 'lucide-react';
+import { Progress } from '@/components/ui/progress';
 
 interface GeneratePreviewButtonProps {
   isLoading: boolean;
@@ -24,6 +25,8 @@ const GeneratePreviewButton: React.FC<GeneratePreviewButtonProps> = ({
 }) => {
   const [countdown, setCountdown] = useState<number | null>(null);
   const [extendedTime, setExtendedTime] = useState(0);
+  const [loadingMessage, setLoadingMessage] = useState('Generating Preview...');
+  const [progressPercent, setProgressPercent] = useState(0);
 
   // Don't render the button if script option is "custom"
   if (scriptOption === 'custom') return null;
@@ -31,12 +34,14 @@ const GeneratePreviewButton: React.FC<GeneratePreviewButtonProps> = ({
   // Calculate initial wait time based on script option
   useEffect(() => {
     if (isLoading && generationStartTime) {
-      let initialWaitTime = 180; // Default 3 minutes (180 seconds)
+      let initialWaitTime = 300; // Default 5 minutes (300 seconds)
       
       if (scriptOption === 'ai_remake') {
-        initialWaitTime = 30; // 30 seconds for AI remake
+        initialWaitTime = 120; // 2 minutes for AI remake
       } else if (scriptOption === 'ig_reel') {
-        initialWaitTime = 60; // 1 minute for Instagram reel
+        initialWaitTime = 180; // 3 minutes for Instagram reel
+      } else if (scriptOption === 'script_from_prompt') {
+        initialWaitTime = 240; // 4 minutes for script from prompt
       }
       
       setCountdown(initialWaitTime + extendedTime);
@@ -45,6 +50,24 @@ const GeneratePreviewButton: React.FC<GeneratePreviewButtonProps> = ({
         setCountdown(prev => {
           if (prev === null) return null;
           if (prev <= 1) return 0;
+          
+          // Update progress percentage
+          const elapsed = initialWaitTime - prev + extendedTime;
+          const total = initialWaitTime + extendedTime;
+          const percent = Math.min(Math.floor((elapsed / total) * 100), 95); // Cap at 95% until complete
+          setProgressPercent(percent);
+          
+          // Update loading message based on progress
+          if (elapsed < 30) {
+            setLoadingMessage('Preparing script generation...');
+          } else if (elapsed < 60) {
+            setLoadingMessage('Analyzing content...');
+          } else if (elapsed < 120) {
+            setLoadingMessage('Generating script draft...');
+          } else {
+            setLoadingMessage('Finalizing script generation...');
+          }
+          
           return prev - 1;
         });
       }, 1000);
@@ -52,6 +75,8 @@ const GeneratePreviewButton: React.FC<GeneratePreviewButtonProps> = ({
       return () => clearInterval(timer);
     } else {
       setCountdown(null);
+      setProgressPercent(0);
+      setLoadingMessage('Generating Preview...');
     }
   }, [isLoading, generationStartTime, scriptOption, extendedTime]);
   
@@ -82,7 +107,7 @@ const GeneratePreviewButton: React.FC<GeneratePreviewButtonProps> = ({
   if (scriptOption === 'custom') return null;
 
   return (
-    <div className="mt-6" onClick={(e) => e.stopPropagation()}>
+    <div className="mt-6 space-y-4" onClick={(e) => e.stopPropagation()}>
       <Button
         onClick={handleClick}
         disabled={isLoading || disabled}
@@ -93,14 +118,23 @@ const GeneratePreviewButton: React.FC<GeneratePreviewButtonProps> = ({
           <>
             <Loader className="mr-2 h-4 w-4 animate-spin" />
             {countdown !== null 
-              ? `Generating Preview... (${formatCountdown(countdown)})`
-              : 'Generating Preview...'
+              ? `${loadingMessage} (${formatCountdown(countdown)})`
+              : loadingMessage
             }
           </>
         ) : (
           'Generate Script Preview'
         )}
       </Button>
+      
+      {isLoading && (
+        <div className="space-y-2">
+          <Progress value={progressPercent} className="h-2" />
+          <p className="text-xs text-center text-muted-foreground">
+            Script generation can take several minutes. Please be patient.
+          </p>
+        </div>
+      )}
       
       {disabled && (scriptOption === 'script_from_prompt' || scriptOption === 'ig_reel') && (
         <Alert variant="destructive" className="mt-2">
