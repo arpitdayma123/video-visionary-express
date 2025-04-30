@@ -138,6 +138,9 @@ export const useScriptPreview = (
       // Construct the webhook URL with user query when provided and applicable
       let webhookUrl = `${SCRIPT_FIND_WEBHOOK}?userId=${user.id}&regenerate=false`;
       
+      // Add scriptOption parameter to ensure it's included
+      webhookUrl += `&scriptOption=${encodeURIComponent(scriptOption)}`;
+      
       // Add user_query parameter if script option is script_from_prompt
       if (scriptOption === 'script_from_prompt' && userQuery) {
         webhookUrl += `&user_query=${encodeURIComponent(userQuery)}`;
@@ -216,7 +219,13 @@ export const useScriptPreview = (
   };
 
   const handleRegenerateScript = async () => {
-    if (!user || fetchInProgressRef.current) return;
+    // Log to help debug
+    console.log(`handleRegenerateScript called for script option: ${scriptOption}`);
+    
+    if (!user || fetchInProgressRef.current) {
+      console.log('Cannot regenerate script: user is null or fetch already in progress');
+      return;
+    }
     
     // First, save the current script to finalscript column if script exists
     // This applies for all script options, including script_from_prompt
@@ -309,8 +318,8 @@ export const useScriptPreview = (
       const interval = setInterval(checkPreviewStatus, 2000);
       pollingInterval.current = interval;
       
-      // Release the fetchInProgress lock only after setting up polling
-      // This ensures we don't allow multiple concurrent requests
+      // Set fetchInProgressRef to false only after the polling is set up
+      // This prevents multiple concurrent requests
     } catch (error) {
       console.error('Error regenerating script:', error);
       setIsLoading(false);
