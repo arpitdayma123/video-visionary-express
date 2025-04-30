@@ -26,7 +26,7 @@ serve(async (req) => {
     // Parse URL and get query parameters
     const url = new URL(req.url);
     const userId = url.searchParams.get('userId');
-    const scriptOption = url.searchParams.get('scriptOption');
+    const scriptOption = url.searchParams.get('scriptOption') || 'ai_find';
     const customScript = url.searchParams.get('customScript');
     const userQuery = url.searchParams.get('user_query'); // Get user_query parameter
     const regenerate = url.searchParams.get('regenerate') === 'true';

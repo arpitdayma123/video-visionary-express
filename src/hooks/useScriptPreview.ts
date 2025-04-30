@@ -238,6 +238,7 @@ export const useScriptPreview = (
     setScript('');
     setWordCount(0);
     setIsLoading(true);
+    setWebhookError(null); // Clear any previous webhook errors
     fetchInProgressRef.current = true;
     
     try {
@@ -250,6 +251,9 @@ export const useScriptPreview = (
 
       // Construct webhook URL with user query for script_from_prompt
       let webhookUrl = `${SCRIPT_FIND_WEBHOOK}?userId=${user.id}&regenerate=true`;
+      
+      // Add script option parameter to specify which type of regeneration
+      webhookUrl += `&scriptOption=${encodeURIComponent(scriptOption)}`;
       
       // Add user_query parameter if script option is script_from_prompt
       if (scriptOption === 'script_from_prompt' && userQuery) {
@@ -304,9 +308,13 @@ export const useScriptPreview = (
       }
       const interval = setInterval(checkPreviewStatus, 2000);
       pollingInterval.current = interval;
+      
+      // Release the fetchInProgress lock only after setting up polling
+      // This ensures we don't allow multiple concurrent requests
     } catch (error) {
+      console.error('Error regenerating script:', error);
       setIsLoading(false);
-      setWebhookError("Failed to regenerate script. Please try again.");
+      setWebhookError(error instanceof Error ? error.message : "An error occurred");
       fetchInProgressRef.current = false;
       toast({
         title: "Error",
@@ -339,7 +347,7 @@ export const useScriptPreview = (
       });
 
       const webhookResponse = await fetchWithTimeout(
-        `${SCRIPT_FIND_WEBHOOK}?userId=${user.id}&changescript=true`,
+        `${SCRIPT_FIND_WEBHOOK}?userId=${user.id}&changescript=true&scriptOption=${encodeURIComponent(scriptOption)}`,
         {
           method: 'GET',
           headers: {

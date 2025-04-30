@@ -97,6 +97,7 @@ export const useAiRemake = (
     }
     
     setIsLoading(true);
+    setWebhookError(null);
     fetchInProgressRef.current = true;
     
     try {
@@ -114,7 +115,7 @@ export const useAiRemake = (
         description: "This may take several minutes. Please be patient.",
       });
 
-      // Use our new fetchWithTimeout utility
+      // Use our new fetchWithTimeout utility with scriptOption parameter
       const webhookResponse = await fetchWithTimeout(
         `${SCRIPT_REMAKE_WEBHOOK}?userId=${user.id}&scriptOption=ai_remake&regenerate=true`,
         {
