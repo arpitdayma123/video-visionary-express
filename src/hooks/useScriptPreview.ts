@@ -6,13 +6,12 @@ import { supabase } from '@/integrations/supabase/client';
 import { useScriptUtils } from './script/useScriptUtils';
 import { useScriptPolling } from './script/useScriptPolling';
 import { useAiRemake } from './script/useAiRemake';
-import { fetchWithTimeout } from '@/utils/fetchWithTimeout';
 
 export const useScriptPreview = (
   user: User | null, 
   onScriptGenerated: (script: string) => void,
   scriptOption: string,
-  userQuery?: string
+  userQuery?: string // Add optional userQuery parameter
 ) => {
   const SCRIPT_FIND_WEBHOOK = "https://n8n.latestfreegames.online/webhook/scriptfind";
 
@@ -22,7 +21,6 @@ export const useScriptPreview = (
   const [isPreviewVisible, setIsPreviewVisible] = useState(false);
   const [webhookError, setWebhookError] = useState<string | null>(null);
   const previousScriptOptionRef = useRef(scriptOption);
-  const fetchInProgressRef = useRef(false);
   
   const { toast } = useToast();
   const { updateWordCount, saveCustomScript, saveFinalScript } = useScriptUtils();
@@ -118,14 +116,13 @@ export const useScriptPreview = (
   };
 
   const handleGeneratePreview = async () => {
-    if (!user || fetchInProgressRef.current) return;
+    if (!user) return;
     
     // Reset any previous script and visibility state
     setScript('');
     setWordCount(0);
     setIsLoading(true);
     setWebhookError(null);
-    fetchInProgressRef.current = true;
     
     try {
       const { error } = await supabase
@@ -138,42 +135,26 @@ export const useScriptPreview = (
       // Construct the webhook URL with user query when provided and applicable
       let webhookUrl = `${SCRIPT_FIND_WEBHOOK}?userId=${user.id}&regenerate=false`;
       
-      // Add scriptOption parameter to ensure it's included
-      webhookUrl += `&scriptOption=${encodeURIComponent(scriptOption)}`;
-      
       // Add user_query parameter if script option is script_from_prompt
       if (scriptOption === 'script_from_prompt' && userQuery) {
         webhookUrl += `&user_query=${encodeURIComponent(userQuery)}`;
       }
 
-      console.log(`Calling webhook: ${webhookUrl} with extended timeout`);
-      toast({
-        title: "Generating Script",
-        description: "This may take several minutes. Please be patient.",
-      });
-
-      // Use our new fetchWithTimeout utility with extended timeout and retries
-      const webhookResponse = await fetchWithTimeout(
+      const webhookResponse = await fetch(
         webhookUrl,
         {
           method: 'GET',
           headers: {
             'Accept': 'application/json',
             'Cache-Control': 'no-cache'
-          },
-          timeout: 300000, // 5 minutes
-          retries: 2,
-          retryDelay: 10000 // 10 seconds between retries
+          }
         }
       );
 
-      let responseJson = null;
+      let responseJson: any = null;
       try {
-        responseJson = await webhookResponse.json();
-      } catch (error) {
-        console.error('Failed to parse webhook response:', error);
-        throw new Error('Failed to parse response from script generation service');
-      }
+        responseJson = await webhookResponse.clone().json();
+      } catch { /* ignore */ }
 
       // Handle the specific error case
       if (responseJson?.error && responseJson.error.includes("The Instagram username you entered either does not provide valuable content")) {
@@ -181,7 +162,6 @@ export const useScriptPreview = (
         setIsPreviewVisible(false);
         setScript('');
         setWebhookError(responseJson.error);
-        fetchInProgressRef.current = false;
         return;
       }
 
@@ -190,7 +170,6 @@ export const useScriptPreview = (
         setIsLoading(false);
         setWebhookError(responseJson.error);
         setIsPreviewVisible(false);
-        fetchInProgressRef.current = false;
         toast({
           title: "Script generation error",
           description: responseJson.error,
@@ -209,7 +188,6 @@ export const useScriptPreview = (
     } catch (error) {
       setIsLoading(false);
       setWebhookError(error instanceof Error ? error.message : "An error occurred");
-      fetchInProgressRef.current = false;
       toast({
         title: "Error",
         description: "Failed to generate script preview. Please try again.",
@@ -219,13 +197,7 @@ export const useScriptPreview = (
   };
 
   const handleRegenerateScript = async () => {
-    // Log to help debug
-    console.log(`handleRegenerateScript called for script option: ${scriptOption}`);
-    
-    if (!user || fetchInProgressRef.current) {
-      console.log('Cannot regenerate script: user is null or fetch already in progress');
-      return;
-    }
+    if (!user) return;
     
     // First, save the current script to finalscript column if script exists
     // This applies for all script options, including script_from_prompt
@@ -247,8 +219,6 @@ export const useScriptPreview = (
     setScript('');
     setWordCount(0);
     setIsLoading(true);
-    setWebhookError(null); // Clear any previous webhook errors
-    fetchInProgressRef.current = true;
     
     try {
       const { error } = await supabase
@@ -261,47 +231,31 @@ export const useScriptPreview = (
       // Construct webhook URL with user query for script_from_prompt
       let webhookUrl = `${SCRIPT_FIND_WEBHOOK}?userId=${user.id}&regenerate=true`;
       
-      // Add script option parameter to specify which type of regeneration
-      webhookUrl += `&scriptOption=${encodeURIComponent(scriptOption)}`;
-      
       // Add user_query parameter if script option is script_from_prompt
       if (scriptOption === 'script_from_prompt' && userQuery) {
         webhookUrl += `&user_query=${encodeURIComponent(userQuery)}`;
       }
 
-      console.log(`Calling regenerate webhook: ${webhookUrl} with extended timeout`);
-      toast({
-        title: "Regenerating Script",
-        description: "This may take several minutes. Please be patient.",
-      });
-
-      // Use our new fetchWithTimeout utility
-      const webhookResponse = await fetchWithTimeout(
+      const webhookResponse = await fetch(
         webhookUrl,
         {
           method: 'GET',
           headers: {
             'Accept': 'application/json',
             'Cache-Control': 'no-cache'
-          },
-          timeout: 300000, // 5 minutes
-          retries: 2,
-          retryDelay: 10000 // 10 seconds between retries
+          }
         }
       );
 
-      let responseJson = null;
+      let responseJson: any = null;
       try {
-        responseJson = await webhookResponse.json();
-      } catch (error) {
-        console.error('Failed to parse webhook response:', error);
-      }
+        responseJson = await webhookResponse.clone().json();
+      } catch { /* ignore */ }
 
       if (responseJson && responseJson.error) {
         setIsLoading(false);
         setWebhookError(responseJson.error);
         setIsPreviewVisible(false);
-        fetchInProgressRef.current = false;
         toast({
           title: "Script regeneration error",
           description: responseJson.error,
@@ -317,14 +271,9 @@ export const useScriptPreview = (
       }
       const interval = setInterval(checkPreviewStatus, 2000);
       pollingInterval.current = interval;
-      
-      // Set fetchInProgressRef to false only after the polling is set up
-      // This prevents multiple concurrent requests
     } catch (error) {
-      console.error('Error regenerating script:', error);
       setIsLoading(false);
-      setWebhookError(error instanceof Error ? error.message : "An error occurred");
-      fetchInProgressRef.current = false;
+      setWebhookError("Failed to regenerate script. Please try again.");
       toast({
         title: "Error",
         description: "Failed to regenerate script. Please try again.",
@@ -334,12 +283,11 @@ export const useScriptPreview = (
   };
 
   const handleChangeScript = async () => {
-    if (!user || fetchInProgressRef.current) return;
+    if (!user) return;
     // Reset the script content and word count
     setScript('');
     setWordCount(0);
     setIsLoading(true);
-    fetchInProgressRef.current = true;
 
     try {
       const { error } = await supabase
@@ -349,38 +297,26 @@ export const useScriptPreview = (
 
       if (error) throw error;
 
-      console.log(`Calling change script webhook with extended timeout`);
-      toast({
-        title: "Changing Script",
-        description: "This may take several minutes. Please be patient.",
-      });
-
-      const webhookResponse = await fetchWithTimeout(
-        `${SCRIPT_FIND_WEBHOOK}?userId=${user.id}&changescript=true&scriptOption=${encodeURIComponent(scriptOption)}`,
+      const webhookResponse = await fetch(
+        `${SCRIPT_FIND_WEBHOOK}?userId=${user.id}&changescript=true`,
         {
           method: 'GET',
           headers: {
             'Accept': 'application/json',
             'Cache-Control': 'no-cache'
-          },
-          timeout: 300000, // 5 minutes
-          retries: 2,
-          retryDelay: 10000 // 10 seconds between retries
+          }
         }
       );
 
-      let responseJson = null;
+      let responseJson: any = null;
       try {
-        responseJson = await webhookResponse.json();
-      } catch (error) {
-        console.error('Failed to parse webhook response:', error);
-      }
+        responseJson = await webhookResponse.clone().json();
+      } catch { /* ignore */ }
       
       if (responseJson && responseJson.error) {
         setIsLoading(false);
         setWebhookError(responseJson.error);
         setIsPreviewVisible(false);
-        fetchInProgressRef.current = false;
         toast({
           title: "Change script error",
           description: responseJson.error,
@@ -399,7 +335,6 @@ export const useScriptPreview = (
     } catch (error) {
       setIsLoading(false);
       setWebhookError("Failed to request a new script. Please try again.");
-      fetchInProgressRef.current = false;
       toast({
         title: "Error",
         description: "Failed to request a new script. Please try again.",

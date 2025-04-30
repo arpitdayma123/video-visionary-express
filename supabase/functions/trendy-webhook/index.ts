@@ -26,13 +26,11 @@ serve(async (req) => {
     // Parse URL and get query parameters
     const url = new URL(req.url);
     const userId = url.searchParams.get('userId');
-    const scriptOption = url.searchParams.get('scriptOption') || 'ai_find';
+    const scriptOption = url.searchParams.get('scriptOption');
     const customScript = url.searchParams.get('customScript');
     const userQuery = url.searchParams.get('user_query'); // Get user_query parameter
-    const regenerate = url.searchParams.get('regenerate') === 'true';
-    const changeScript = url.searchParams.get('changescript') === 'true';
     
-    console.log(`Request received for user ${userId}, script option: ${scriptOption}, query: ${userQuery}, regenerate: ${regenerate}, changeScript: ${changeScript}`);
+    console.log(`Request received for user ${userId}, script option: ${scriptOption}, query: ${userQuery}`);
 
     if (!userId) {
       return new Response(
@@ -74,11 +72,68 @@ serve(async (req) => {
       );
     }
 
-    // Update profile status immediately to show processing
+    // Prepare the params to forward - use profile.user_query as fallback if userQuery is not provided
+    const paramsToForward = new URLSearchParams({
+      userId,
+      scriptOption: scriptOption || 'ai_find',
+      customScript: customScript || '',
+      user_query: userQuery || profile.user_query || '' // Use profile.user_query as fallback
+    });
+
+    if (scriptOption === 'ig_reel') {
+      const reelUrl = url.searchParams.get('reelUrl');
+      if (reelUrl) {
+        paramsToForward.append('reelUrl', reelUrl);
+      }
+    }
+
+    // Try to call the primary webhook directly
+    try {
+      console.log(`Forwarding request to primary endpoint: ${PRIMARY_WEBHOOK_URL}?${paramsToForward.toString()}`);
+      
+      const primaryResponse = await fetch(`${PRIMARY_WEBHOOK_URL}?${paramsToForward.toString()}`, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'Cache-Control': 'no-cache'
+        },
+      });
+
+      if (primaryResponse.ok) {
+        // Primary webhook call succeeded
+        const responseData = await primaryResponse.json();
+        console.log('Primary webhook response:', responseData);
+        
+        return new Response(
+          JSON.stringify(responseData),
+          { 
+            status: 200, 
+            headers: { 
+              'Content-Type': 'application/json',
+              ...corsHeaders 
+            } 
+          }
+        );
+      } else {
+        // If primary fails, we'll handle it ourselves below
+        console.error('Primary webhook call failed:', primaryResponse.status);
+        throw new Error(`Primary webhook failed with status ${primaryResponse.status}`);
+      }
+    } catch (primaryError) {
+      console.error('Error calling primary webhook:', primaryError);
+      
+      // Continue with our fallback implementation below
+    }
+
+    // Fallback implementation if primary webhook fails
+    // Just update the status to Processing and provide a success response
+    console.log('Using fallback implementation');
+    
+    // Update the profile status to Processing
     const { error: updateError } = await supabase
       .from('profiles')
       .update({ 
-        preview: 'generating',
+        status: 'Processing',
         updated_at: new Date().toISOString() 
       })
       .eq('id', userId);
@@ -91,38 +146,11 @@ serve(async (req) => {
       );
     }
 
-    // Prepare the params to forward - use profile.user_query as fallback if userQuery is not provided
-    const paramsToForward = new URLSearchParams({
-      userId,
-      scriptOption: scriptOption || 'ai_find',
-      customScript: customScript || '',
-      user_query: userQuery || profile.user_query || '' // Use profile.user_query as fallback
-    });
-
-    // Add regenerate and changeScript parameters if present
-    if (regenerate) {
-      paramsToForward.append('regenerate', 'true');
-    }
-    
-    if (changeScript) {
-      paramsToForward.append('changescript', 'true');
-    }
-
-    if (scriptOption === 'ig_reel') {
-      const reelUrl = url.searchParams.get('reelUrl');
-      if (reelUrl) {
-        paramsToForward.append('reelUrl', reelUrl);
-      }
-    }
-
-    // Return an immediate success response to prevent timeout
-    // The actual processing will continue in the background
-    EdgeRuntime.waitUntil(callPrimaryWebhook(paramsToForward, userId));
-
     return new Response(
       JSON.stringify({ 
-        message: "Script generation started",
+        message: "Workflow was started",
         success: true,
+        fallback: true
       }),
       { 
         status: 200, 
@@ -141,55 +169,3 @@ serve(async (req) => {
     );
   }
 });
-
-// Function to call primary webhook in the background
-async function callPrimaryWebhook(params: URLSearchParams, userId: string) {
-  try {
-    console.log(`Forwarding request to primary endpoint: ${PRIMARY_WEBHOOK_URL}?${params.toString()}`);
-    
-    const controller = new AbortController();
-    // Set a long timeout for the webhook call (5 minutes)
-    const timeoutId = setTimeout(() => controller.abort(), 300000);
-    
-    const primaryResponse = await fetch(`${PRIMARY_WEBHOOK_URL}?${params.toString()}`, {
-      method: 'GET',
-      headers: {
-        'Accept': 'application/json',
-        'Cache-Control': 'no-cache'
-      },
-      signal: controller.signal
-    });
-    
-    clearTimeout(timeoutId);
-
-    if (primaryResponse.ok) {
-      // Primary webhook call succeeded
-      const responseData = await primaryResponse.json();
-      console.log('Primary webhook response:', responseData);
-      return responseData;
-    } else {
-      // If primary fails, fall back to just updating status
-      console.error('Primary webhook call failed:', primaryResponse.status);
-      throw new Error(`Primary webhook failed with status ${primaryResponse.status}`);
-    }
-  } catch (error) {
-    console.error('Error calling primary webhook:', error);
-    
-    // If webhook call fails completely, update the profile status
-    try {
-      const { error: updateError } = await supabase
-        .from('profiles')
-        .update({
-          preview: 'error',
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', userId);
-        
-      if (updateError) {
-        console.error('Error updating profile status after webhook failure:', updateError);
-      }
-    } catch (innerError) {
-      console.error('Error updating profile after webhook failure:', innerError);
-    }
-  }
-}

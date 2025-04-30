@@ -1,11 +1,10 @@
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { User } from '@supabase/supabase-js';
 import { useScriptUtils } from './useScriptUtils';
 import { useScriptPolling } from './useScriptPolling';
-import { fetchWithTimeout } from '@/utils/fetchWithTimeout';
 
 export const useAiRemake = (
   user: User | null,
@@ -17,9 +16,6 @@ export const useAiRemake = (
   const [isLoading, setIsLoading] = useState(false);
   const [script, setScript] = useState('');
   const [wordCount, setWordCount] = useState(0);
-  const [webhookError, setWebhookError] = useState<string | null>(null);
-  const fetchInProgressRef = useRef(false);
-  
   const { toast } = useToast();
   const { updateWordCount, saveFinalScript, saveCustomScript } = useScriptUtils();
   const { checkPreviewStatus, pollingInterval } = useScriptPolling(
@@ -56,15 +52,9 @@ export const useAiRemake = (
     };
     
     fetchExistingScript();
-  }, [user, updateWordCount]);
+  }, [user]);
 
   function handleScriptGenerated(newScript: string) {
-    if (!newScript) {
-      console.log('useAiRemake - Empty script received, not updating');
-      return;
-    }
-    
-    setWebhookError(null);
     setScript(newScript);
     setWordCount(updateWordCount(newScript));
     saveFinalScript(user, newScript);
@@ -84,7 +74,7 @@ export const useAiRemake = (
   };
 
   const handleRegenerateScript = async () => {
-    if (!user || fetchInProgressRef.current) return;
+    if (!user) return;
     
     try {
       if (script) {
@@ -97,8 +87,6 @@ export const useAiRemake = (
     }
     
     setIsLoading(true);
-    setWebhookError(null);
-    fetchInProgressRef.current = true;
     
     try {
       const { error } = await supabase
@@ -110,39 +98,21 @@ export const useAiRemake = (
 
       if (error) throw error;
 
-      toast({
-        title: "Regenerating Script",
-        description: "This may take several minutes. Please be patient.",
-      });
-
-      // Use our new fetchWithTimeout utility with scriptOption parameter
-      const webhookResponse = await fetchWithTimeout(
+      // Use the new N8N webhook URL
+      const webhookResponse = await fetch(
         `${SCRIPT_REMAKE_WEBHOOK}?userId=${user.id}&scriptOption=ai_remake&regenerate=true`,
         {
           method: 'GET',
           headers: {
             'Accept': 'application/json',
             'Cache-Control': 'no-cache'
-          },
-          timeout: 300000, // 5 minutes
-          retries: 2,
-          retryDelay: 10000 // 10 seconds between retries
+          }
         }
       );
 
       if (!webhookResponse.ok) {
         throw new Error(`Webhook failed with status ${webhookResponse.status}`);
       }
-
-      let responseJson = null;
-      try {
-        responseJson = await webhookResponse.json();
-      } catch (error) {
-        console.error('Failed to parse webhook response:', error);
-      }
-
-      // Clear webhook error on successful response
-      setWebhookError(null);
 
       if (pollingInterval.current) {
         clearInterval(pollingInterval.current);
@@ -154,8 +124,6 @@ export const useAiRemake = (
     } catch (error) {
       console.error('Error regenerating script:', error);
       setIsLoading(false);
-      fetchInProgressRef.current = false;
-      setWebhookError(error instanceof Error ? error.message : "An error occurred");
       toast({
         title: "Error",
         description: "Failed to regenerate script. Please try again.",
@@ -169,8 +137,6 @@ export const useAiRemake = (
     script,
     wordCount,
     handleScriptChange,
-    handleRegenerateScript,
-    webhookError,
-    setWebhookError
+    handleRegenerateScript
   };
 };

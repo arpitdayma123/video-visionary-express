@@ -110,17 +110,10 @@ const ScriptPreview: React.FC<ScriptPreviewProps> = ({
   };
 
   const handleRegenerateWithSave = async (e: React.MouseEvent) => {
-    // Ensure event propagation is stopped
     e.preventDefault();
     e.stopPropagation();
-    
-    console.log('ScriptPreview - Regenerate button clicked for script option:', scriptOption);
-    
-    // Reset any used script state
-    setHasUsedScript(false);
-    
-    // Call the regenerate function from useScriptPreview
     handleRegenerateScript();
+    setHasUsedScript(false);
   };
 
   // Notify parent when script is loaded

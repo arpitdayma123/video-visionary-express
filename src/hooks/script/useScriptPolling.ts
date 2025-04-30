@@ -14,8 +14,6 @@ export const useScriptPolling = (
 ) => {
   const pollingInterval = useRef<NodeJS.Timeout | null>(null);
   const isMounted = useRef(true);
-  const pollingCount = useRef(0);
-  const MAX_POLLING_COUNT = 180; // 6 minutes with 2-second intervals
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -23,27 +21,6 @@ export const useScriptPolling = (
     if (!user || !isMounted.current) return;
     
     try {
-      // Increment polling count
-      pollingCount.current++;
-      
-      // Check if we've exceeded the maximum polling limit
-      if (pollingCount.current > MAX_POLLING_COUNT) {
-        if (pollingInterval.current) {
-          clearInterval(pollingInterval.current);
-          pollingInterval.current = null;
-        }
-        
-        if (isMounted.current) {
-          setIsLoading(false);
-          toast({
-            title: "Script Generation Timeout",
-            description: "The script generation process is taking longer than expected. Please try again later.",
-            variant: "destructive"
-          });
-        }
-        return;
-      }
-      
       const { data: profile, error } = await supabase
         .from('profiles')
         .select('preview, previewscript')
@@ -59,7 +36,6 @@ export const useScriptPolling = (
         if (pollingInterval.current) {
           clearInterval(pollingInterval.current);
           pollingInterval.current = null;
-          pollingCount.current = 0;
           
           // Invalidate the freepoint query to trigger a refresh
           queryClient.invalidateQueries({ queryKey: ['freepoint', user.id] });
@@ -80,7 +56,6 @@ export const useScriptPolling = (
       if (pollingInterval.current && isMounted.current) {
         clearInterval(pollingInterval.current);
         pollingInterval.current = null;
-        pollingCount.current = 0;
         setIsLoading(false);
         
         toast({
@@ -95,7 +70,6 @@ export const useScriptPolling = (
   useEffect(() => {
     return () => {
       isMounted.current = false;
-      pollingCount.current = 0;
       if (pollingInterval.current) {
         clearInterval(pollingInterval.current);
       }

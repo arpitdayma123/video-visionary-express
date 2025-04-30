@@ -56,13 +56,6 @@ const ScriptPreviewContent: React.FC<ScriptPreviewContentProps> = ({
     onScriptChange(e);
   };
 
-  // Ensure regenerate button properly prevents default and stops propagation
-  const handleRegenerateClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    onRegenerateScript(e);
-  };
-
   return (
     <div className="mt-6 space-y-4" onClick={(e) => e.stopPropagation()}>
       <div>
@@ -93,7 +86,7 @@ const ScriptPreviewContent: React.FC<ScriptPreviewContentProps> = ({
       <div className="flex flex-wrap gap-4">
         <Button
           variant="outline"
-          onClick={handleRegenerateClick}
+          onClick={onRegenerateScript}
           disabled={isLoading}
           type="button"
         >
@@ -109,11 +102,7 @@ const ScriptPreviewContent: React.FC<ScriptPreviewContentProps> = ({
         {showUseScriptButton && onUseScript && (
           <Button
             variant="outline"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              onUseScript(e);
-            }}
+            onClick={onUseScript}
             disabled={isLoading || useScriptDisabled}
             type="button"
             className="bg-green-50 hover:bg-green-100 border-green-200"
@@ -125,11 +114,7 @@ const ScriptPreviewContent: React.FC<ScriptPreviewContentProps> = ({
         {showChangeScript && onChangeScript && (
           <Button
             variant="outline"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              onChangeScript(e);
-            }}
+            onClick={onChangeScript}
             disabled={isLoading}
             type="button"
           >
